@@ -1,0 +1,20 @@
+from .converters import CONVERTER_NODE_CLASS_MAPPINGS, CONVERTER_NODE_DISPLAY_NAME_MAPPINGS
+from .generators import GENERATOR_NODE_CLASS_MAPPINGS, GENERATOR_NODE_DISPLAY_NAME_MAPPINGS
+from dotenv import load_dotenv
+
+# .env 파일에서 환경 변수 로드
+load_dotenv()
+
+# 각 파일에서 정의된 노드들을 하나의 딕셔너리로 통합
+NODE_CLASS_MAPPINGS = {
+    **CONVERTER_NODE_CLASS_MAPPINGS,
+    **GENERATOR_NODE_CLASS_MAPPINGS
+}
+
+# 각 파일에서 정의된 노드 표시 이름들을 하나의 딕셔너리로 통합
+NODE_DISPLAY_NAME_MAPPINGS = {
+    **CONVERTER_NODE_DISPLAY_NAME_MAPPINGS,
+    **GENERATOR_NODE_DISPLAY_NAME_MAPPINGS
+}
+
+__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
