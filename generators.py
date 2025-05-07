@@ -11,7 +11,7 @@ from io import BytesIO
 from typing import Optional, List, Union, Dict, Any
 from dotenv import load_dotenv
 
-# .env 파일에서 환경 변수 로드
+# Load environment variables from .env file
 load_dotenv()
 
 ucPreset_list = [
@@ -259,7 +259,7 @@ class NovelAIGenerator:
         ]
         scheduler_list = ["karras"]
 
-        # 모델 이름 목록
+        # Display model names list
         model_display_list = [
             "NAI Diffusion V4.5 Curated",
             "NAI Diffusion V4 Full",
@@ -387,7 +387,11 @@ class NovelAIGenerator:
             "parameters": dict(vars(payload))
         }
 
-(BytesIO(response_data)) as z:
+        # Make the API request
+        response_data = asyncio.run(post_novelai("https://image.novelai.net/ai/generate-image", api_payload, header))
+
+        # Process the response
+        with zipfile.ZipFile(BytesIO(response_data)) as z:
             z.extractall(save_path)
 
         image_bytes = []
