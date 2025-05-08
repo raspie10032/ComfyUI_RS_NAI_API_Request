@@ -79,7 +79,13 @@ The following NovelAI models are supported:
 
 ## Example Workflow
 
-[Include a screenshot or description of an example workflow here]
+![Example Workflow](workflow_example/example.png)
+
+This example workflow demonstrates how to:
+1. Convert prompts between different formats
+2. Set up character positioning prompts
+3. Configure NovelAI generator settings
+4. Generate images directly through the NovelAI API
 
 ## Requirements
 
