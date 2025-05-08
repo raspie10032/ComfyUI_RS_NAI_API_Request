@@ -2,16 +2,16 @@ from .converters import CONVERTER_NODE_CLASS_MAPPINGS, CONVERTER_NODE_DISPLAY_NA
 from .generators import GENERATOR_NODE_CLASS_MAPPINGS, GENERATOR_NODE_DISPLAY_NAME_MAPPINGS
 from dotenv import load_dotenv
 
-# .env 파일에서 환경 변수 로드
+# Load environment variables from .env file
 load_dotenv()
 
-# 각 파일에서 정의된 노드들을 하나의 딕셔너리로 통합
+# Integrate nodes defined in each file into a single dictionary
 NODE_CLASS_MAPPINGS = {
     **CONVERTER_NODE_CLASS_MAPPINGS,
     **GENERATOR_NODE_CLASS_MAPPINGS
 }
 
-# 각 파일에서 정의된 노드 표시 이름들을 하나의 딕셔너리로 통합
+# Integrate node display names defined in each file into a single dictionary
 NODE_DISPLAY_NAME_MAPPINGS = {
     **CONVERTER_NODE_DISPLAY_NAME_MAPPINGS,
     **GENERATOR_NODE_DISPLAY_NAME_MAPPINGS
