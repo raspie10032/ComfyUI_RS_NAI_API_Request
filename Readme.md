@@ -46,7 +46,7 @@ git clone https://github.com/raspie10032/ComfyUI_RS_NAI_API_Request.git
 pip install -r requirements.txt
 ```
 
-3. Create a `.env` file in the ComfyUI_RS_NAI_API_Request directory with your NovelAI API token:
+3. Create a .env file in your ComfyUI root directory (not in the custom node folder) with your NovelAI API token:
 
 ```
 NAI_ACCESS_TOKEN=your_novelai_token_here
