@@ -216,8 +216,8 @@ class NovelAIV4ToOldNAIConverter:
                 elif weight < 1:
                     # Decreased weight - use square brackets
                     n_095 = find_closest_power(weight, 0.95)
-                    if n_095 < 0:
-                        old_nai_parts.append((start, "[" * abs(n_095) + tags + "]" * abs(n_095)))
+                    if n_095 > 0:  # 수정: n_095 < 0 → n_095 > 0
+                        old_nai_parts.append((start, "[" * n_095 + tags + "]" * n_095))
                     else:
                         old_nai_parts.append((start, tags))
                 elif weight == 1:
