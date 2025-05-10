@@ -10,7 +10,7 @@ class ComfyUIToNovelAIV4Converter:
     def INPUT_TYPES(s):
         return {
             "required": {
-                "comfyui_prompt": ("STRING", {"multiline": True, "default": "qw, a, (b c:1.05), d, e\\(f: g h\\), black bikini top, denim shorts, shorts under bikini bottom, (i j:1.2)"}),
+                "comfyui_prompt": ("STRING", {"multiline": True, "default": "qw, a, (b c:1.05), d, e\\(f: g h\\), black bikini top, (negative example:-1.5), shorts under bikini bottom, (i j:1.2)"}),
             },
         }
 
@@ -49,15 +49,15 @@ class ComfyUIToNovelAIV4Converter:
                     i += 1
 
                 if content:
-                    match_weight = re.search(r':([\d.]+)\s*$', content)
+                    match_weight = re.search(r':([\d.-]+)\s*$', content)
                     weight = 1.1
                     tags_str = content
                     if match_weight:
                         try:
                             weight = float(match_weight.group(1))
                             tags_str = content[:match_weight.start()].strip()
-                            if not (0 <= weight <= 2):
-                                print(f"Warning: Weight '{weight}' is outside the 0-2 range. Using default value 1.1 for: {tags_str}")
+                            if not (-5 <= weight <= 5):
+                                print(f"Warning: Weight '{weight}' is outside the -5 to 5 range. Using default value 1.1 for: {tags_str}")
                                 weight = 1.1
                         except ValueError:
                             print(f"Warning: Invalid weight format '{match_weight.group(1)}'. Using default value 1.1 for: {tags_str}")
@@ -92,7 +92,7 @@ class NovelAIV4ToComfyUIConverter:
     def INPUT_TYPES(s):
         return {
             "required": {
-                "novelai_prompt": ("STRING", {"multiline": True, "default": "qw, a, 1.05::b c::, d, e(f: g h), black bikini top, denim shorts, shorts under bikini bottom, 1.2::i j::"}),
+                "novelai_prompt": ("STRING", {"multiline": True, "default": "qw, a, 1.05::b c::, d, e(f: g h), black bikini top, -1.5::negative example::, shorts under bikini bottom, 1.2::i j::"}),
             },
         }
 
@@ -125,13 +125,13 @@ class NovelAIV4ToComfyUIConverter:
             encoded_tags = encode_tags(tags_str)
             return f"{weight}::__TEMP_ENCODED__({encoded_tags})__TEMP_ENCODED_END__"
 
-        processed_prompt = re.sub(r"([\d.]+)::([^:]+?)::", replace_with_encoded, processed_prompt)
+        processed_prompt = re.sub(r"([\d.-]+)::([^:]+?)::", replace_with_encoded, processed_prompt)
 
         comfyui_parts = []
         for part in processed_prompt.split(','):
             part = part.strip()
             if "__TEMP_ENCODED__" in part:
-                match = re.match(r"([\d.]+)::(__TEMP_ENCODED__\((.+?)\)__TEMP_ENCODED_END__)", part)
+                match = re.match(r"([\d.-]+)::(__TEMP_ENCODED__\((.+?)\)__TEMP_ENCODED_END__)", part)
                 if match:
                     weight = match.group(1)
                     encoded_tags = match.group(3)
@@ -149,7 +149,7 @@ class NovelAIV4ToComfyUIConverter:
             decoded_tags = decode_tags(encoded_tags).replace("__escopen__", "(").replace("__escclose__", ")")
             return f"({decoded_tags}:{weight})"
 
-        comfyui_prompt = re.sub(r"__TEMP_ENCODED__\((.+?)\):([\d.]+)", replace_encoded_with_decoded, comfyui_prompt)
+        comfyui_prompt = re.sub(r"__TEMP_ENCODED__\((.+?)\):([\d.-]+)", replace_encoded_with_decoded, comfyui_prompt)
 
         comfyui_prompt = comfyui_prompt.replace("__escopen__", r"\(").replace("__escclose__", r"\)")
         comfyui_prompt = comfyui_prompt.replace("((", "(").replace("))", ")")
@@ -168,7 +168,7 @@ class NovelAIV4ToOldNAIConverter:
     def INPUT_TYPES(s):
         return {
             "required": {
-                "novelai_v4_prompt": ("STRING", {"multiline": True, "default": "1.05::tag1::, 0.9::tag3::, 1.2::tag4::, 1.1::misty, golden hour::"}),
+                "novelai_v4_prompt": ("STRING", {"multiline": True, "default": "1.05::tag1::, 0.9::tag3::, 1.2::tag4::, 1.1::misty, golden hour::, -1.5::negative tag::, 0::zero weight tag::"}),
             },
         }
 
@@ -190,7 +190,7 @@ class NovelAIV4ToOldNAIConverter:
             
         # Define regex pattern - find weight::tag:: format
         # This pattern treats any content between :: as a single tag unit, including commas
-        pattern = r'([\d.]+)::([^:]+?)::'
+        pattern = r'([\d.-]+)::([^:]+?)::'
         
         # Find weight::tag:: format
         tags_with_weights = re.finditer(pattern, novelai_v4_prompt)
@@ -209,13 +209,10 @@ class NovelAIV4ToOldNAIConverter:
             try:
                 weight = float(weight_str)
                 
-                if weight > 1:
-                    # Increased weight - use curly braces
-                    n_105 = find_closest_power(weight, 1.05)
-                    if n_105 > 0:
-                        old_nai_parts.append((start, "{" * n_105 + tags + "}" * n_105))
-                    else:
-                        old_nai_parts.append((start, tags))
+                if weight <= 0:
+                    # Handle negative or zero weights
+                    print(f"Warning: Old NAI format cannot represent negative or zero weights. Applying the default decrease weight of 0.95 > '[{tags}]' instead.")
+                    old_nai_parts.append((start, f"[{tags}]"))
                 elif weight < 1:
                     # Decreased weight - use square brackets
                     n_095 = find_closest_power(weight, 0.95)
@@ -223,9 +220,16 @@ class NovelAIV4ToOldNAIConverter:
                         old_nai_parts.append((start, "[" * abs(n_095) + tags + "]" * abs(n_095)))
                     else:
                         old_nai_parts.append((start, tags))
-                else:
+                elif weight == 1:
                     # Weight 1.0 - keep as is
                     old_nai_parts.append((start, tags))
+                else:
+                    # Increased weight - use curly braces
+                    n_105 = find_closest_power(weight, 1.05)
+                    if n_105 > 0:
+                        old_nai_parts.append((start, "{" * n_105 + tags + "}" * n_105))
+                    else:
+                        old_nai_parts.append((start, tags))
             except ValueError:
                 # Keep original if weight conversion fails
                 old_nai_parts.append((start, match.group(0)))

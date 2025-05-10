@@ -4,6 +4,11 @@ This custom node is a fork of [ComfyUI_API_Request](https://github.com/DiaoDaiaC
 
 A custom node extension for ComfyUI that provides NovelAI prompt conversion and image generation capabilities.
 
+## Recent Updates
+
+- **Extended weight range**: ComfyUI and NovelAI V4 converters now support weights from -5 to 5 (previously 0 to 2)
+- **Negative weight handling**: The converters now properly handle negative weights for more flexible prompt control
+
 ## Features
 
 This extension provides two sets of functionality:
