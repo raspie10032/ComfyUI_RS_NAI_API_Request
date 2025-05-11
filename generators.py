@@ -10,6 +10,9 @@ from PIL import Image
 from io import BytesIO
 from typing import Optional, List, Union, Dict, Any
 from dotenv import load_dotenv
+from pathlib import Path
+import time
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -250,6 +253,43 @@ class NovelAIGenerator:
     Node that creates and processes NovelAI requests for image generation.
     Gets the API token from environment variables.
     """
+    
+    def __init__(self):
+        # Add ComfyUI output directory support
+        self.output_dir = self.get_output_directory()
+    
+    @classmethod
+    def get_output_directory(cls):
+        """Get ComfyUI's output directory or fallback to temp directory"""
+        try:
+            import folder_paths
+            return folder_paths.get_output_directory()
+        except ImportError:
+            # Fallback for when running outside ComfyUI
+            output_dir = Path("./output")
+            output_dir.mkdir(exist_ok=True)
+            return str(output_dir)
+    
+    @classmethod
+    def get_save_image_path_with_date(cls, prefix, output_dir):
+        """날짜별 폴더를 포함한 저장 경로 생성"""
+        # 현재 날짜를 yyyy-mm-dd 형식으로 가져오기
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        
+        # 날짜 폴더 경로
+        date_folder = Path(output_dir) / current_date
+        
+        # NAI_autosave 폴더 경로
+        autosave_folder = date_folder / "NAI_autosave"
+        
+        # 폴더가 없으면 생성
+        autosave_folder.mkdir(parents=True, exist_ok=True)
+        
+        # 파일명 생성 - NAI_yymmdd_hhMMss 형식
+        now = datetime.now()
+        filename = f"{prefix}_{now.strftime('%y%m%d_%H%M%S')}"
+        
+        return str(autosave_folder), filename, 0, "", prefix
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -404,7 +444,22 @@ class NovelAIGenerator:
 
         # Convert images to tensors
         tensor_images = []
-        for img_data in image_bytes:
+        for i, img_data in enumerate(image_bytes):
+            # 날짜별 폴더 구조로 저장 경로 생성
+            full_output_folder, filename, counter, subfolder, filename_prefix = self.get_save_image_path_with_date(
+                "NAI", self.output_dir
+            )
+            
+            # 파일명 생성 (여러 이미지인 경우 인덱스 추가)
+            output_filename = f"{filename}_{i:02}.png" if len(image_bytes) > 1 else f"{filename}.png"
+            output_path = Path(full_output_folder) / output_filename
+            
+            # 파일 저장
+            output_path.write_bytes(img_data)
+            
+            print(f"Image saved to: {output_path}")
+            
+            # Convert to tensor
             img = Image.open(BytesIO(img_data))
             tensor_img = pil_to_tensor(img)
             tensor_images.append(tensor_img)
