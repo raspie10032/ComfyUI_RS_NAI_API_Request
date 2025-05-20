@@ -1,7 +1,7 @@
 [project]
 name = "comfyui_rs_nai_api_request"
 description = "Generate NovelAI image and convert weight local to NAI or reverse ."
-version = "1.0.4"
+version = "1.0.5"
 license = { file = "LICENSE" }
 dependencies = ["python-dotenv"]
 

@@ -63,7 +63,7 @@ class ComfyUIToNovelAIV4Converter:
                             print(f"Warning: Invalid weight format '{match_weight.group(1)}'. Using default value 1.1 for: {tags_str}")
 
                     if tags_str:
-                        novelai_parts.append(f"{weight}::{tags_str}::")
+                        novelai_parts.append(f"{weight}::{tags_str} ::")
 
             elif element == ',':
                 novelai_parts.append(',')
@@ -324,7 +324,7 @@ class OldNAIToNovelAIV4Converter:
                 if weight != 1.0:
                     # Display up to two decimal places (remove unnecessary zeros)
                     weight_str = f"{weight:.2f}".rstrip('0').rstrip('.')
-                    result_parts.append((start, f"{weight_str}::{content}::"))
+                    result_parts.append((start, f"{weight_str}::{content} ::"))
                 else:
                     result_parts.append((start, content))
             else:
