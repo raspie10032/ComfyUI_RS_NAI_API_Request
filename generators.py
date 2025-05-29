@@ -299,9 +299,10 @@ class NovelAIGenerator:
         ]
         scheduler_list = ["karras"]
 
-        # Display model names list
+        # Display model names list - NAI Diffusion V4.5 Full 추가
         model_display_list = [
             "NAI Diffusion V4.5 Curated",
+            "NAI Diffusion V4.5 Full",
             "NAI Diffusion V4 Full",
             "NAI Diffusion V4 Curated Preview",
             "NAI Diffusion V3",
@@ -359,9 +360,10 @@ class NovelAIGenerator:
             use_order=True,
             model="NAI Diffusion V4.5 Curated"
     ):
-        # Convert model display name to API model ID
+        # Convert model display name to API model ID - NAI Diffusion V4.5 Full 추가
         model_ids = {
             "NAI Diffusion V4.5 Curated": "nai-diffusion-4-5-curated",
+            "NAI Diffusion V4.5 Full": "nai-diffusion-4-5-full",
             "NAI Diffusion V4 Full": "nai-diffusion-4-full",
             "NAI Diffusion V4 Curated Preview": "nai-diffusion-4-curated-preview",
             "NAI Diffusion V3": "nai-diffusion-3",
@@ -480,9 +482,10 @@ GENERATOR_NODE_DISPLAY_NAME_MAPPINGS = {
     "NovelAIGenerator": "NAI Image Generator"
 }
 
-# Model ID and display name mapping for external use
+# Model ID and display name mapping for external use - NAI Diffusion V4.5 Full 추가
 MODEL_DISPLAY_NAMES = {
     "nai-diffusion-4-5-curated": "NAI Diffusion V4.5 Curated",
+    "nai-diffusion-4-5-full": "NAI Diffusion V4.5 Full",
     "nai-diffusion-4-full": "NAI Diffusion V4 Full",
     "nai-diffusion-4-curated-preview": "NAI Diffusion V4 Curated Preview",
     "nai-diffusion-3": "NAI Diffusion V3",
