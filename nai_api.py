@@ -35,9 +35,12 @@ def post_nai(token, payload, url="https://image.novelai.net/ai/generate-image"):
         raise e
 
 def zip_to_pil(zip_bytes):
+    image_bytes = zip_to_png_bytes(zip_bytes)
+    return Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+def zip_to_png_bytes(zip_bytes):
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zipped:
-        image_bytes = zipped.read(zipped.infolist()[0])
-        return Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        return zipped.read(zipped.infolist()[0])
 
 def pil_to_tensor(img):
     img_np = np.array(img).astype(np.float32) / 255.0

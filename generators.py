@@ -4,7 +4,8 @@ import numpy as np
 import base64
 import io
 from PIL import Image, ImageFilter, ImageDraw
-from .nai_api import post_nai, zip_to_pil, pil_to_tensor, tensor_to_pil, get_nai_token
+from PIL.PngImagePlugin import PngInfo
+from .nai_api import post_nai, zip_to_pil, zip_to_png_bytes, pil_to_tensor, tensor_to_pil, get_nai_token
 from pathlib import Path
 from datetime import datetime
 
@@ -61,6 +62,25 @@ def pil_to_base64(img):
     buffered = io.BytesIO()
     img.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+def png_bytes_to_pil(png_bytes):
+    source = Image.open(io.BytesIO(png_bytes))
+    image = source.convert("RGB")
+    image.info.update(source.info)
+    return image
+
+def build_pnginfo_from_image(source_image):
+    pnginfo = PngInfo()
+    for key, value in source_image.info.items():
+        if isinstance(value, str):
+            pnginfo.add_text(key, value)
+    return pnginfo
+
+def save_png_preserving_metadata(image, save_path, source_image=None):
+    if source_image is None:
+        image.save(save_path)
+        return
+    image.save(save_path, pnginfo=build_pnginfo_from_image(source_image))
 
 class CharacterPrompt:
     def __init__(self, prompt, uc, x, y):
@@ -136,9 +156,11 @@ class NovelAIGenerator:
             return str(output_dir)
 
     @classmethod
-    def _get_save_path(cls, prefix, output_dir):
+    def _get_save_path(cls, prefix, output_dir, subfolder=None):
         current_date = datetime.now().strftime('%Y-%m-%d')
         autosave_folder = Path(output_dir) / current_date / 'NAI_autosave'
+        if subfolder:
+            autosave_folder = autosave_folder / subfolder
         autosave_folder.mkdir(parents=True, exist_ok=True)
         filename = f'{prefix}_{datetime.now().strftime("%y%m%d_%H%M%S")}'
         return autosave_folder, filename
@@ -225,12 +247,13 @@ class NovelAIGenerator:
         }
 
         result_bytes = post_nai(token, payload)
-        pil_img = zip_to_pil(result_bytes)
+        png_bytes = zip_to_png_bytes(result_bytes)
+        pil_img = png_bytes_to_pil(png_bytes)
         
         # Autosave
         save_folder, filename = self._get_save_path('NAI', self.output_dir)
         save_path = save_folder / f'{filename}.png'
-        pil_img.save(save_path)
+        save_path.write_bytes(png_bytes)
         print(f'Image saved: {save_path}')
         
         return (pil_to_tensor(pil_img),)
@@ -308,12 +331,13 @@ class NAIImg2ImgNode:
         }
 
         result_bytes = post_nai(token, payload)
-        result_pil = zip_to_pil(result_bytes)
+        png_bytes = zip_to_png_bytes(result_bytes)
+        result_pil = png_bytes_to_pil(png_bytes)
 
         # Autosave
         save_folder, filename = NovelAIGenerator._get_save_path('NAI_i2i', NovelAIGenerator._get_output_directory())
         save_path = save_folder / f'{filename}.png'
-        result_pil.save(save_path)
+        save_path.write_bytes(png_bytes)
         print(f'Image saved: {save_path}')
 
         return (pil_to_tensor(result_pil),)
@@ -406,12 +430,13 @@ class NAIInpaintNode:
         }
 
         result_bytes = post_nai(token, payload)
-        result_pil = zip_to_pil(result_bytes)
+        png_bytes = zip_to_png_bytes(result_bytes)
+        result_pil = png_bytes_to_pil(png_bytes)
 
         # Autosave
         save_folder, filename = NovelAIGenerator._get_save_path('NAI_inpaint', NovelAIGenerator._get_output_directory())
         save_path = save_folder / f'{filename}.png'
-        result_pil.save(save_path)
+        save_path.write_bytes(png_bytes)
         print(f'Image saved: {save_path}')
 
         return (pil_to_tensor(result_pil),)
@@ -555,9 +580,10 @@ class NAIFaceDetailerNode:
         }
         
         result_bytes = post_nai(token, payload)
+        result_png_bytes = zip_to_png_bytes(result_bytes)
         
         # 11. Convert result to PIL
-        result_pil = zip_to_pil(result_bytes)
+        result_pil = png_bytes_to_pil(result_png_bytes)
         
         # 12. Downscale result
         result_downscaled = result_pil.resize((cw, ch), Image.LANCZOS)
@@ -568,9 +594,9 @@ class NAIFaceDetailerNode:
         out_img.paste(result_downscaled, (crx0, cry0))
         
         # Autosave
-        save_folder, filename = NovelAIGenerator._get_save_path('NAI_face', NovelAIGenerator._get_output_directory())
+        save_folder, filename = NovelAIGenerator._get_save_path('NAI_face', NovelAIGenerator._get_output_directory(), subfolder='face')
         save_path = save_folder / f'{filename}.png'
-        out_img.save(save_path)
+        save_png_preserving_metadata(out_img, save_path, result_pil)
         print(f'Image saved: {save_path}')
 
         # Visualization mask
