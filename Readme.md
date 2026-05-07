@@ -34,11 +34,13 @@ This extension provides custom nodes for ComfyUI to interact with the **NovelAI 
 To use these nodes, you must provide your **NovelAI API Token**.
 
 1. Create a `.env` file in the root of this custom node directory (`ComfyUI_RS_NAI_API_Request/.env`).
-2. Add your token to the file:
+2. Add your token to the file using the canonical variable name:
    ```text
-   NAI_API_TOKEN=your_api_token_here
+   NAI_ACCESS_TOKEN=your_api_token_here
    ```
-Alternatively, you can set an environment variable named `NAI_API_TOKEN`.
+   `NAI_API_TOKEN` is also accepted as a fallback for compatibility, but `NAI_ACCESS_TOKEN` is recommended.
+
+Alternatively, you can set either variable as a system environment variable (`NAI_ACCESS_TOKEN` is checked first; `NAI_API_TOKEN` is checked if the first is absent).
 
 ## Nodes
 
@@ -55,7 +57,11 @@ Main node for text-to-image generation.
 | `steps` | INT | Generation steps (1-50). |
 | `cfg_scale` | FLOAT | Guidance scale. |
 | `seed` | INT | Random seed (-1 for random). |
-| `characterPrompts` | LIST (Optional) | Character specific prompts from `CharacterPromptSelect`. |
+| `scheduler` | LIST (Optional) | Noise scheduler: `native`, `karras`, `exponential`, `polyexponential`. |
+| `cfg_rescale` | FLOAT (Optional) | Prompt guidance rescale (0.0–1.0). |
+| `prefer_brownian` | BOOLEAN (Optional) | Use brownian noise in sampler. |
+| `variety_boost` | BOOLEAN (Optional) | Enable `skip_cfg_above_sigma` for more varied outputs (V4/V4.5). |
+| `characterPrompts` | LIST (Optional) | Per-character prompts from `CharacterPromptSelect` (V4/V4.5 only). |
 
 ### 2. NAI Character Prompt Select (`CharacterPromptSelect`)
 Defines up to 5 characters with spatial coordinates (0-10 scale) for NAI V4+.
@@ -73,8 +79,20 @@ Performs image-to-image generation.
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
 | `image` | IMAGE | Source image. |
-| `strength` | FLOAT | Denoising strength (0.0 to 1.0). |
-| *Other* | - | Same as `NovelAIGenerator`. |
+| `prompt` / `negative_prompt` | STRING | Positive / negative prompts. |
+| `model` | LIST | NAI model selection. |
+| `width` / `height` | INT | Output dimensions (steps of 64). |
+| `sampler` | LIST | Sampler algorithm. |
+| `steps` | INT | Generation steps (1–50). |
+| `cfg_scale` | FLOAT | Guidance scale. |
+| `strength` | FLOAT | Denoising strength (0.0–1.0). |
+| `seed` | INT | Random seed (-1 for random). |
+| `scheduler` | LIST (Optional) | Noise scheduler: `native`, `karras`, `exponential`, `polyexponential`. |
+| `cfg_rescale` | FLOAT (Optional) | Prompt guidance rescale (0.0–1.0). |
+| `prefer_brownian` | BOOLEAN (Optional) | Use brownian noise in sampler. |
+| `noise` | FLOAT (Optional) | Extra noise added before sampling (0.0–1.0). |
+| `variety_boost` | BOOLEAN (Optional) | Enable `skip_cfg_above_sigma` for more varied outputs (V4/V4.5). |
+| `characterPrompts` | LIST (Optional) | Per-character prompts from `CharacterPromptSelect` (V4/V4.5 only). |
 
 ### 4. NAI Inpaint (`NAIInpaintNode`)
 Specialized node for inpainting. Automatically snaps dimensions to 64px.
@@ -82,23 +100,50 @@ Specialized node for inpainting. Automatically snaps dimensions to 64px.
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
 | `image` | IMAGE | Source image. |
-| `mask` | MASK | Area to inpaint. |
-| `strength` | FLOAT | Inpainting strength. |
-| *Other* | - | Same as `NovelAIGenerator`. |
+| `mask` | MASK | Area to inpaint (white = repaint). |
+| `prompt` / `negative_prompt` | STRING | Positive / negative prompts. |
+| `model` | LIST | NAI model selection. |
+| `width` / `height` | INT | Output dimensions (snapped to 64px). |
+| `sampler` | LIST | Sampler algorithm. |
+| `steps` | INT | Generation steps (1–50). |
+| `cfg_scale` | FLOAT | Guidance scale. |
+| `strength` | FLOAT | Inpainting strength (0.0–1.0). |
+| `seed` | INT | Random seed (-1 for random). |
+| `scheduler` | LIST (Optional) | Noise scheduler: `native`, `karras`, `exponential`, `polyexponential`. |
+| `cfg_rescale` | FLOAT (Optional) | Prompt guidance rescale (0.0–1.0). |
+| `prefer_brownian` | BOOLEAN (Optional) | Use brownian noise in sampler. |
+| `noise` | FLOAT (Optional) | Extra noise added before sampling (0.0–1.0). |
+| `variety_boost` | BOOLEAN (Optional) | Enable `skip_cfg_above_sigma` for more varied outputs (V4/V4.5). |
+| `characterPrompts` | LIST (Optional) | Per-character prompts from `CharacterPromptSelect` (V4/V4.5 only). |
 
 ### 5. NAI Face Detailer (`NAIFaceDetailerNode`)
 Advanced face restoration using YOLO detection and SAM segmentation before sending to NAI API.
 
 **Requirement**: Requires [ComfyUI-Impact-Pack](https://github.com/ltdrdata/ComfyUI-Impact-Pack) for detectors.
 
+**Behavior**: Detects the first face, crops it, resizes the crop so its longest side is 1024 px, runs SAM segmentation, sends the crop to NAI inpaint, then pastes the downscaled inpaint result directly back over the original crop region.
+
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
 | `image` | IMAGE | Source image. |
 | `bbox_detector` | BBOX_DETECTOR| YOLO detector (e.g., face_yolov8m.pt). |
 | `sam_model` | SAM_MODEL | SAM model for precise segmentation. |
-| `threshold` | FLOAT | SAM segmentation threshold. |
+| `prompt` / `negative_prompt` | STRING | Positive / negative prompts for inpainting. |
+| `model` | LIST | NAI model selection. |
+| `strength` | FLOAT | Inpainting denoising strength (0.0–1.0). |
+| `threshold` | FLOAT | SAM grid-box mask threshold. |
+| `feather_radius` | INT | Retained for UI compatibility; not used by the paste operation. |
+| `sampler` | LIST | Sampler algorithm. |
+| `steps` | INT | Generation steps (1–50). |
+| `cfg_scale` | FLOAT | Guidance scale. |
+| `bbox_threshold` | FLOAT | Confidence threshold for YOLO detection. |
+| `dilation` | INT | Bbox dilation in pixels. |
 | `crop_factor` | FLOAT | Zoom factor around the detected face. |
-| `eye_bbox_detector`| BBOX_DETECTOR| (Optional) Additional detector for eye area refinement. |
+| `scheduler` | LIST | Noise scheduler. |
+| `seed` | INT | Random seed (-1 for random). |
+| `eye_bbox_detector` | BBOX_DETECTOR (Optional) | Additional detector for eye area mask refinement. |
+
+Face Detailer outputs the composited image and a mask visualization. If no face is detected the original image is returned on both outputs. Edited results are autosaved under `NAI_autosave/face` with metadata preserved from the NAI inpaint result.
 
 ### 6. NAI Upscaler (`NAIUpscalerNode`)
 Server-side high-quality upscaling.
@@ -107,6 +152,41 @@ Server-side high-quality upscaling.
 | :--- | :--- | :--- |
 | `image` | IMAGE | Source image. |
 | `scale` | INT | Upscale factor (2 or 4). |
+
+### 7. Prompt Converters
+Prompt converter nodes translate weighted prompts between ComfyUI, NovelAI V4, and old NovelAI styles.
+
+| Converter | Direction |
+| :--- | :--- |
+| `ComfyUIToNovelAIV4Converter` | ComfyUI weighted prompt -> NovelAI V4 numeric scope prompt |
+| `NovelAIV4ToComfyUIConverter` | NovelAI V4 numeric scope prompt -> ComfyUI weighted prompt |
+| `NovelAIV4ToOldNAIConverter` | NovelAI V4 numeric scope prompt -> old NovelAI brace/bracket prompt |
+| `OldNAIToNovelAIV4Converter` | old NovelAI brace/bracket prompt -> NovelAI V4 numeric scope prompt |
+
+#### Converter Weight Rules
+
+The converter should treat comma characters as tag separators in every supported syntax. This means a weighted range such as `1.3::tag1, tag2 ::` contains two weighted tags, not one literal tag containing a comma.
+
+NovelAI V4 numeric weights use scoped ranges:
+
+- `1.3::tag1, tag2 ::` applies `1.3` to `tag1` and `tag2`.
+- `1.3::tag1, tag2, tag3` has no closing `::`, so `1.3` applies forward to all following comma-separated tags.
+- A closing `::` ends the active numeric scope after the current comma-separated tag.
+
+Old NovelAI weights use brace/bracket scopes:
+
+- `{` opens a forward `1.05x` scope for following comma-separated tags until a matching `}` closes it.
+- `[` opens a forward `0.95x` scope for following comma-separated tags until a matching `]` closes it.
+- A closing `}` with no active `{` applies `1.05x` backward to all previous parsed tags.
+- A closing `]` with no active `[` applies `0.95x` backward to all previous parsed tags.
+- Mixed braces and brackets are handled by the same character-level scope rules. For example, `{[tag]}` multiplies `1.05 * 0.95`, which is treated as approximately neutral after normalization.
+
+When writing converted prompts, consecutive tags with the same effective weight should be merged into a single scope where possible:
+
+- `1.05::tag1 ::, 1.05::tag2 ::` can be written as `1.05::tag1, tag2 ::`.
+- `{tag1}, {tag2}` can be written as `{tag1, tag2}`.
+
+Old NovelAI brace/bracket syntax cannot exactly represent arbitrary numeric weights, negative weights, or zero weights. Those values are converted to the nearest practical old-style approximation when exporting to old NovelAI syntax.
 
 ## Screenshots
 

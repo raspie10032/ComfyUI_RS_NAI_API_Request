@@ -1,44 +1,32 @@
-import os
-import torch
 import numpy as np
-import base64
-import io
-from PIL import Image, ImageFilter, ImageDraw
-from PIL.PngImagePlugin import PngInfo
-from .nai_api import post_nai, zip_to_pil, zip_to_png_bytes, pil_to_tensor, tensor_to_pil, get_nai_token
+from PIL import Image
+from .image_utils import (
+    pil_to_base64,
+    pil_to_tensor,
+    png_bytes_to_pil,
+    save_png_preserving_metadata,
+    tensor_to_pil,
+)
+from .nai_api import (
+    MODEL_DISPLAY_LIST,
+    SAMPLER_LIST,
+    SCHEDULER_LIST,
+    UPSCALE_URL,
+    apply_v4_parameters,
+    build_common_parameters,
+    build_nai_payload,
+    get_model_id,
+    get_nai_token,
+    post_nai,
+    zip_to_pil,
+    zip_to_png_bytes,
+)
 from pathlib import Path
 from datetime import datetime
 
 # Constants
 BOX_SIZE = 32
 GRID_STEP = 8
-
-SAMPLER_LIST = [
-    "k_dpmpp_2m", "k_dpmpp_sde", "k_dpmpp_2m_sde", "k_dpmpp_2s_ancestral",
-    "k_euler_ancestral", "k_euler", "ddim_v3"
-]
-
-SCHEDULER_LIST = ["karras"]
-
-MODEL_DISPLAY_LIST = [
-    "NAI Diffusion V4.5 Curated",
-    "NAI Diffusion V4.5 Full",
-    "NAI Diffusion V4 Full",
-    "NAI Diffusion V4 Curated Preview",
-    "NAI Diffusion V3",
-    "NAI Diffusion Furry V3",
-    "NAI Diffusion V2"
-]
-
-MODEL_ID_MAP = {
-    "NAI Diffusion V4.5 Curated": "nai-diffusion-4-5-curated",
-    "NAI Diffusion V4.5 Full": "nai-diffusion-4-5-full",
-    "NAI Diffusion V4 Full": "nai-diffusion-4-full",
-    "NAI Diffusion V4 Curated Preview": "nai-diffusion-4-curated-preview",
-    "NAI Diffusion V3": "nai-diffusion-3",
-    "NAI Diffusion Furry V3": "nai-diffusion-furry-3",
-    "NAI Diffusion V2": "nai-diffusion-2"
-}
 
 # Helper Functions
 def mask_to_grid_boxes(sam_mask_np, img_w, img_h, threshold=0.3):
@@ -50,37 +38,13 @@ def mask_to_grid_boxes(sam_mask_np, img_w, img_h, threshold=0.3):
     # Ensure sam_mask_np is 2D and 0-255
     if len(sam_mask_np.shape) == 3:
         sam_mask_np = sam_mask_np.squeeze()
-    
+
     for y in range(0, img_h - BOX_SIZE + 1, GRID_STEP):
         for x in range(0, img_w - BOX_SIZE + 1, GRID_STEP):
             region = sam_mask_np[y:y + BOX_SIZE, x:x + BOX_SIZE]
             if region.mean() / 255.0 >= threshold:
                 result[y:y + BOX_SIZE, x:x + BOX_SIZE] = 255
     return Image.fromarray(result, mode="L")
-
-def pil_to_base64(img):
-    buffered = io.BytesIO()
-    img.save(buffered, format="PNG")
-    return base64.b64encode(buffered.getvalue()).decode('utf-8')
-
-def png_bytes_to_pil(png_bytes):
-    source = Image.open(io.BytesIO(png_bytes))
-    image = source.convert("RGB")
-    image.info.update(source.info)
-    return image
-
-def build_pnginfo_from_image(source_image):
-    pnginfo = PngInfo()
-    for key, value in source_image.info.items():
-        if isinstance(value, str):
-            pnginfo.add_text(key, value)
-    return pnginfo
-
-def save_png_preserving_metadata(image, save_path, source_image=None):
-    if source_image is None:
-        image.save(save_path)
-        return
-    image.save(save_path, pnginfo=build_pnginfo_from_image(source_image))
 
 class CharacterPrompt:
     def __init__(self, prompt, uc, x, y):
@@ -183,6 +147,7 @@ class NovelAIGenerator:
                 "scheduler": (SCHEDULER_LIST, {"default": "karras"}),
                 "cfg_rescale": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
                 "prefer_brownian": ("BOOLEAN", {"default": False}),
+                "variety_boost": ("BOOLEAN", {"default": True}),
                 "characterPrompts": ("LIST",),
             }
         }
@@ -191,71 +156,32 @@ class NovelAIGenerator:
     FUNCTION = "generate"
     CATEGORY = "RS_NovelAI_API/Generation"
 
-    def generate(self, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, seed, 
-                 scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, characterPrompts=None):
+    def generate(self, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, seed,
+                 scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, variety_boost=True, characterPrompts=None):
         token = get_nai_token()
-        model_id = MODEL_ID_MAP.get(model, "nai-diffusion-4-5-curated")
-        
+        model_id = get_model_id(model)
+
         if seed == -1:
             seed = np.random.randint(0, 0x7fffffff)
 
-        parameters = {
-            "width": width,
-            "height": height,
-            "n_samples": 1,
-            "seed": seed,
-            "sampler": sampler,
-            "steps": steps,
-            "scale": cfg_scale,
-            "negative_prompt": negative_prompt,
-            "cfg_rescale": cfg_rescale,
-            "prefer_brownian": prefer_brownian,
-            "noise_schedule": scheduler,
-            "params_version": 3,
-            "legacy": False
-        }
-
-        if "4-5" in model_id:
-            parameters["skip_cfg_above_sigma"] = 58
-        elif "4" in model_id:
-            parameters["skip_cfg_above_sigma"] = 19
-
-        if "nai-diffusion-4" in model_id:
-            char_captions = []
-            neg_char_captions = []
-            if characterPrompts:
-                for cp in characterPrompts:
-                    char_captions.append({"char_caption": cp.prompt, "centers": [cp.center]})
-                    neg_char_captions.append({"char_caption": cp.uc, "centers": [cp.center]})
-            
-            parameters["v4_prompt"] = {
-                "caption": {"base_caption": prompt, "char_captions": char_captions},
-                "use_coords": bool(char_captions),
-                "use_order": True
-            }
-            parameters["v4_negative_prompt"] = {
-                "caption": {"base_caption": negative_prompt, "char_captions": neg_char_captions},
-                "use_coords": False,
-                "use_order": False
-            }
-
-        payload = {
-            "input": prompt,
-            "model": model_id,
-            "action": "generate",
-            "parameters": parameters
-        }
+        parameters = build_common_parameters(
+            width, height, seed, sampler, steps, cfg_scale, negative_prompt,
+            scheduler=scheduler, cfg_rescale=cfg_rescale, prefer_brownian=prefer_brownian,
+            variety_boost=variety_boost, model_id=model_id
+        )
+        apply_v4_parameters(parameters, model_id, prompt, negative_prompt, characterPrompts)
+        payload = build_nai_payload(prompt, model_id, "generate", parameters)
 
         result_bytes = post_nai(token, payload)
         png_bytes = zip_to_png_bytes(result_bytes)
         pil_img = png_bytes_to_pil(png_bytes)
-        
+
         # Autosave
         save_folder, filename = self._get_save_path('NAI', self.output_dir)
         save_path = save_folder / f'{filename}.png'
         save_path.write_bytes(png_bytes)
         print(f'Image saved: {save_path}')
-        
+
         return (pil_to_tensor(pil_img),)
 
 class NAIImg2ImgNode:
@@ -279,6 +205,9 @@ class NAIImg2ImgNode:
                 "scheduler": (SCHEDULER_LIST, {"default": "karras"}),
                 "cfg_rescale": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
                 "prefer_brownian": ("BOOLEAN", {"default": False}),
+                "noise": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
+                "variety_boost": ("BOOLEAN", {"default": True}),
+                "characterPrompts": ("LIST",),
             }
         }
 
@@ -287,48 +216,27 @@ class NAIImg2ImgNode:
     CATEGORY = "RS_NovelAI_API/Generation"
 
     def generate(self, image, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, strength, seed,
-                 scheduler="karras", cfg_rescale=0.0, prefer_brownian=False):
+                 scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None):
         token = get_nai_token()
-        model_id = MODEL_ID_MAP.get(model, "nai-diffusion-4-5-curated")
-        
+        model_id = get_model_id(model)
+
         pil_img = tensor_to_pil(image).resize((width, height), Image.LANCZOS)
-        
+
         if seed == -1:
             seed = np.random.randint(0, 0x7fffffff)
 
-        parameters = {
-            "width": width,
-            "height": height,
-            "n_samples": 1,
-            "seed": seed,
-            "sampler": sampler,
-            "steps": steps,
-            "scale": cfg_scale,
+        parameters = build_common_parameters(
+            width, height, seed, sampler, steps, cfg_scale, negative_prompt,
+            scheduler=scheduler, cfg_rescale=cfg_rescale, prefer_brownian=prefer_brownian,
+            variety_boost=variety_boost, model_id=model_id
+        )
+        parameters.update({
             "strength": strength,
-            "negative_prompt": negative_prompt,
-            "cfg_rescale": cfg_rescale,
-            "prefer_brownian": prefer_brownian,
-            "noise_schedule": scheduler,
+            "noise": noise,
             "image": pil_to_base64(pil_img),
-            "params_version": 3,
-            "legacy": False
-        }
-
-        if "4-5" in model_id:
-            parameters["skip_cfg_above_sigma"] = 58
-        elif "4" in model_id:
-            parameters["skip_cfg_above_sigma"] = 19
-
-        if "nai-diffusion-4" in model_id:
-            parameters["v4_prompt"] = {"caption": {"base_caption": prompt, "char_captions": []}, "use_coords": False, "use_order": True}
-            parameters["v4_negative_prompt"] = {"caption": {"base_caption": negative_prompt, "char_captions": []}, "use_coords": False, "use_order": False}
-
-        payload = {
-            "input": prompt,
-            "model": model_id,
-            "action": "img2img",
-            "parameters": parameters
-        }
+        })
+        apply_v4_parameters(parameters, model_id, prompt, negative_prompt, characterPrompts)
+        payload = build_nai_payload(prompt, model_id, "img2img", parameters)
 
         result_bytes = post_nai(token, payload)
         png_bytes = zip_to_png_bytes(result_bytes)
@@ -364,6 +272,9 @@ class NAIInpaintNode:
                 "scheduler": (SCHEDULER_LIST, {"default": "karras"}),
                 "cfg_rescale": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
                 "prefer_brownian": ("BOOLEAN", {"default": False}),
+                "noise": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
+                "variety_boost": ("BOOLEAN", {"default": True}),
+                "characterPrompts": ("LIST",),
             }
         }
 
@@ -372,62 +283,40 @@ class NAIInpaintNode:
     CATEGORY = "RS_NovelAI_API/Generation"
 
     def generate(self, image, mask, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, strength, seed,
-                 scheduler="karras", cfg_rescale=0.0, prefer_brownian=False):
+                 scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None):
         token = get_nai_token()
-        model_id = MODEL_ID_MAP.get(model, "nai-diffusion-4-5-curated")
-        
+        model_id = get_model_id(model)
+
         # Snap width/height to 64
         width = (width // 64) * 64
         height = (height // 64) * 64
-        
+
         pil_img = tensor_to_pil(image).resize((width, height), Image.LANCZOS)
-        
+
         # Mask preprocessing
         if len(mask.shape) == 3:
             mask_np = (mask[0].cpu().numpy() * 255).astype(np.uint8)
         else:
             mask_np = (mask.cpu().numpy() * 255).astype(np.uint8)
         pil_mask = Image.fromarray(mask_np, mode="L").resize((width, height), Image.NEAREST)
-        
+
         if seed == -1:
             seed = np.random.randint(0, 0x7fffffff)
 
-        parameters = {
-            "width": width,
-            "height": height,
-            "n_samples": 1,
-            "seed": seed,
-            "sampler": sampler,
-            "steps": steps,
-            "scale": cfg_scale,
-            "negative_prompt": negative_prompt,
-            "cfg_rescale": cfg_rescale,
-            "prefer_brownian": prefer_brownian,
-            "noise_schedule": scheduler,
+        parameters = build_common_parameters(
+            width, height, seed, sampler, steps, cfg_scale, negative_prompt,
+            scheduler=scheduler, cfg_rescale=cfg_rescale, prefer_brownian=prefer_brownian,
+            variety_boost=variety_boost, model_id=model_id
+        )
+        parameters.update({
             "image": pil_to_base64(pil_img),
             "mask": pil_to_base64(pil_mask),
             "add_original_image": True,
             "inpaintImg2ImgStrength": strength,
-            "noise": 0,
-            "params_version": 3,
-            "legacy": False
-        }
-
-        if "4-5" in model_id:
-            parameters["skip_cfg_above_sigma"] = 58
-        elif "4" in model_id:
-            parameters["skip_cfg_above_sigma"] = 19
-
-        if "nai-diffusion-4" in model_id:
-            parameters["v4_prompt"] = {"caption": {"base_caption": prompt, "char_captions": []}, "use_coords": False, "use_order": True}
-            parameters["v4_negative_prompt"] = {"caption": {"base_caption": negative_prompt, "char_captions": []}, "use_coords": False, "use_order": False}
-
-        payload = {
-            "input": prompt,
-            "model": model_id + "-inpainting",
-            "action": "infill",
-            "parameters": parameters
-        }
+            "noise": noise,
+        })
+        apply_v4_parameters(parameters, model_id, prompt, negative_prompt, characterPrompts)
+        payload = build_nai_payload(prompt, model_id, "infill", parameters, inpainting=True)
 
         result_bytes = post_nai(token, payload)
         png_bytes = zip_to_png_bytes(result_bytes)
@@ -476,9 +365,11 @@ class NAIFaceDetailerNode:
 
     def detail(self, image, bbox_detector, sam_model, prompt, negative_prompt, model, strength, threshold, feather_radius,
                sampler, steps, cfg_scale, bbox_threshold, dilation, crop_factor, scheduler, seed, eye_bbox_detector=None):
+        # feather_radius is retained in the signature for UI compatibility but is not used
+        # by the original crop-paste behavior below.
         token = get_nai_token()
-        model_id = MODEL_ID_MAP.get(model, "nai-diffusion-4-5-curated")
-        
+        model_id = get_model_id(model)
+
         pil_img = tensor_to_pil(image)
         w, h = pil_img.size
 
@@ -486,29 +377,38 @@ class NAIFaceDetailerNode:
         segs = bbox_detector.detect(image, bbox_threshold, dilation, crop_factor, drop_size=10, detailer_hook=None)
         if not segs or len(segs[1]) == 0:
             return (image, image)
-        
+
+        # Use only the first detected face (original behavior)
         seg = segs[1][0]
+
         bbox = seg.bbox  # (x1, y1, x2, y2)
         bx0, by0, bx1, by1 = bbox
         crx0, cry0, crx1, cry1 = [int(v) for v in seg.crop_region]
-        
+        crx0, cry0 = max(0, crx0), max(0, cry0)
+        crx1, cry1 = min(w, crx1), min(h, cry1)
+        if crx1 <= crx0 or cry1 <= cry0:
+            return (image, image)
+
         # 2. Crop to crop_region
         crop_img = pil_img.crop((crx0, cry0, crx1, cry1))
         cw, ch = crop_img.size
-        
-        # 3. Upscale calculation
-        scale = 1024 / max(cw, ch)
+
+        # 3. Upscale to target longest side 1024 (fixed)
+        target_long_side = 1024
+        scale = target_long_side / max(cw, ch)
         nw = max(64, (round(cw * scale) // 64) * 64)
         nh = max(64, (round(ch * scale) // 64) * 64)
-        
+
         # 4. Resize crop
         scaled_img = crop_img.resize((nw, nh), Image.LANCZOS)
-        
-        # 5. SAM Predictor
+
+        # 5. SAM segmentation
         from segment_anything import SamPredictor
+        if seed == -1:
+            seed = np.random.randint(0, 0x7fffffff)
         predictor = SamPredictor(sam_model)
         predictor.set_image(np.array(scaled_img.convert('RGB')))
-        
+
         # 6. Face segmentation on scaled relative coordinates
         sx, sy = nw / cw, nh / ch
         face_x0 = (bx0 - crx0) * sx
@@ -516,10 +416,10 @@ class NAIFaceDetailerNode:
         face_x1 = (bx1 - crx0) * sx
         face_y1 = (by1 - cry0) * sy
         input_box = np.array([[face_x0, face_y0, face_x1, face_y1]], dtype=float)
-        
+
         # 7. Predict
         masks, scores, _ = predictor.predict(box=input_box, multimask_output=False)
-        
+
         # 8. Mask processing
         mask_np = (masks[0] * 255).astype(np.uint8)
 
@@ -534,65 +434,39 @@ class NAIFaceDetailerNode:
                     ex1 = min(nw, int(eye_seg.crop_region[2]))
                     ey1 = min(nh, int(eye_seg.crop_region[3]))
                     mask_np[ey0:ey1, ex0:ex1] = 255
-        
+
         # 9. mask_to_grid_boxes
         scaled_mask = mask_to_grid_boxes(mask_np, nw, nh, threshold=threshold)
-        
-        # 10. NAI Inpaint
-        if seed == -1:
-            seed = np.random.randint(0, 0x7fffffff)
-            
-        parameters = {
-            "width": nw,
-            "height": nh,
-            "n_samples": 1,
-            "seed": seed,
-            "sampler": sampler,
-            "steps": steps,
-            "scale": cfg_scale,
-            "negative_prompt": negative_prompt,
-            "cfg_rescale": 0.0,
-            "prefer_brownian": False,
-            "noise_schedule": scheduler,
+
+        # 10. NAI Inpaint (fixed API params matching original behavior)
+        parameters = build_common_parameters(
+            nw, nh, seed, sampler, steps, cfg_scale, negative_prompt,
+            scheduler=scheduler, cfg_rescale=0.0, prefer_brownian=False,
+            variety_boost=True, model_id=model_id
+        )
+        parameters.update({
             "image": pil_to_base64(scaled_img),
             "mask": pil_to_base64(scaled_mask),
             "add_original_image": True,
             "inpaintImg2ImgStrength": strength,
             "noise": 0,
-            "params_version": 3,
-            "legacy": False
-        }
-        
-        if "4-5" in model_id:
-            parameters["skip_cfg_above_sigma"] = 58
-        elif "4" in model_id:
-            parameters["skip_cfg_above_sigma"] = 19
+        })
+        apply_v4_parameters(parameters, model_id, prompt, negative_prompt)
+        payload = build_nai_payload(prompt, model_id, "infill", parameters, inpainting=True)
 
-        if "nai-diffusion-4" in model_id:
-            parameters["v4_prompt"] = {"caption": {"base_caption": prompt, "char_captions": []}, "use_coords": False, "use_order": True}
-            parameters["v4_negative_prompt"] = {"caption": {"base_caption": negative_prompt, "char_captions": []}, "use_coords": False, "use_order": False}
-
-        payload = {
-            "input": prompt,
-            "model": model_id + "-inpainting",
-            "action": "infill",
-            "parameters": parameters
-        }
-        
         result_bytes = post_nai(token, payload)
         result_png_bytes = zip_to_png_bytes(result_bytes)
-        
+
         # 11. Convert result to PIL
         result_pil = png_bytes_to_pil(result_png_bytes)
-        
-        # 12. Downscale result
+
+        # 12. Downscale result to original crop size
         result_downscaled = result_pil.resize((cw, ch), Image.LANCZOS)
-        
-        # 13. Paste result directly (NAI infill preserves non-masked area internally)
-        # feather_radius is kept in signature but not used here.
+
+        # 13. Paste the downscaled result directly over the crop region (original behavior)
         out_img = pil_img.copy()
         out_img.paste(result_downscaled, (crx0, cry0))
-        
+
         # Autosave
         save_folder, filename = NovelAIGenerator._get_save_path('NAI_face', NovelAIGenerator._get_output_directory(), subfolder='face')
         save_path = save_folder / f'{filename}.png'
@@ -601,7 +475,8 @@ class NAIFaceDetailerNode:
 
         # Visualization mask
         vis_mask = Image.new("L", (w, h), 0)
-        vis_mask.paste(scaled_mask.resize((cw, ch), Image.NEAREST), (crx0, cry0))
+        local_mask = scaled_mask.resize((cw, ch), Image.LANCZOS)
+        vis_mask.paste(local_mask, (crx0, cry0))
         vis_mask_rgb = Image.merge("RGB", (vis_mask, vis_mask, vis_mask))
 
         return (pil_to_tensor(out_img), pil_to_tensor(vis_mask_rgb))
@@ -623,14 +498,14 @@ class NAIUpscalerNode:
     def upscale(self, image, scale):
         token = get_nai_token()
         pil_img = tensor_to_pil(image)
-        
+
         payload = {
             "image": pil_to_base64(pil_img),
             "width": pil_img.width,
             "height": pil_img.height,
             "scale": scale
         }
-        
+
         result_bytes = post_nai(token, payload, url="https://api.novelai.net/ai/upscale")
         img = zip_to_pil(result_bytes)
         return (pil_to_tensor(img),)
