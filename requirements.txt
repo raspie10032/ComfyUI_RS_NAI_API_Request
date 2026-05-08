@@ -3,3 +3,4 @@ requests>=2.31.0
 torch>=1.13.0
 numpy>=1.23.5
 Pillow>=9.3.0
+segment-anything>=1.0
