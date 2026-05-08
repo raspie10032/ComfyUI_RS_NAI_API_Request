@@ -132,7 +132,6 @@ Advanced face restoration using YOLO detection and SAM segmentation before sendi
 | `model` | LIST | NAI model selection. |
 | `strength` | FLOAT | Inpainting denoising strength (0.0–1.0). |
 | `threshold` | FLOAT | SAM grid-box mask threshold. |
-| `feather_radius` | INT | Retained for UI compatibility; not used by the paste operation. |
 | `sampler` | LIST | Sampler algorithm. |
 | `steps` | INT | Generation steps (1–50). |
 | `cfg_scale` | FLOAT | Guidance scale. |

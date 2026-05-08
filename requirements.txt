@@ -1,5 +1,5 @@
-requests
-pillow
-torch
-numpy
-python-dotenv
+python-dotenv>=0.21.0
+requests>=2.31.0
+torch>=1.13.0
+numpy>=1.23.5
+Pillow>=9.3.0

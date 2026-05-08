@@ -343,7 +343,6 @@ class NAIFaceDetailerNode:
                 "model": (MODEL_DISPLAY_LIST, {"default": MODEL_DISPLAY_LIST[0]}),
                 "strength": ("FLOAT", {"default": 0.55, "min": 0.0, "max": 1.0, "step": 0.01}),
                 "threshold": ("FLOAT", {"default": 0.3, "min": 0.0, "max": 1.0, "step": 0.01}),
-                "feather_radius": ("INT", {"default": 10, "min": 0, "max": 100}),
                 "sampler": (SAMPLER_LIST, {"default": "k_euler"}),
                 "steps": ("INT", {"default": 28, "min": 1, "max": 50}),
                 "cfg_scale": ("FLOAT", {"default": 6.0, "min": 0.0, "max": 30.0, "step": 0.5}),
@@ -363,10 +362,8 @@ class NAIFaceDetailerNode:
     FUNCTION = "detail"
     CATEGORY = "RS_NovelAI_API/FaceDetailer"
 
-    def detail(self, image, bbox_detector, sam_model, prompt, negative_prompt, model, strength, threshold, feather_radius,
+    def detail(self, image, bbox_detector, sam_model, prompt, negative_prompt, model, strength, threshold,
                sampler, steps, cfg_scale, bbox_threshold, dilation, crop_factor, scheduler, seed, eye_bbox_detector=None):
-        # feather_radius is retained in the signature for UI compatibility but is not used
-        # by the original crop-paste behavior below.
         token = get_nai_token()
         model_id = get_model_id(model)
 
