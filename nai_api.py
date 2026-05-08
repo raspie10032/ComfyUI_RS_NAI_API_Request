@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (c) 2025 raspie10032
+
 import os
 import requests
 import zipfile
@@ -11,7 +14,6 @@ load_dotenv()
 _session = requests.Session()
 
 GENERATE_IMAGE_URL = "https://image.novelai.net/ai/generate-image"
-UPSCALE_URL = "https://api.novelai.net/ai/upscale"
 
 MODEL_DISPLAY_LIST = [
     "NAI Diffusion V4.5 Curated",
@@ -40,6 +42,9 @@ SAMPLER_LIST = [
 
 SCHEDULER_LIST = ["native", "karras", "exponential", "polyexponential"]
 
+OPUS_FREE_MAX_PIXELS = 1024 * 1024
+OPUS_FREE_MAX_STEPS = 28
+
 def post_nai(token, payload, url=GENERATE_IMAGE_URL):
     headers = {
         "Authorization": f"Bearer {token}",
@@ -62,10 +67,6 @@ def post_nai(token, payload, url=GENERATE_IMAGE_URL):
             print(f"Response: {e.response.text}")
         raise e
 
-def zip_to_pil(zip_bytes):
-    image_bytes = zip_to_png_bytes(zip_bytes)
-    return png_bytes_to_pil(image_bytes)
-
 def zip_to_png_bytes(zip_bytes):
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zipped:
         return zipped.read(zipped.infolist()[0])
@@ -80,6 +81,28 @@ def default_skip_cfg_above_sigma(model_id):
     if "nai-diffusion-4" in model_id:
         return 19
     return None
+
+
+def apply_opus_free_limits(width, height, steps, limit_opus_free):
+    if not limit_opus_free:
+        return width, height, steps
+
+    steps = min(steps, OPUS_FREE_MAX_STEPS)
+
+    if width * height > OPUS_FREE_MAX_PIXELS:
+        import math
+        scale = math.sqrt(OPUS_FREE_MAX_PIXELS / (width * height))
+        width = max(64, int(width * scale) // 64 * 64)
+        height = max(64, int(height * scale) // 64 * 64)
+        # Floor-rounding can still exceed the limit when one dimension is
+        # clamped to the 64 minimum; reduce the larger dimension until safe.
+        while width * height > OPUS_FREE_MAX_PIXELS:
+            if width >= height:
+                width = max(64, width - 64)
+            else:
+                height = max(64, height - 64)
+
+    return width, height, steps
 
 
 def build_v4_prompt(prompt, negative_prompt, character_prompts=None, use_coords=None, use_order=True):

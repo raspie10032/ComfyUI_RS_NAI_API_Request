@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (c) 2025 raspie10032
+
 import numpy as np
 from PIL import Image
 from .image_utils import (
@@ -11,14 +14,13 @@ from .nai_api import (
     MODEL_DISPLAY_LIST,
     SAMPLER_LIST,
     SCHEDULER_LIST,
-    UPSCALE_URL,
+    apply_opus_free_limits,
     apply_v4_parameters,
     build_common_parameters,
     build_nai_payload,
     get_model_id,
     get_nai_token,
     post_nai,
-    zip_to_pil,
     zip_to_png_bytes,
 )
 from pathlib import Path
@@ -149,6 +151,7 @@ class NovelAIGenerator:
                 "prefer_brownian": ("BOOLEAN", {"default": False}),
                 "variety_boost": ("BOOLEAN", {"default": True}),
                 "characterPrompts": ("LIST",),
+                "limit_opus_free": ("BOOLEAN", {"default": True}),
             }
         }
 
@@ -157,12 +160,15 @@ class NovelAIGenerator:
     CATEGORY = "RS_NovelAI_API/Generation"
 
     def generate(self, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, seed,
-                 scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, variety_boost=True, characterPrompts=None):
+                 scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, variety_boost=True, characterPrompts=None,
+                 limit_opus_free=True):
         token = get_nai_token()
         model_id = get_model_id(model)
 
         if seed == -1:
             seed = np.random.randint(0, 0x7fffffff)
+
+        width, height, steps = apply_opus_free_limits(width, height, steps, limit_opus_free)
 
         parameters = build_common_parameters(
             width, height, seed, sampler, steps, cfg_scale, negative_prompt,
@@ -208,6 +214,7 @@ class NAIImg2ImgNode:
                 "noise": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
                 "variety_boost": ("BOOLEAN", {"default": True}),
                 "characterPrompts": ("LIST",),
+                "limit_opus_free": ("BOOLEAN", {"default": True}),
             }
         }
 
@@ -216,9 +223,12 @@ class NAIImg2ImgNode:
     CATEGORY = "RS_NovelAI_API/Generation"
 
     def generate(self, image, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, strength, seed,
-                 scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None):
+                 scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None,
+                 limit_opus_free=True):
         token = get_nai_token()
         model_id = get_model_id(model)
+
+        width, height, steps = apply_opus_free_limits(width, height, steps, limit_opus_free)
 
         pil_img = tensor_to_pil(image).resize((width, height), Image.LANCZOS)
 
@@ -275,6 +285,7 @@ class NAIInpaintNode:
                 "noise": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
                 "variety_boost": ("BOOLEAN", {"default": True}),
                 "characterPrompts": ("LIST",),
+                "limit_opus_free": ("BOOLEAN", {"default": True}),
             }
         }
 
@@ -283,13 +294,15 @@ class NAIInpaintNode:
     CATEGORY = "RS_NovelAI_API/Generation"
 
     def generate(self, image, mask, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, strength, seed,
-                 scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None):
+                 scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None, limit_opus_free=True):
         token = get_nai_token()
         model_id = get_model_id(model)
 
         # Snap width/height to 64
         width = (width // 64) * 64
         height = (height // 64) * 64
+
+        width, height, steps = apply_opus_free_limits(width, height, steps, limit_opus_free)
 
         pil_img = tensor_to_pil(image).resize((width, height), Image.LANCZOS)
 
@@ -354,6 +367,7 @@ class NAIFaceDetailerNode:
             },
             "optional": {
                 "eye_bbox_detector": ("BBOX_DETECTOR",),
+                "limit_opus_free": ("BOOLEAN", {"default": True}),
             }
         }
 
@@ -363,7 +377,7 @@ class NAIFaceDetailerNode:
     CATEGORY = "RS_NovelAI_API/FaceDetailer"
 
     def detail(self, image, bbox_detector, sam_model, prompt, negative_prompt, model, strength, threshold,
-               sampler, steps, cfg_scale, bbox_threshold, dilation, crop_factor, scheduler, seed, eye_bbox_detector=None):
+               sampler, steps, cfg_scale, bbox_threshold, dilation, crop_factor, scheduler, seed, eye_bbox_detector=None, limit_opus_free=True):
         token = get_nai_token()
         model_id = get_model_id(model)
 
@@ -395,6 +409,7 @@ class NAIFaceDetailerNode:
         scale = target_long_side / max(cw, ch)
         nw = max(64, (round(cw * scale) // 64) * 64)
         nh = max(64, (round(ch * scale) // 64) * 64)
+        nw, nh, steps = apply_opus_free_limits(nw, nh, steps, limit_opus_free)
 
         # 4. Resize crop
         scaled_img = crop_img.resize((nw, nh), Image.LANCZOS)
@@ -478,34 +493,6 @@ class NAIFaceDetailerNode:
 
         return (pil_to_tensor(out_img), pil_to_tensor(vis_mask_rgb))
 
-class NAIUpscalerNode:
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "image": ("IMAGE",),
-                "scale": ([2, 4], {"default": 2}),
-            }
-        }
-
-    RETURN_TYPES = ("IMAGE",)
-    FUNCTION = "upscale"
-    CATEGORY = "RS_NovelAI_API/Upscale"
-
-    def upscale(self, image, scale):
-        token = get_nai_token()
-        pil_img = tensor_to_pil(image)
-
-        payload = {
-            "image": pil_to_base64(pil_img),
-            "width": pil_img.width,
-            "height": pil_img.height,
-            "scale": scale
-        }
-
-        result_bytes = post_nai(token, payload, url="https://api.novelai.net/ai/upscale")
-        img = zip_to_pil(result_bytes)
-        return (pil_to_tensor(img),)
 
 NODE_CLASS_MAPPINGS = {
     "NovelAIGenerator": NovelAIGenerator,
@@ -513,7 +500,6 @@ NODE_CLASS_MAPPINGS = {
     "NAIImg2ImgNode": NAIImg2ImgNode,
     "NAIInpaintNode": NAIInpaintNode,
     "NAIFaceDetailerNode": NAIFaceDetailerNode,
-    "NAIUpscalerNode": NAIUpscalerNode
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -522,5 +508,4 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "NAIImg2ImgNode": "NAI Img2Img",
     "NAIInpaintNode": "NAI Inpaint",
     "NAIFaceDetailerNode": "NAI Face Detailer",
-    "NAIUpscalerNode": "NAI Upscaler"
 }

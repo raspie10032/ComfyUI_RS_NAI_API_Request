@@ -8,7 +8,6 @@ This extension provides custom nodes for ComfyUI to interact with the **NovelAI 
 - **Synchronous Requests**: Stable connection using `requests` library.
 - **Multi-Character Support**: Specialized node for spatial multi-character prompting in NAI V4/V4.5.
 - **Face Detailer**: Intelligent face detection (YOLO) and segmentation (SAM) combined with NAI inpainting for high-quality face restoration.
-- **Upscaler**: Server-side NAI upscaling (2x/4x).
 
 ## Installation
 
@@ -62,6 +61,7 @@ Main node for text-to-image generation.
 | `prefer_brownian` | BOOLEAN (Optional) | Use brownian noise in sampler. |
 | `variety_boost` | BOOLEAN (Optional) | Enable `skip_cfg_above_sigma` for more varied outputs (V4/V4.5). |
 | `characterPrompts` | LIST (Optional) | Per-character prompts from `CharacterPromptSelect` (V4/V4.5 only). |
+| `limit_opus_free` | BOOLEAN (Optional) | Cap total pixels to ≤ 1,048,576 and steps to ≤ 28. Applies Opus free-tier limits manually; no account detection or Anlas balance checking. Default: `True`. |
 
 ### 2. NAI Character Prompt Select (`CharacterPromptSelect`)
 Defines up to 5 characters with spatial coordinates (0-10 scale) for NAI V4+.
@@ -93,6 +93,7 @@ Performs image-to-image generation.
 | `noise` | FLOAT (Optional) | Extra noise added before sampling (0.0–1.0). |
 | `variety_boost` | BOOLEAN (Optional) | Enable `skip_cfg_above_sigma` for more varied outputs (V4/V4.5). |
 | `characterPrompts` | LIST (Optional) | Per-character prompts from `CharacterPromptSelect` (V4/V4.5 only). |
+| `limit_opus_free` | BOOLEAN (Optional) | Cap total pixels to ≤ 1,048,576 and steps to ≤ 28. Applies Opus free-tier limits manually; no account detection or Anlas balance checking. Default: `True`. |
 
 ### 4. NAI Inpaint (`NAIInpaintNode`)
 Specialized node for inpainting. Automatically snaps dimensions to 64px.
@@ -115,11 +116,12 @@ Specialized node for inpainting. Automatically snaps dimensions to 64px.
 | `noise` | FLOAT (Optional) | Extra noise added before sampling (0.0–1.0). |
 | `variety_boost` | BOOLEAN (Optional) | Enable `skip_cfg_above_sigma` for more varied outputs (V4/V4.5). |
 | `characterPrompts` | LIST (Optional) | Per-character prompts from `CharacterPromptSelect` (V4/V4.5 only). |
+| `limit_opus_free` | BOOLEAN (Optional) | Cap total pixels to ≤ 1,048,576 and steps to ≤ 28. Applies Opus free-tier limits manually; no account detection or Anlas balance checking. Default: `True`. |
 
 ### 5. NAI Face Detailer (`NAIFaceDetailerNode`)
 Advanced face restoration using YOLO detection and SAM segmentation before sending to NAI API.
 
-**Requirement**: Requires [ComfyUI-Impact-Pack](https://github.com/ltdrdata/ComfyUI-Impact-Pack) for detectors.
+**Requirement**: Requires [ComfyUI-Impact-Pack](https://github.com/ltdrdata/ComfyUI-Impact-Pack) and [ComfyUI-Impact-Subpack](https://github.com/ltdrdata/ComfyUI-Impact-Subpack) for detectors. BBOX_DETECTOR types are provided by ComfyUI-Impact-Subpack.
 
 **Behavior**: Detects the first face, crops it, resizes the crop so its longest side is 1024 px, runs SAM segmentation, sends the crop to NAI inpaint, then pastes the downscaled inpaint result directly back over the original crop region.
 
@@ -141,18 +143,11 @@ Advanced face restoration using YOLO detection and SAM segmentation before sendi
 | `scheduler` | LIST | Noise scheduler. |
 | `seed` | INT | Random seed (-1 for random). |
 | `eye_bbox_detector` | BBOX_DETECTOR (Optional) | Additional detector for eye area mask refinement. |
+| `limit_opus_free` | BOOLEAN (Optional) | Cap total pixels to ≤ 1,048,576 and steps to ≤ 28. Applies Opus free-tier limits manually; no account detection or Anlas balance checking. Default: `True`. |
 
 Face Detailer outputs the composited image and a mask visualization. If no face is detected the original image is returned on both outputs. Edited results are autosaved under `NAI_autosave/face` with metadata preserved from the NAI inpaint result.
 
-### 6. NAI Upscaler (`NAIUpscalerNode`)
-Server-side high-quality upscaling.
-
-| Parameter | Type | Description |
-| :--- | :--- | :--- |
-| `image` | IMAGE | Source image. |
-| `scale` | INT | Upscale factor (2 or 4). |
-
-### 7. Prompt Converters
+### 6. Prompt Converters
 Prompt converter nodes translate weighted prompts between ComfyUI, NovelAI V4, and old NovelAI styles.
 
 | Converter | Direction |
@@ -187,6 +182,25 @@ When writing converted prompts, consecutive tags with the same effective weight 
 
 Old NovelAI brace/bracket syntax cannot exactly represent arbitrary numeric weights, negative weights, or zero weights. Those values are converted to the nearest practical old-style approximation when exporting to old NovelAI syntax.
 
+## Opus Free-Generation Protection
+
+All generation nodes (`NovelAIGenerator`, `NAIImg2ImgNode`, `NAIInpaintNode`, `NAIFaceDetailerNode`) include a `limit_opus_free` parameter.
+
+| Property | Value |
+| :--- | :--- |
+| Default | `True` (enabled) |
+| Pixel cap | Total pixels ≤ 1,048,576 (e.g., 1024 × 1024) — width and height are scaled down proportionally if the product exceeds this limit |
+| Step cap | Steps ≤ 28 |
+
+**What it does**: When enabled, the node clamps the request dimensions and step count to the conditions allowed under the NovelAI Opus free-generation tier, following the same approach as [bedovyy/ComfyUI_NAIDGenerator](https://github.com/bedovyy/ComfyUI_NAIDGenerator).
+
+**What it does NOT do**:
+- It does **not** auto-detect your account subscription tier.
+- It does **not** check your Anlas balance or block requests when balance is insufficient. The NovelAI API itself will reject any request that cannot be fulfilled.
+- An Anlas Tracker node is **not** included in this extension.
+
+Set `limit_opus_free` to `False` if you have a paid subscription and want to generate at larger sizes or higher step counts.
+
 ## Screenshots
 
 *(Screenshots placeholders)*
@@ -199,8 +213,67 @@ Old NovelAI brace/bracket syntax cannot exactly represent arbitrary numeric weig
 - `python-dotenv`
 - `segment_anything` (SAM)
 - **ComfyUI-Impact-Pack** (Mandatory for Face Detailer node)
+- **ComfyUI-Impact-Subpack** (Mandatory for Face Detailer node; provides BBOX_DETECTOR types used for bbox loading)
+
+## Branch Comparison: `main` vs `Add_facedetail`
+
+This section summarizes the differences introduced in the `Add_facedetail` branch relative to `main`.
+
+### Newly Added
+
+| Item | Description |
+| :--- | :--- |
+| `nai_api.py` | New module housing shared NAI API helpers (request building, response parsing) extracted from `generators.py`. |
+| `image_utils.py` | New module with image manipulation helpers shared by the Face Detailer and generator nodes. |
+| `NAIFaceDetailerNode` | Full face detailer implementation: YOLO detection → SAM segmentation → NAI inpainting → crop-paste composite. Only the first detected face is processed per run. |
+| Metadata-preserving autosave | Face Detailer results are autosaved with NAI metadata intact (same metadata written by the inpainting call). |
+| `/face` autosave subfolder | Face Detailer autosaves are written to `NAI_autosave/face/` to keep them separate from standard generation outputs. |
+| `n_samples=1` policy | Face Detailer enforces a single sample per NAI API call, matching NAI inpaint constraints. |
+| `segment-anything>=1.0` | SAM added as an explicit runtime dependency in `requirements.txt` and `pyproject.toml`. |
+| `limit_opus_free` parameter | Manual toggle (default `True`) on all generation nodes that caps total pixels to ≤ 1,048,576 and steps to ≤ 28, matching Opus free-tier generation limits. No account detection or Anlas balance checking. |
+
+### Removed / Pruned
+
+| Item | Reason |
+| :--- | :--- |
+| `claude_result.md` | Development artifact, not part of the runtime package. |
+| `docs/converter_playtest_report.md` | Development artifact, not part of the runtime package. |
+| `docs/nai_feature_gap_report.md` | Development artifact, not part of the runtime package. |
+| `scripts/converter_playtest.py` | Development script, not part of the runtime package. |
+| `feather_radius` UI input (Face Detailer) | Unused parameter removed; the crop-paste approach does not apply feathering. |
+| `aiohttp>=3.8.4` dependency | Replaced by `requests>=2.31.0`, which is what the runtime has always used. |
+| NAI Upscaler node | Not present in this branch or `main`; removed prior to this work. |
+| Anlas Tracker node | Not implemented; Anlas balance tracking is out of scope. |
+
+### Behavior-Preserving Changes
+
+- `load_dotenv()` calls consolidated — previously called redundantly at module level in both `generators.py` and `__init__.py`; now called once.
+- `__init__.py` import and export variable names normalized to match the names exported by `generators.py`.
+- `_get_save_path` return signature simplified to a `(path, filename)` tuple (was a 5-tuple with unused empty-string fields).
+
+## Credits / Acknowledgments
+
+| Project | License | Role |
+| :--- | :--- | :--- |
+| [bedovyy/ComfyUI_NAIDGenerator](https://github.com/bedovyy/ComfyUI_NAIDGenerator) | GPL-3.0-only | Reference for Opus free-generation limit behavior (pixel cap and step cap logic) |
+| [ComfyUI-Impact-Pack](https://github.com/ltdrdata/ComfyUI-Impact-Pack) | GPL-3.0-only | External detector dependency and workflow integration for the Face Detailer node |
+| [ComfyUI-Impact-Subpack](https://github.com/ltdrdata/ComfyUI-Impact-Subpack) | GPL-3.0-only | External sub-package providing BBOX_DETECTOR types; bbox loading moved to this package |
+| [segment-anything](https://github.com/facebookresearch/segment-anything) | Apache-2.0 | SAM segmentation runtime dependency used by the Face Detailer node |
+| NovelAI API | Proprietary (external service) | Remote image generation API; no NovelAI code is bundled |
+
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for full details.
 
 ## License
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-Copyright (c) 2026 raspie10032
+The source code in this repository is published under **GPL-3.0-only**.
+Full corresponding source is provided in this repository.
+The complete GPLv3 license text is in the [COPYING](COPYING) file.
+See the [LICENSE](LICENSE) file for the short SPDX notice.
+
+Copyright (c) 2025 raspie10032
+
+*This is a factual license notice, not legal advice.*
+
+## Workflow Examples
+
+Files in `workflow_example/` (`example.json`, `example.png`) are project-provided examples distributed with this project under GPL-3.0-only unless otherwise noted.
