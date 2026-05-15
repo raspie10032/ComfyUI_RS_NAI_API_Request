@@ -148,6 +148,9 @@ Advanced face restoration using YOLO detection and SAM segmentation before sendi
 
 Face Detailer outputs the composited image and a mask visualization. If no face is detected the original image is returned on both outputs. Edited results are autosaved under `NAI_autosave/face` with metadata preserved from the NAI inpaint result.
 
+### 5b. Detailer (`NAIFaceDetailerSegmNode`)
+Same pipeline as NAI Face Detailer, but `segm_detector` is the **required** primary detector (defines the crop region) and `bbox_detector` is **optional** (additive equal-layer source). SAM always produces the final mask. `eye_bbox_detector` and `limit_opus_free` behave identically to the Face Detailer node. Displayed in ComfyUI as **Detailer**.
+
 ### 6. Prompt Converters
 Prompt converter nodes translate weighted prompts between ComfyUI, NovelAI V4, and old NovelAI styles.
 
