@@ -366,6 +366,7 @@ class NAIFaceDetailerNode:
                 "seed": ("INT", {"default": -1, "min": -1, "max": 0xffffffff}),
             },
             "optional": {
+                "segm_detector": ("SEGM_DETECTOR",),
                 "eye_bbox_detector": ("BBOX_DETECTOR",),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
             }
@@ -377,15 +378,19 @@ class NAIFaceDetailerNode:
     CATEGORY = "RS_NovelAI_API/FaceDetailer"
 
     def detail(self, image, bbox_detector, sam_model, prompt, negative_prompt, model, strength, threshold,
-               sampler, steps, cfg_scale, bbox_threshold, dilation, crop_factor, scheduler, seed, eye_bbox_detector=None, limit_opus_free=True):
+               sampler, steps, cfg_scale, bbox_threshold, dilation, crop_factor, scheduler, seed,
+               segm_detector=None, eye_bbox_detector=None, limit_opus_free=True):
         token = get_nai_token()
         model_id = get_model_id(model)
 
         pil_img = tensor_to_pil(image)
         w, h = pil_img.size
 
-        # 1. Bbox detection
-        segs = bbox_detector.detect(image, bbox_threshold, dilation, crop_factor, drop_size=10, detailer_hook=None)
+        # 1. Detection (segm detector is an equal-layer alternative to bbox;
+        #    when connected it replaces bbox as the detection source, but SAM
+        #    still produces the final mask downstream).
+        detector = segm_detector if segm_detector is not None else bbox_detector
+        segs = detector.detect(image, bbox_threshold, dilation, crop_factor, drop_size=10, detailer_hook=None)
         if not segs or len(segs[1]) == 0:
             return (image, image)
 
