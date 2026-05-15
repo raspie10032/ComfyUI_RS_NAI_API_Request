@@ -142,7 +142,7 @@ Advanced face restoration using YOLO detection and SAM segmentation before sendi
 | `crop_factor` | FLOAT | Zoom factor around the detected face. |
 | `scheduler` | LIST | Noise scheduler. |
 | `seed` | INT | Random seed (-1 for random). |
-| `segm_detector` | SEGM_DETECTOR (Optional) | Alternative detection source, equal layer to `bbox_detector`. When connected, segm replaces bbox as the detector while SAM still produces the final mask. |
+| `segm_detector` | SEGM_DETECTOR (Optional) | Additional detection source, equal layer to `bbox_detector`. Does not disable bbox; when connected its detections add extra SAM input boxes and the resulting masks are unioned. SAM still produces the final mask. |
 | `eye_bbox_detector` | BBOX_DETECTOR (Optional) | Additional detector for eye area mask refinement. |
 | `limit_opus_free` | BOOLEAN (Optional) | Cap total pixels to ≤ 1,048,576 and steps to ≤ 28. Applies Opus free-tier limits manually; no account detection or Anlas balance checking. Default: `True`. |
 

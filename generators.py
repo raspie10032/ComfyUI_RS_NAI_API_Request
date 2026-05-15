@@ -386,11 +386,8 @@ class NAIFaceDetailerNode:
         pil_img = tensor_to_pil(image)
         w, h = pil_img.size
 
-        # 1. Detection (segm detector is an equal-layer alternative to bbox;
-        #    when connected it replaces bbox as the detection source, but SAM
-        #    still produces the final mask downstream).
-        detector = segm_detector if segm_detector is not None else bbox_detector
-        segs = detector.detect(image, bbox_threshold, dilation, crop_factor, drop_size=10, detailer_hook=None)
+        # 1. Bbox detection (always active; defines the crop region).
+        segs = bbox_detector.detect(image, bbox_threshold, dilation, crop_factor, drop_size=10, detailer_hook=None)
         if not segs or len(segs[1]) == 0:
             return (image, image)
 
@@ -426,19 +423,39 @@ class NAIFaceDetailerNode:
         predictor = SamPredictor(sam_model)
         predictor.set_image(np.array(scaled_img.convert('RGB')))
 
-        # 6. Face segmentation on scaled relative coordinates
+        # 6. Build SAM input boxes in scaled crop coordinates.
+        #    The bbox detection is always one box. A connected segm detector
+        #    is an equal-layer additional source: it does not disable bbox,
+        #    it contributes extra boxes. SAM produces the final mask for each.
         sx, sy = nw / cw, nh / ch
-        face_x0 = (bx0 - crx0) * sx
-        face_y0 = (by0 - cry0) * sy
-        face_x1 = (bx1 - crx0) * sx
-        face_y1 = (by1 - cry0) * sy
-        input_box = np.array([[face_x0, face_y0, face_x1, face_y1]], dtype=float)
 
-        # 7. Predict
-        masks, scores, _ = predictor.predict(box=input_box, multimask_output=False)
+        def to_scaled_box(x0, y0, x1, y1):
+            return [
+                max(0.0, (x0 - crx0) * sx),
+                max(0.0, (y0 - cry0) * sy),
+                min(float(nw), (x1 - crx0) * sx),
+                min(float(nh), (y1 - cry0) * sy),
+            ]
 
-        # 8. Mask processing
-        mask_np = (masks[0] * 255).astype(np.uint8)
+        input_boxes = [to_scaled_box(bx0, by0, bx1, by1)]
+
+        if segm_detector is not None:
+            segm_segs = segm_detector.detect(image, bbox_threshold, dilation, crop_factor, drop_size=10, detailer_hook=None)
+            if segm_segs and len(segm_segs[1]) > 0:
+                for s in segm_segs[1]:
+                    sbx0, sby0, sbx1, sby1 = s.bbox
+                    box = to_scaled_box(sbx0, sby0, sbx1, sby1)
+                    # Keep only boxes that intersect the crop region.
+                    if box[2] > box[0] and box[3] > box[1]:
+                        input_boxes.append(box)
+
+        # 7. Predict per box and union the resulting masks.
+        mask_np = np.zeros((nh, nw), dtype=np.uint8)
+        for box in input_boxes:
+            masks, scores, _ = predictor.predict(
+                box=np.array([box], dtype=float), multimask_output=False
+            )
+            mask_np = np.maximum(mask_np, (masks[0] * 255).astype(np.uint8))
 
         # Eye region augmentation (optional)
         if eye_bbox_detector is not None:
