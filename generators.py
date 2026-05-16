@@ -343,6 +343,153 @@ class NAIInpaintNode:
 
         return (pil_to_tensor(result_pil),)
 
+def _run_face_detail(image, primary_detector, secondary_detector, sam_model,
+                     prompt, negative_prompt, model, strength, threshold,
+                     sampler, steps, cfg_scale, bbox_threshold, dilation,
+                     crop_factor, scheduler, seed, eye_bbox_detector=None,
+                     limit_opus_free=True):
+    """Shared Face Detailer pipeline.
+
+    primary_detector defines the crop region and contributes the first SAM
+    box. secondary_detector (optional) is an equal-layer additional source
+    whose detections add extra SAM boxes. SAM always produces the final mask.
+    """
+    token = get_nai_token()
+    model_id = get_model_id(model)
+
+    pil_img = tensor_to_pil(image)
+    w, h = pil_img.size
+
+    # 1. Primary detection (always active; defines the crop region).
+    segs = primary_detector.detect(image, bbox_threshold, dilation, crop_factor, drop_size=10, detailer_hook=None)
+    if not segs or len(segs[1]) == 0:
+        return (image, image)
+
+    # Use only the first detected face (original behavior)
+    seg = segs[1][0]
+
+    bbox = seg.bbox  # (x1, y1, x2, y2)
+    bx0, by0, bx1, by1 = bbox
+    crx0, cry0, crx1, cry1 = [int(v) for v in seg.crop_region]
+    crx0, cry0 = max(0, crx0), max(0, cry0)
+    crx1, cry1 = min(w, crx1), min(h, cry1)
+    if crx1 <= crx0 or cry1 <= cry0:
+        return (image, image)
+
+    # 2. Crop to crop_region
+    crop_img = pil_img.crop((crx0, cry0, crx1, cry1))
+    cw, ch = crop_img.size
+
+    # 3. Upscale to target longest side 1024 (fixed)
+    target_long_side = 1024
+    scale = target_long_side / max(cw, ch)
+    nw = max(64, (round(cw * scale) // 64) * 64)
+    nh = max(64, (round(ch * scale) // 64) * 64)
+    nw, nh, steps = apply_opus_free_limits(nw, nh, steps, limit_opus_free)
+
+    # 4. Resize crop
+    scaled_img = crop_img.resize((nw, nh), Image.LANCZOS)
+
+    # 5. SAM segmentation
+    from segment_anything import SamPredictor
+    if seed == -1:
+        seed = np.random.randint(0, 0x7fffffff)
+    predictor = SamPredictor(sam_model)
+    predictor.set_image(np.array(scaled_img.convert('RGB')))
+
+    # 6. Build SAM input boxes in scaled crop coordinates.
+    #    The primary detection is always one box. A connected secondary
+    #    detector is an equal-layer additional source: it does not disable
+    #    the primary, it contributes extra boxes.
+    sx, sy = nw / cw, nh / ch
+
+    def to_scaled_box(x0, y0, x1, y1):
+        return [
+            max(0.0, (x0 - crx0) * sx),
+            max(0.0, (y0 - cry0) * sy),
+            min(float(nw), (x1 - crx0) * sx),
+            min(float(nh), (y1 - cry0) * sy),
+        ]
+
+    input_boxes = [to_scaled_box(bx0, by0, bx1, by1)]
+
+    if secondary_detector is not None:
+        sec_segs = secondary_detector.detect(image, bbox_threshold, dilation, crop_factor, drop_size=10, detailer_hook=None)
+        if sec_segs and len(sec_segs[1]) > 0:
+            for s in sec_segs[1]:
+                sbx0, sby0, sbx1, sby1 = s.bbox
+                box = to_scaled_box(sbx0, sby0, sbx1, sby1)
+                # Keep only boxes that intersect the crop region.
+                if box[2] > box[0] and box[3] > box[1]:
+                    input_boxes.append(box)
+
+    # 7. Predict per box and union the resulting masks.
+    mask_np = np.zeros((nh, nw), dtype=np.uint8)
+    for box in input_boxes:
+        masks, scores, _ = predictor.predict(
+            box=np.array([box], dtype=float), multimask_output=False
+        )
+        mask_np = np.maximum(mask_np, (masks[0] * 255).astype(np.uint8))
+
+    # Eye region augmentation (optional)
+    if eye_bbox_detector is not None:
+        eye_tensor = pil_to_tensor(scaled_img)
+        eye_segs = eye_bbox_detector.detect(eye_tensor, bbox_threshold, dilation, 1.0, drop_size=4, detailer_hook=None)
+        if eye_segs and len(eye_segs[1]) > 0:
+            for eye_seg in eye_segs[1]:
+                ex0 = max(0, int(eye_seg.crop_region[0]))
+                ey0 = max(0, int(eye_seg.crop_region[1]))
+                ex1 = min(nw, int(eye_seg.crop_region[2]))
+                ey1 = min(nh, int(eye_seg.crop_region[3]))
+                mask_np[ey0:ey1, ex0:ex1] = 255
+
+    # 9. mask_to_grid_boxes
+    scaled_mask = mask_to_grid_boxes(mask_np, nw, nh, threshold=threshold)
+
+    # 10. NAI Inpaint (fixed API params matching original behavior)
+    parameters = build_common_parameters(
+        nw, nh, seed, sampler, steps, cfg_scale, negative_prompt,
+        scheduler=scheduler, cfg_rescale=0.0, prefer_brownian=False,
+        variety_boost=True, model_id=model_id
+    )
+    parameters.update({
+        "image": pil_to_base64(scaled_img),
+        "mask": pil_to_base64(scaled_mask),
+        "add_original_image": True,
+        "inpaintImg2ImgStrength": strength,
+        "noise": 0,
+    })
+    apply_v4_parameters(parameters, model_id, prompt, negative_prompt)
+    payload = build_nai_payload(prompt, model_id, "infill", parameters, inpainting=True)
+
+    result_bytes = post_nai(token, payload)
+    result_png_bytes = zip_to_png_bytes(result_bytes)
+
+    # 11. Convert result to PIL
+    result_pil = png_bytes_to_pil(result_png_bytes)
+
+    # 12. Downscale result to original crop size
+    result_downscaled = result_pil.resize((cw, ch), Image.LANCZOS)
+
+    # 13. Paste the downscaled result directly over the crop region
+    out_img = pil_img.copy()
+    out_img.paste(result_downscaled, (crx0, cry0))
+
+    # Autosave
+    save_folder, filename = NovelAIGenerator._get_save_path('NAI_face', NovelAIGenerator._get_output_directory(), subfolder='face')
+    save_path = save_folder / f'{filename}.png'
+    save_png_preserving_metadata(out_img, save_path, result_pil)
+    print(f'Image saved: {save_path}')
+
+    # Visualization mask
+    vis_mask = Image.new("L", (w, h), 0)
+    local_mask = scaled_mask.resize((cw, ch), Image.LANCZOS)
+    vis_mask.paste(local_mask, (crx0, cry0))
+    vis_mask_rgb = Image.merge("RGB", (vis_mask, vis_mask, vis_mask))
+
+    return (pil_to_tensor(out_img), pil_to_tensor(vis_mask_rgb))
+
+
 class NAIFaceDetailerNode:
     @classmethod
     def INPUT_TYPES(cls):
@@ -366,6 +513,7 @@ class NAIFaceDetailerNode:
                 "seed": ("INT", {"default": -1, "min": -1, "max": 0xffffffff}),
             },
             "optional": {
+                "segm_detector": ("SEGM_DETECTOR",),
                 "eye_bbox_detector": ("BBOX_DETECTOR",),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
             }
@@ -377,121 +525,61 @@ class NAIFaceDetailerNode:
     CATEGORY = "RS_NovelAI_API/FaceDetailer"
 
     def detail(self, image, bbox_detector, sam_model, prompt, negative_prompt, model, strength, threshold,
-               sampler, steps, cfg_scale, bbox_threshold, dilation, crop_factor, scheduler, seed, eye_bbox_detector=None, limit_opus_free=True):
-        token = get_nai_token()
-        model_id = get_model_id(model)
-
-        pil_img = tensor_to_pil(image)
-        w, h = pil_img.size
-
-        # 1. Bbox detection
-        segs = bbox_detector.detect(image, bbox_threshold, dilation, crop_factor, drop_size=10, detailer_hook=None)
-        if not segs or len(segs[1]) == 0:
-            return (image, image)
-
-        # Use only the first detected face (original behavior)
-        seg = segs[1][0]
-
-        bbox = seg.bbox  # (x1, y1, x2, y2)
-        bx0, by0, bx1, by1 = bbox
-        crx0, cry0, crx1, cry1 = [int(v) for v in seg.crop_region]
-        crx0, cry0 = max(0, crx0), max(0, cry0)
-        crx1, cry1 = min(w, crx1), min(h, cry1)
-        if crx1 <= crx0 or cry1 <= cry0:
-            return (image, image)
-
-        # 2. Crop to crop_region
-        crop_img = pil_img.crop((crx0, cry0, crx1, cry1))
-        cw, ch = crop_img.size
-
-        # 3. Upscale to target longest side 1024 (fixed)
-        target_long_side = 1024
-        scale = target_long_side / max(cw, ch)
-        nw = max(64, (round(cw * scale) // 64) * 64)
-        nh = max(64, (round(ch * scale) // 64) * 64)
-        nw, nh, steps = apply_opus_free_limits(nw, nh, steps, limit_opus_free)
-
-        # 4. Resize crop
-        scaled_img = crop_img.resize((nw, nh), Image.LANCZOS)
-
-        # 5. SAM segmentation
-        from segment_anything import SamPredictor
-        if seed == -1:
-            seed = np.random.randint(0, 0x7fffffff)
-        predictor = SamPredictor(sam_model)
-        predictor.set_image(np.array(scaled_img.convert('RGB')))
-
-        # 6. Face segmentation on scaled relative coordinates
-        sx, sy = nw / cw, nh / ch
-        face_x0 = (bx0 - crx0) * sx
-        face_y0 = (by0 - cry0) * sy
-        face_x1 = (bx1 - crx0) * sx
-        face_y1 = (by1 - cry0) * sy
-        input_box = np.array([[face_x0, face_y0, face_x1, face_y1]], dtype=float)
-
-        # 7. Predict
-        masks, scores, _ = predictor.predict(box=input_box, multimask_output=False)
-
-        # 8. Mask processing
-        mask_np = (masks[0] * 255).astype(np.uint8)
-
-        # Eye region augmentation (optional)
-        if eye_bbox_detector is not None:
-            eye_tensor = pil_to_tensor(scaled_img)
-            eye_segs = eye_bbox_detector.detect(eye_tensor, bbox_threshold, dilation, 1.0, drop_size=4, detailer_hook=None)
-            if eye_segs and len(eye_segs[1]) > 0:
-                for eye_seg in eye_segs[1]:
-                    ex0 = max(0, int(eye_seg.crop_region[0]))
-                    ey0 = max(0, int(eye_seg.crop_region[1]))
-                    ex1 = min(nw, int(eye_seg.crop_region[2]))
-                    ey1 = min(nh, int(eye_seg.crop_region[3]))
-                    mask_np[ey0:ey1, ex0:ex1] = 255
-
-        # 9. mask_to_grid_boxes
-        scaled_mask = mask_to_grid_boxes(mask_np, nw, nh, threshold=threshold)
-
-        # 10. NAI Inpaint (fixed API params matching original behavior)
-        parameters = build_common_parameters(
-            nw, nh, seed, sampler, steps, cfg_scale, negative_prompt,
-            scheduler=scheduler, cfg_rescale=0.0, prefer_brownian=False,
-            variety_boost=True, model_id=model_id
+               sampler, steps, cfg_scale, bbox_threshold, dilation, crop_factor, scheduler, seed,
+               segm_detector=None, eye_bbox_detector=None, limit_opus_free=True):
+        return _run_face_detail(
+            image, bbox_detector, segm_detector, sam_model,
+            prompt, negative_prompt, model, strength, threshold,
+            sampler, steps, cfg_scale, bbox_threshold, dilation,
+            crop_factor, scheduler, seed,
+            eye_bbox_detector=eye_bbox_detector, limit_opus_free=limit_opus_free,
         )
-        parameters.update({
-            "image": pil_to_base64(scaled_img),
-            "mask": pil_to_base64(scaled_mask),
-            "add_original_image": True,
-            "inpaintImg2ImgStrength": strength,
-            "noise": 0,
-        })
-        apply_v4_parameters(parameters, model_id, prompt, negative_prompt)
-        payload = build_nai_payload(prompt, model_id, "infill", parameters, inpainting=True)
 
-        result_bytes = post_nai(token, payload)
-        result_png_bytes = zip_to_png_bytes(result_bytes)
 
-        # 11. Convert result to PIL
-        result_pil = png_bytes_to_pil(result_png_bytes)
+class NAIFaceDetailerSegmNode:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "segm_detector": ("SEGM_DETECTOR",),
+                "sam_model": ("SAM_MODEL",),
+                "prompt": ("STRING", {"default": "smiling face, highly detailed"}),
+                "negative_prompt": ("STRING", {"default": "lowres, bad anatomy"}),
+                "model": (MODEL_DISPLAY_LIST, {"default": MODEL_DISPLAY_LIST[0]}),
+                "strength": ("FLOAT", {"default": 0.55, "min": 0.0, "max": 1.0, "step": 0.01}),
+                "threshold": ("FLOAT", {"default": 0.3, "min": 0.0, "max": 1.0, "step": 0.01}),
+                "sampler": (SAMPLER_LIST, {"default": "k_euler"}),
+                "steps": ("INT", {"default": 28, "min": 1, "max": 50}),
+                "cfg_scale": ("FLOAT", {"default": 6.0, "min": 0.0, "max": 30.0, "step": 0.5}),
+                "bbox_threshold": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.01}),
+                "dilation": ("INT", {"default": 4, "min": 0, "max": 64}),
+                "crop_factor": ("FLOAT", {"default": 3.0, "min": 1.0, "max": 10.0, "step": 0.1}),
+                "scheduler": (SCHEDULER_LIST, {"default": "karras"}),
+                "seed": ("INT", {"default": -1, "min": -1, "max": 0xffffffff}),
+            },
+            "optional": {
+                "bbox_detector": ("BBOX_DETECTOR",),
+                "eye_bbox_detector": ("BBOX_DETECTOR",),
+                "limit_opus_free": ("BOOLEAN", {"default": True}),
+            }
+        }
 
-        # 12. Downscale result to original crop size
-        result_downscaled = result_pil.resize((cw, ch), Image.LANCZOS)
+    RETURN_TYPES = ("IMAGE", "IMAGE")
+    RETURN_NAMES = ("image", "mask_visualization")
+    FUNCTION = "detail"
+    CATEGORY = "RS_NovelAI_API/FaceDetailer"
 
-        # 13. Paste the downscaled result directly over the crop region (original behavior)
-        out_img = pil_img.copy()
-        out_img.paste(result_downscaled, (crx0, cry0))
-
-        # Autosave
-        save_folder, filename = NovelAIGenerator._get_save_path('NAI_face', NovelAIGenerator._get_output_directory(), subfolder='face')
-        save_path = save_folder / f'{filename}.png'
-        save_png_preserving_metadata(out_img, save_path, result_pil)
-        print(f'Image saved: {save_path}')
-
-        # Visualization mask
-        vis_mask = Image.new("L", (w, h), 0)
-        local_mask = scaled_mask.resize((cw, ch), Image.LANCZOS)
-        vis_mask.paste(local_mask, (crx0, cry0))
-        vis_mask_rgb = Image.merge("RGB", (vis_mask, vis_mask, vis_mask))
-
-        return (pil_to_tensor(out_img), pil_to_tensor(vis_mask_rgb))
+    def detail(self, image, segm_detector, sam_model, prompt, negative_prompt, model, strength, threshold,
+               sampler, steps, cfg_scale, bbox_threshold, dilation, crop_factor, scheduler, seed,
+               bbox_detector=None, eye_bbox_detector=None, limit_opus_free=True):
+        return _run_face_detail(
+            image, segm_detector, bbox_detector, sam_model,
+            prompt, negative_prompt, model, strength, threshold,
+            sampler, steps, cfg_scale, bbox_threshold, dilation,
+            crop_factor, scheduler, seed,
+            eye_bbox_detector=eye_bbox_detector, limit_opus_free=limit_opus_free,
+        )
 
 
 NODE_CLASS_MAPPINGS = {
@@ -500,6 +588,7 @@ NODE_CLASS_MAPPINGS = {
     "NAIImg2ImgNode": NAIImg2ImgNode,
     "NAIInpaintNode": NAIInpaintNode,
     "NAIFaceDetailerNode": NAIFaceDetailerNode,
+    "NAIFaceDetailerSegmNode": NAIFaceDetailerSegmNode,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -508,4 +597,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "NAIImg2ImgNode": "NAI Img2Img",
     "NAIInpaintNode": "NAI Inpaint",
     "NAIFaceDetailerNode": "NAI Face Detailer",
+    "NAIFaceDetailerSegmNode": "Detailer",
 }

@@ -142,10 +142,14 @@ Advanced face restoration using YOLO detection and SAM segmentation before sendi
 | `crop_factor` | FLOAT | Zoom factor around the detected face. |
 | `scheduler` | LIST | Noise scheduler. |
 | `seed` | INT | Random seed (-1 for random). |
+| `segm_detector` | SEGM_DETECTOR (Optional) | Additional detection source, equal layer to `bbox_detector`. Does not disable bbox; when connected its detections add extra SAM input boxes and the resulting masks are unioned. SAM still produces the final mask. |
 | `eye_bbox_detector` | BBOX_DETECTOR (Optional) | Additional detector for eye area mask refinement. |
 | `limit_opus_free` | BOOLEAN (Optional) | Cap total pixels to ≤ 1,048,576 and steps to ≤ 28. Applies Opus free-tier limits manually; no account detection or Anlas balance checking. Default: `True`. |
 
 Face Detailer outputs the composited image and a mask visualization. If no face is detected the original image is returned on both outputs. Edited results are autosaved under `NAI_autosave/face` with metadata preserved from the NAI inpaint result.
+
+### 5b. Detailer (`NAIFaceDetailerSegmNode`)
+Same pipeline as NAI Face Detailer, but `segm_detector` is the **required** primary detector (defines the crop region) and `bbox_detector` is **optional** (additive equal-layer source). SAM always produces the final mask. `eye_bbox_detector` and `limit_opus_free` behave identically to the Face Detailer node. Displayed in ComfyUI as **Detailer**.
 
 ### 6. Prompt Converters
 Prompt converter nodes translate weighted prompts between ComfyUI, NovelAI V4, and old NovelAI styles.
