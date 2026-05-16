@@ -2,20 +2,372 @@
 # Copyright (c) 2025 raspie10032
 
 import re
-import base64
 import math
 
-class ComfyUIToNovelAIV4Converter:
-    def __init__(self):
-        pass
+# ---------------------------------------------------------------------------
+# Shared helpers
+#
+# A single intermediate representation (a list of ``(text, weight)`` tags,
+# commas being tag separators in every syntax) backs all six converters.
+# Each format has one parser and one serializer; the node classes are thin
+# wrappers. This removes the duplicated, partly-contradictory exception
+# handling that used to live in every class.
+# ---------------------------------------------------------------------------
 
+_ARTIST_TOKEN = "__artist__"
+_DEFAULT_WEIGHT = 1.1
+_WEIGHT_MIN, _WEIGHT_MAX = -5.0, 5.0
+
+# Strict number: rejects "1.2.3", "--", "." that the old "[\d.-]+" accepted.
+_STRICT_NUM = re.compile(r"-?\d+(?:\.\d+)?")
+# Trailing ":<number-ish>" probe (lenient on purpose, see _trailing_weight).
+_TRAILING_WEIGHT = re.compile(r":([\d.-]+)\s*$")
+# A NovelAI V4 scope opener at a tag boundary: "<number>::".
+_V4_OPEN = re.compile(r"^\s*(-?\d+(?:\.\d+)?)::")
+
+
+def _guard_artist(text):
+    """Hide the colon in ``artist:`` so it is never read as a weight marker."""
+    return text.replace("artist:", _ARTIST_TOKEN)
+
+
+def _restore_artist(text):
+    return text.replace(_ARTIST_TOKEN, "artist:")
+
+
+def _strict_float(token):
+    """Return ``float(token)`` only if ``token`` is a well-formed number."""
+    token = token.strip()
+    if _STRICT_NUM.fullmatch(token):
+        try:
+            return float(token)
+        except ValueError:
+            return None
+    return None
+
+
+def _format_weight(value):
+    """Compact numeric form: ``1.0500 -> 1.05``, ``-1.5000 -> -1.5``."""
+    return f"{value:.4f}".rstrip("0").rstrip(".")
+
+
+def _closest_power(weight, base):
+    """Nearest integer exponent ``n`` so that ``base ** n ~= weight``."""
+    if weight <= 0 or base <= 0 or base == 1:
+        return 0
+    return round(math.log(weight) / math.log(base))
+
+
+# ---------------------------------------------------------------------------
+# ComfyUI  <->  IR
+# ---------------------------------------------------------------------------
+
+
+def _split_top_level(text):
+    """Split on commas that are not escaped and not inside parentheses."""
+    parts, buf, depth, i = [], [], 0, 0
+    while i < len(text):
+        ch = text[i]
+        if ch == "\\" and i + 1 < len(text) and text[i + 1] in "()":
+            buf.append(text[i:i + 2])
+            i += 2
+            continue
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+        elif ch == "," and depth == 0:
+            parts.append("".join(buf))
+            buf = []
+            i += 1
+            continue
+        buf.append(ch)
+        i += 1
+    parts.append("".join(buf))
+    return parts
+
+
+def _matches_outer_paren(segment):
+    depth, i = 0, 0
+    while i < len(segment):
+        ch = segment[i]
+        if ch == "\\" and i + 1 < len(segment) and segment[i + 1] in "()":
+            i += 2
+            continue
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return i == len(segment) - 1
+        i += 1
+    return False
+
+
+def _trailing_weight(inner):
+    """Return ``(weight_token, body)`` if ``inner`` ends with ``:<num>``.
+
+    Uses the lenient probe so a malformed ``1.2.3`` is still detected and
+    then rejected by the strict float check, preserving the historical
+    fallback (keep the whole inner text, default weight).
+    """
+    m = _TRAILING_WEIGHT.search(inner)
+    if not m:
+        return None, inner
+    return m.group(1), inner[:m.start()].strip()
+
+
+def _eval_comfy_segment(segment):
+    """Resolve one comma-segment into ``(text, weight)`` or ``None``.
+
+    ComfyUI nesting: every bare ``(...)`` level multiplies by the 1.1
+    default while an explicit ``(...:w)`` level multiplies by ``w``.
+    Escaped ``\\(`` / ``\\)`` are literal characters, not group markers.
+    """
+    segment = segment.strip()
+    if not segment:
+        return None
+
+    if segment.startswith("(") and _matches_outer_paren(segment):
+        inner = segment[1:-1]
+        token, body = _trailing_weight(inner)
+
+        if token is None:
+            level_weight, child_text = _DEFAULT_WEIGHT, inner
+        else:
+            parsed = _strict_float(token)
+            if parsed is None:
+                level_weight, child_text = _DEFAULT_WEIGHT, inner
+            elif not (_WEIGHT_MIN <= parsed <= _WEIGHT_MAX):
+                print(f"Warning: Weight '{parsed}' is outside the -5 to 5 range. Using default value 1.1 for: {body.strip()}")
+                level_weight, child_text = _DEFAULT_WEIGHT, body
+            else:
+                level_weight, child_text = parsed, body
+
+        child = _eval_comfy_segment(child_text)
+        if child is None:
+            return None
+        inner_text, inner_weight = child
+        if not inner_text:
+            return None
+        return (inner_text, level_weight * inner_weight)
+
+    return (segment.replace("\\(", "(").replace("\\)", ")"), 1.0)
+
+
+def parse_comfyui(text):
+    tags = []
+    for segment in _split_top_level(_guard_artist(text)):
+        if segment.strip() == "":
+            tags.append(("", 1.0))  # preserve empty slots ("a, , b")
+            continue
+        resolved = _eval_comfy_segment(segment)
+        if resolved is not None:  # drop fully empty groups "()"
+            tags.append(resolved)
+    return tags
+
+
+def to_comfyui(tags):
+    parts = []
+    for text, weight in tags:
+        escaped = text.replace("(", r"\(").replace(")", r"\)")
+        if weight == 1.0:
+            parts.append(escaped)
+        else:
+            parts.append(f"({escaped}:{_format_weight(weight)})")
+    return _restore_artist(", ".join(parts))
+
+
+# ---------------------------------------------------------------------------
+# NovelAI V4  <->  IR
+# ---------------------------------------------------------------------------
+
+
+def parse_naiv4(text):
+    """Parse NovelAI V4 numeric-scope syntax into IR.
+
+    Rules (per the README spec):
+      - commas separate tags;
+      - ``<w>::`` at a tag boundary opens a numeric scope;
+      - a closing ``::`` ends the active scope after the current tag;
+      - an opened scope with no closing ``::`` applies forward to all
+        following comma-separated tags.
+
+    The intentional space before a closing ``::`` (the guard that stops a
+    trailing number being read as a weight) is handled naturally: the
+    opener is matched only at a tag boundary, so ``team 5 ::`` is a close.
+    """
+    guarded = _guard_artist(text)
+    tags = []
+    current_weight = 1.0
+    scope_active = False
+
+    for chunk in guarded.split(","):
+        open_match = _V4_OPEN.match(chunk)
+        if open_match:
+            value = _strict_float(open_match.group(1))
+            if value is not None:
+                current_weight = value
+                scope_active = True
+                chunk = chunk[open_match.end():]
+
+        if "::" in chunk:
+            content = chunk.split("::", 1)[0].strip()
+            weight = current_weight if scope_active else 1.0
+            if content:
+                tags.append((content, weight))
+            current_weight, scope_active = 1.0, False
+        else:
+            content = chunk.strip()
+            weight = current_weight if scope_active else 1.0
+            tags.append((content, weight))
+
+    return tags
+
+
+def to_naiv4(tags):
+    """Serialize IR to V4, merging consecutive same-weight tags into one
+    scope (``1.05::a ::, 1.05::b ::`` -> ``1.05::a, b ::``)."""
+    out, i, n = [], 0, len(tags)
+    while i < n:
+        text, weight = tags[i]
+        if weight == 1.0:
+            out.append(text)
+            i += 1
+            continue
+        group = []
+        while i < n and tags[i][1] == weight:
+            group.append(tags[i][0])
+            i += 1
+        out.append(f"{_format_weight(weight)}::{', '.join(group)} ::")
+    return _restore_artist(", ".join(out))
+
+
+# ---------------------------------------------------------------------------
+# Old NAI  <->  IR
+#
+# Brace/bracket power math and its 2-decimal display are preserved exactly;
+# weights are rounded to 2 decimals at parse time so the V4 serializer
+# reproduces the historical strings (1.05**3 -> "1.16", etc.).
+# ---------------------------------------------------------------------------
+
+
+def parse_oldnai(text):
+    """Character-level scope parser for old NovelAI brace/bracket syntax.
+
+    - ``{`` / ``[`` open a forward 1.05x / 0.95x scope to the matching
+      ``}`` / ``]``;
+    - an unmatched closing ``}`` / ``]`` applies 1.05x / 0.95x backward to
+      all already-parsed tags;
+    - mixed ``{[tag]}`` multiplies the factors (1.05 * 0.95);
+    - a tag's weight is snapshotted from the scope active when its text
+      begins.
+    """
+    guarded = _guard_artist(text)
+    tags = []
+    stack = []           # list of factors for currently-open { or [
+    buf = []
+    snapshot = None      # weight captured at the start of the current tag
+
+    def cur_product():
+        p = 1.0
+        for f in stack:
+            p *= f
+        return p
+
+    def flush():
+        nonlocal buf, snapshot
+        content = "".join(buf).strip()
+        if content:
+            tags.append([content, round(snapshot if snapshot is not None else cur_product(), 2)])
+        buf = []
+        snapshot = None
+
+    def note_char(ch):
+        nonlocal snapshot
+        if snapshot is None and ch.strip():
+            snapshot = cur_product()
+        buf.append(ch)
+
+    for ch in guarded:
+        if ch == "{":
+            stack.append(1.05)
+        elif ch == "[":
+            stack.append(0.95)
+        elif ch == "}":
+            if 1.05 in stack:
+                # close the nearest open "{"
+                for k in range(len(stack) - 1, -1, -1):
+                    if stack[k] == 1.05:
+                        del stack[k]
+                        break
+            else:
+                for t in tags:
+                    t[1] = round(t[1] * 1.05, 2)
+        elif ch == "]":
+            if 0.95 in stack:
+                for k in range(len(stack) - 1, -1, -1):
+                    if stack[k] == 0.95:
+                        del stack[k]
+                        break
+            else:
+                for t in tags:
+                    t[1] = round(t[1] * 0.95, 2)
+        elif ch == ",":
+            flush()
+        else:
+            note_char(ch)
+
+    flush()
+    return [(t[0], t[1]) for t in tags]
+
+
+def _oldnai_encoding(weight, text):
+    """Return ``(signature, open_str, close_str)`` for one tag.
+
+    ``signature`` groups mergeable neighbors; ``None`` means "plain text".
+    Power math and the negative/zero fallback are unchanged.
+    """
+    if weight <= 0:
+        print(f"Warning: Old NAI format cannot represent negative or zero weights. Applying the default decrease weight of 0.95 > '[{text}]' instead.")
+        return ("neg", "[", "]")
+    if weight < 1:
+        n = _closest_power(weight, 0.95)
+        return (("sq", n), "[" * n, "]" * n) if n > 0 else (None, "", "")
+    if weight == 1:
+        return (None, "", "")
+    n = _closest_power(weight, 1.05)
+    return (("cu", n), "{" * n, "}" * n) if n > 0 else (None, "", "")
+
+
+def to_oldnai(tags):
+    """Serialize IR to old NAI, merging neighbors with identical bracketing
+    (``{tag1}, {tag2}`` -> ``{tag1, tag2}``)."""
+    encoded = [(text,) + _oldnai_encoding(weight, text) for text, weight in tags]
+    out, i, n = [], 0, len(encoded)
+    while i < n:
+        text, sig, open_s, close_s = encoded[i]
+        if sig is None:
+            out.append(text)
+            i += 1
+            continue
+        group = []
+        while i < n and encoded[i][1] == sig:
+            group.append(encoded[i][0])
+            i += 1
+        out.append(f"{open_s}{', '.join(group)}{close_s}")
+    return _restore_artist(", ".join(out))
+
+
+# ---------------------------------------------------------------------------
+# Node classes (ComfyUI contract unchanged)
+# ---------------------------------------------------------------------------
+
+
+class ComfyUIToNovelAIV4Converter:
     @classmethod
     def INPUT_TYPES(s):
-        return {
-            "required": {
-                "comfyui_prompt": ("STRING", {"multiline": True, "default": "qw, a, (b c:1.05), d, e\\(f: g h\\), black bikini top, (negative example:-1.5), shorts under bikini bottom, (i j:1.2)"}),
-            },
-        }
+        return {"required": {"comfyui_prompt": ("STRING", {"multiline": True, "default": "qw, a, (b c:1.05), d, e\\(f: g h\\), black bikini top, (negative example:-1.5), shorts under bikini bottom, (i j:1.2)"})}}
 
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("novelai_prompt",)
@@ -23,81 +375,13 @@ class ComfyUIToNovelAIV4Converter:
     CATEGORY = "RS_NovelAI_API/Converters"
 
     def convert_prompt(self, comfyui_prompt):
-        # Preprocessing: Replace "artist:" with "__artist__"
-        comfyui_prompt = comfyui_prompt.replace("artist:", "__artist__")
-        
-        processed_prompt = comfyui_prompt.replace(r"\\(", "(").replace(r"\\)", ")")
-        novelai_parts = []
+        return (to_naiv4(parse_comfyui(comfyui_prompt)),)
 
-        elements = re.split(r'(?<!\\)([,()])', processed_prompt)
-        processed_elements = [el.strip() for el in elements if el.strip()]
-
-        i = 0
-        while i < len(processed_elements):
-            element = processed_elements[i]
-            if element == '(':
-                i += 1
-                content = ""
-                balance = 1
-                while i < len(processed_elements):
-                    sub_element = processed_elements[i]
-                    if sub_element == '(':
-                        balance += 1
-                    elif sub_element == ')':
-                        balance -= 1
-                        if balance == 0:
-                            i += 1
-                            break
-                    content += sub_element
-                    i += 1
-
-                if content:
-                    match_weight = re.search(r':([\d.-]+)\s*$', content)
-                    weight = 1.1
-                    tags_str = content
-                    if match_weight:
-                        try:
-                            weight = float(match_weight.group(1))
-                            tags_str = content[:match_weight.start()].strip()
-                            if not (-5 <= weight <= 5):
-                                print(f"Warning: Weight '{weight}' is outside the -5 to 5 range. Using default value 1.1 for: {tags_str}")
-                                weight = 1.1
-                        except ValueError:
-                            print(f"Warning: Invalid weight format '{match_weight.group(1)}'. Using default value 1.1 for: {tags_str}")
-
-                    if tags_str:
-                        novelai_parts.append(f"{weight}::{tags_str} ::")
-
-            elif element == ',':
-                novelai_parts.append(',')
-                i += 1
-            else:
-                if element:
-                    novelai_parts.append(element)
-                i += 1
-
-        final_prompt = "".join(novelai_parts).replace("\\", "") # Remove backslashes after final conversion
-        final_prompt_with_spaces = ""
-        for part in final_prompt.split(','):
-            final_prompt_with_spaces += part.strip() + ', '
-        final_prompt_with_spaces = final_prompt_with_spaces.rstrip(', ') # Remove trailing comma and space
-        
-        # Postprocessing: Replace "__artist__" with "artist:"
-        final_prompt_with_spaces = final_prompt_with_spaces.replace("__artist__", "artist:")
-
-        return (final_prompt_with_spaces,)
 
 class NovelAIV4ToComfyUIConverter:
-    def __init__(self):
-        pass
-
     @classmethod
     def INPUT_TYPES(s):
-        return {
-            "required": {
-                "novelai_prompt": ("STRING", {"multiline": True, "default": "qw, a, 1.05::b c::, d, e(f: g h), black bikini top, -1.5::negative example::, shorts under bikini bottom, 1.2::i j::"}),
-            },
-        }
+        return {"required": {"novelai_prompt": ("STRING", {"multiline": True, "default": "qw, a, 1.05::b c::, d, e(f: g h), black bikini top, -1.5::negative example::, shorts under bikini bottom, 1.2::i j::"})}}
 
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("comfyui_prompt",)
@@ -105,75 +389,13 @@ class NovelAIV4ToComfyUIConverter:
     CATEGORY = "RS_NovelAI_API/Converters"
 
     def convert_prompt(self, novelai_prompt):
-        # Preprocessing: Replace "artist:" with "__artist__"
-        novelai_prompt = novelai_prompt.replace("artist:", "__artist__")
-        
-        processed_prompt = novelai_prompt.replace("(", r"\(").replace(")", r"\)")
-        processed_prompt = processed_prompt.replace(r"\(", "__escopen__").replace(r"\)", "__escclose__")
+        return (to_comfyui(parse_naiv4(novelai_prompt)),)
 
-        def encode_tags(tags_string):
-            # Base64 인코딩 유지 - 패딩 제거하지 않음
-            return base64.b64encode(tags_string.encode('utf-8')).decode('utf-8')
-
-        def decode_tags(encoded_string):
-            try:
-                # Base64 디코딩
-                return base64.b64decode(encoded_string).decode('utf-8')
-            except:
-                return encoded_string
-
-        def replace_with_encoded(match):
-            weight = match.group(1)
-            tags_str = match.group(2)
-            encoded_tags = encode_tags(tags_str)
-            return f"{weight}::__TEMP_ENCODED__({encoded_tags})__TEMP_ENCODED_END__"
-
-        processed_prompt = re.sub(r"([\d.-]+)::([^:]+?)::", replace_with_encoded, processed_prompt)
-
-        comfyui_parts = []
-        for part in processed_prompt.split(','):
-            part = part.strip()
-            if "__TEMP_ENCODED__" in part:
-                match = re.match(r"([\d.-]+)::(__TEMP_ENCODED__\((.+?)\)__TEMP_ENCODED_END__)", part)
-                if match:
-                    weight = match.group(1)
-                    encoded_tags = match.group(3)
-                    comfyui_parts.append(f"(__TEMP_ENCODED__({encoded_tags}):{weight})")
-                else:
-                    comfyui_parts.append(part)
-            else:
-                comfyui_parts.append(part)
-
-        comfyui_prompt = ", ".join(comfyui_parts)
-
-        def replace_encoded_with_decoded(match):
-            encoded_tags = match.group(1)
-            weight = match.group(2)
-            decoded_tags = decode_tags(encoded_tags).replace("__escopen__", "(").replace("__escclose__", ")")
-            return f"({decoded_tags}:{weight})"
-
-        comfyui_prompt = re.sub(r"__TEMP_ENCODED__\((.+?)\):([\d.-]+)", replace_encoded_with_decoded, comfyui_prompt)
-
-        comfyui_prompt = comfyui_prompt.replace("__escopen__", r"\(").replace("__escclose__", r"\)")
-        comfyui_prompt = comfyui_prompt.replace("((", "(").replace("))", ")")
-        comfyui_prompt = re.sub(r",(?!\s)", ", ", comfyui_prompt)
-        
-        # Postprocessing: Replace "__artist__" with "artist:"
-        comfyui_prompt = comfyui_prompt.replace("__artist__", "artist:")
-
-        return (comfyui_prompt,)
 
 class NovelAIV4ToOldNAIConverter:
-    def __init__(self):
-        pass
-
     @classmethod
     def INPUT_TYPES(s):
-        return {
-            "required": {
-                "novelai_v4_prompt": ("STRING", {"multiline": True, "default": "1.05::tag1::, 0.9::tag3::, 1.2::tag4::, 1.1::misty, golden hour::, -1.5::negative tag::, 0::zero weight tag::"}),
-            },
-        }
+        return {"required": {"novelai_v4_prompt": ("STRING", {"multiline": True, "default": "1.05::tag1::, 0.9::tag3::, 1.2::tag4::, 1.1::misty, golden hour::, -1.5::negative tag::, 0::zero weight tag::"})}}
 
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("novelai_old_prompt",)
@@ -181,106 +403,13 @@ class NovelAIV4ToOldNAIConverter:
     CATEGORY = "RS_NovelAI_API/Converters"
 
     def convert_prompt(self, novelai_v4_prompt):
-        # Preprocessing: Replace "artist:" with "__artist__"
-        novelai_v4_prompt = novelai_v4_prompt.replace("artist:", "__artist__")
-        
-        def find_closest_power(weight, base):
-            """Find the closest exponent value to the weight using logarithm function"""
-            if weight <= 0 or base <= 0 or base == 1:
-                return 0
-            exponent = math.log(weight) / math.log(base)
-            return round(exponent)
-            
-        # Define regex pattern - find weight::tag:: format
-        # This pattern treats any content between :: as a single tag unit, including commas
-        pattern = r'([\d.-]+)::([^:]+?)::'
-        
-        # Find weight::tag:: format
-        tags_with_weights = re.finditer(pattern, novelai_v4_prompt)
-        
-        # Record processed parts
-        processed_spans = []
-        old_nai_parts = []
-        
-        # Process tags with weights first
-        for match in tags_with_weights:
-            weight_str = match.group(1)
-            tags = match.group(2).strip()
-            start, end = match.span()
-            processed_spans.append((start, end))
-            
-            try:
-                weight = float(weight_str)
-                
-                if weight <= 0:
-                    # Handle negative or zero weights
-                    print(f"Warning: Old NAI format cannot represent negative or zero weights. Applying the default decrease weight of 0.95 > '[{tags}]' instead.")
-                    old_nai_parts.append((start, f"[{tags}]"))
-                elif weight < 1:
-                    # Decreased weight - use square brackets
-                    n_095 = find_closest_power(weight, 0.95)
-                    if n_095 > 0:  # 수정: n_095 < 0 → n_095 > 0
-                        old_nai_parts.append((start, "[" * n_095 + tags + "]" * n_095))
-                    else:
-                        old_nai_parts.append((start, tags))
-                elif weight == 1:
-                    # Weight 1.0 - keep as is
-                    old_nai_parts.append((start, tags))
-                else:
-                    # Increased weight - use curly braces
-                    n_105 = find_closest_power(weight, 1.05)
-                    if n_105 > 0:
-                        old_nai_parts.append((start, "{" * n_105 + tags + "}" * n_105))
-                    else:
-                        old_nai_parts.append((start, tags))
-            except ValueError:
-                # Keep original if weight conversion fails
-                old_nai_parts.append((start, match.group(0)))
-        
-        # Find unprocessed parts
-        last_end = 0
-        for start, end in sorted(processed_spans):
-            if start > last_end:
-                # Add unprocessed part
-                remaining = novelai_v4_prompt[last_end:start].strip()
-                if remaining:
-                    # Split by commas and add
-                    for part in remaining.split(','):
-                        if part.strip():
-                            old_nai_parts.append((last_end, part.strip()))
-            last_end = end
-        
-        # Add the last unprocessed part
-        if last_end < len(novelai_v4_prompt):
-            remaining = novelai_v4_prompt[last_end:].strip()
-            if remaining:
-                # Split by commas and add
-                for part in remaining.split(','):
-                    if part.strip():
-                        old_nai_parts.append((last_end, part.strip()))
-        
-        # Sort by position
-        old_nai_parts.sort()
-        
-        # Combine final result (remove position info)
-        final_prompt = ", ".join(part[1] for part in old_nai_parts)
-        
-        # Postprocessing: Replace "__artist__" with "artist:"
-        final_prompt = final_prompt.replace("__artist__", "artist:")
-        
-        return (final_prompt,)
+        return (to_oldnai(parse_naiv4(novelai_v4_prompt)),)
+
 
 class OldNAIToNovelAIV4Converter:
-    def __init__(self):
-        pass
-
     @classmethod
     def INPUT_TYPES(s):
-        return {
-            "required": {
-                "novelai_old_prompt": ("STRING", {"multiline": True, "default": "{tag1}, [tag2], {{tag3}}, [[tag4]], tag5, {{{important tag}}}, {{misty, golden hour}}"}),
-            },
-        }
+        return {"required": {"novelai_old_prompt": ("STRING", {"multiline": True, "default": "{tag1}, [tag2], {{tag3}}, [[tag4]], tag5, {{{important tag}}}, {{misty, golden hour}}"})}}
 
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("novelai_v4_prompt",)
@@ -288,104 +417,13 @@ class OldNAIToNovelAIV4Converter:
     CATEGORY = "RS_NovelAI_API/Converters"
 
     def convert_prompt(self, novelai_old_prompt):
-        # Preprocessing: Replace "artist:" with "__artist__"
-        novelai_old_prompt = novelai_old_prompt.replace("artist:", "__artist__")
-        
-        # Define regex pattern - patterns enclosed in curly braces or square brackets
-        # Treat contents with commas inside brackets as a single tag
-        pattern = r'([{\[]+)([^}\]]+?)([}\]]+)'
-        
-        # Store pattern matching results and positions
-        matches = list(re.finditer(pattern, novelai_old_prompt))
-        processed_spans = []
-        
-        # Store conversion results
-        result_parts = []
-        
-        for match in matches:
-            prefix = match.group(1)  # Opening brackets
-            content = match.group(2).strip()  # Content inside brackets
-            suffix = match.group(3)  # Closing brackets
-            start, end = match.span()
-            
-            processed_spans.append((start, end))
-            
-            # Check bracket balance
-            if prefix.count('{') == suffix.count('}') and prefix.count('[') == suffix.count(']'):
-                # Calculate weight based on bracket type and count
-                curly_count = prefix.count('{')
-                square_count = prefix.count('[')
-                
-                weight = 1.0
-                if curly_count > 0 and square_count == 0:
-                    # Curly braces increase weight (1.05^n)
-                    weight = 1.05 ** curly_count
-                elif square_count > 0 and curly_count == 0:
-                    # Square brackets decrease weight (0.95^n)
-                    weight = 0.95 ** square_count
-                
-                if weight != 1.0:
-                    # Display up to two decimal places (remove unnecessary zeros)
-                    weight_str = f"{weight:.2f}".rstrip('0').rstrip('.')
-                    result_parts.append((start, f"{weight_str}::{content} ::"))
-                else:
-                    result_parts.append((start, content))
-            else:
-                # Keep original if brackets are unbalanced
-                result_parts.append((start, match.group(0)))
-        
-        # Process unprocessed parts
-        last_end = 0
-        for start, end in sorted(processed_spans):
-            if start > last_end:
-                # Analyze unprocessed text
-                unprocessed = novelai_old_prompt[last_end:start].strip()
-                if unprocessed:
-                    # Process each part separated by commas
-                    for part in re.split(r',', unprocessed):
-                        part = part.strip()
-                        if part:
-                            result_parts.append((last_end, part))
-            last_end = end
-        
-        # Process the last unprocessed part
-        if last_end < len(novelai_old_prompt):
-            unprocessed = novelai_old_prompt[last_end:].strip()
-            if unprocessed:
-                # Process each part separated by commas
-                for part in re.split(r',', unprocessed):
-                    part = part.strip()
-                    if part:
-                        result_parts.append((last_end, part))
-        
-        # Sort by position
-        result_parts.sort()
-        
-        # Combine final converted prompt
-        if result_parts:
-            # Combine all parts into a single string
-            final_prompt = ", ".join(part[1] for part in result_parts)
-        else:
-            # Keep original if nothing to convert
-            final_prompt = novelai_old_prompt.strip()
-            
-        # Postprocessing: Replace "__artist__" with "artist:"
-        final_prompt = final_prompt.replace("__artist__", "artist:")
-            
-        return (final_prompt,)
+        return (to_naiv4(parse_oldnai(novelai_old_prompt)),)
+
 
 class ComfyUIToOldNAIConverter:
-    def __init__(self):
-        self.comfyui_to_novelaiv4 = ComfyUIToNovelAIV4Converter()
-        self.novelaiv4_to_oldnai = NovelAIV4ToOldNAIConverter()
-
     @classmethod
     def INPUT_TYPES(s):
-        return {
-            "required": {
-                "comfyui_prompt": ("STRING", {"multiline": True, "default": "qw, a, (b c:1.05), d, e\\(f: g h\\), black bikini top, denim shorts, shorts under bikini bottom, (i j:1.2)"}),
-            },
-        }
+        return {"required": {"comfyui_prompt": ("STRING", {"multiline": True, "default": "qw, a, (b c:1.05), d, e\\(f: g h\\), black bikini top, denim shorts, shorts under bikini bottom, (i j:1.2)"})}}
 
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("novelai_old_prompt",)
@@ -393,27 +431,13 @@ class ComfyUIToOldNAIConverter:
     CATEGORY = "RS_NovelAI_API/Converters"
 
     def convert_prompt(self, comfyui_prompt):
-        # First conversion: ComfyUI → NovelAI V4
-        novelai_v4_prompt = self.comfyui_to_novelaiv4.convert_prompt(comfyui_prompt)[0]
-        
-        # Second conversion: NovelAI V4 → Old NAI
-        novelai_old_prompt = self.novelaiv4_to_oldnai.convert_prompt(novelai_v4_prompt)[0]
-        
-        return (novelai_old_prompt,)
+        return (to_oldnai(parse_comfyui(comfyui_prompt)),)
 
 
 class OldNAIToComfyUIConverter:
-    def __init__(self):
-        self.oldnai_to_novelaiv4 = OldNAIToNovelAIV4Converter()
-        self.novelaiv4_to_comfyui = NovelAIV4ToComfyUIConverter()
-
     @classmethod
     def INPUT_TYPES(s):
-        return {
-            "required": {
-                "novelai_old_prompt": ("STRING", {"multiline": True, "default": "{tag1}, [tag2], {{tag3}}, [[tag4]], tag5, {{{important tag}}}, {{misty, golden hour}}"}),
-            },
-        }
+        return {"required": {"novelai_old_prompt": ("STRING", {"multiline": True, "default": "{tag1}, [tag2], {{tag3}}, [[tag4]], tag5, {{{important tag}}}, {{misty, golden hour}}"})}}
 
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("comfyui_prompt",)
@@ -421,14 +445,7 @@ class OldNAIToComfyUIConverter:
     CATEGORY = "RS_NovelAI_API/Converters"
 
     def convert_prompt(self, novelai_old_prompt):
-        # First conversion: Old NAI → NovelAI V4
-        novelai_v4_prompt = self.oldnai_to_novelaiv4.convert_prompt(novelai_old_prompt)[0]
-        
-        # Second conversion: NovelAI V4 → ComfyUI
-        comfyui_prompt = self.novelaiv4_to_comfyui.convert_prompt(novelai_v4_prompt)[0]
-        
-        return (comfyui_prompt,)
-
+        return (to_comfyui(parse_oldnai(novelai_old_prompt)),)
 
 
 # Node class mappings
