@@ -148,7 +148,11 @@ def _eval_comfy_segment(segment):
         if child is None:
             return None
         inner_text, inner_weight = child
-        if not inner_text:
+        # A resolved paren group whose text still holds a colon means an
+        # unescaped literal "(" with a non-numeric ":" (e.g. "(tag:o)" that
+        # should have been "\(tag:o\)"). artist: is already guarded, so any
+        # remaining colon is a malformed group -> drop it entirely.
+        if not inner_text or ":" in inner_text:
             return None
         return (inner_text, level_weight * inner_weight)
 
