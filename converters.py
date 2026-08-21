@@ -132,6 +132,7 @@ def _eval_comfy_segment(segment):
         inner = segment[1:-1]
         token, body = _trailing_weight(inner)
 
+        has_valid_explicit_weight = False
         if token is None:
             level_weight, child_text = _DEFAULT_WEIGHT, inner
         else:
@@ -143,6 +144,7 @@ def _eval_comfy_segment(segment):
                 level_weight, child_text = _DEFAULT_WEIGHT, body
             else:
                 level_weight, child_text = parsed, body
+                has_valid_explicit_weight = True
 
         child = _eval_comfy_segment(child_text)
         if child is None:
@@ -152,7 +154,7 @@ def _eval_comfy_segment(segment):
         # unescaped literal "(" with a non-numeric ":" (e.g. "(tag:o)" that
         # should have been "\(tag:o\)"). artist: is already guarded, so any
         # remaining colon is a malformed group -> drop it entirely.
-        if not inner_text or ":" in inner_text:
+        if not inner_text or (":" in inner_text and not has_valid_explicit_weight):
             return None
         return (inner_text, level_weight * inner_weight)
 

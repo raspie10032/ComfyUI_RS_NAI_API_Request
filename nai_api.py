@@ -16,23 +16,30 @@ _session = requests.Session()
 GENERATE_IMAGE_URL = "https://image.novelai.net/ai/generate-image"
 
 MODEL_DISPLAY_LIST = [
+    "NAI Diffusion V5 Curated",
+    "NAI Diffusion V5 Full",
     "NAI Diffusion V4.5 Curated",
     "NAI Diffusion V4.5 Full",
     "NAI Diffusion V4 Full",
     "NAI Diffusion V4 Curated Preview",
     "NAI Diffusion V3",
-    "NAI Diffusion Furry V3",
-    "NAI Diffusion V2"
+    "NAI Diffusion Furry V3"
 ]
 
 MODEL_ID_MAP = {
+    "NAI Diffusion V5 Curated": "nai-diffusion-5-curated",
+    "NAI Diffusion V5 Full": "nai-diffusion-5-full",
     "NAI Diffusion V4.5 Curated": "nai-diffusion-4-5-curated",
     "NAI Diffusion V4.5 Full": "nai-diffusion-4-5-full",
     "NAI Diffusion V4 Full": "nai-diffusion-4-full",
     "NAI Diffusion V4 Curated Preview": "nai-diffusion-4-curated-preview",
     "NAI Diffusion V3": "nai-diffusion-3",
-    "NAI Diffusion Furry V3": "nai-diffusion-furry-3",
-    "NAI Diffusion V2": "nai-diffusion-2"
+    "NAI Diffusion Furry V3": "nai-diffusion-furry-3"
+}
+
+INPAINT_MODEL_ID_OVERRIDES = {
+    # V5 Curated uses the V4.5 Curated inpainting model until its own is released.
+    "nai-diffusion-5-curated": "nai-diffusion-4-5-curated-inpainting",
 }
 
 SAMPLER_LIST = [
@@ -72,7 +79,7 @@ def zip_to_png_bytes(zip_bytes):
         return zipped.read(zipped.infolist()[0])
 
 def get_model_id(model):
-    return MODEL_ID_MAP.get(model, "nai-diffusion-4-5-curated")
+    return MODEL_ID_MAP.get(model, "nai-diffusion-5-curated")
 
 
 def default_skip_cfg_above_sigma(model_id):
@@ -121,12 +128,14 @@ def build_v4_prompt(prompt, negative_prompt, character_prompts=None, use_coords=
         "v4_prompt": {
             "caption": {"base_caption": prompt, "char_captions": char_captions},
             "use_coords": use_coords,
-            "use_order": use_order
+            "use_order": use_order,
+            "legacy_uc": False,
         },
         "v4_negative_prompt": {
             "caption": {"base_caption": negative_prompt, "char_captions": neg_char_captions},
             "use_coords": False,
-            "use_order": False
+            "use_order": False,
+            "legacy_uc": False,
         }
     }
 
@@ -147,7 +156,7 @@ def build_common_parameters(width, height, seed, sampler, steps, cfg_scale, nega
         "cfg_rescale": cfg_rescale,
         "prefer_brownian": prefer_brownian,
         "noise_schedule": scheduler,
-        "params_version": 3,
+        "params_version": 4 if model_id and model_id.startswith("nai-diffusion-5") else 3,
         "legacy": False,
         "legacy_v3_extend": False
     }
@@ -162,7 +171,7 @@ def build_common_parameters(width, height, seed, sampler, steps, cfg_scale, nega
 
 def apply_v4_parameters(parameters, model_id, prompt, negative_prompt, character_prompts=None,
                         use_coords=None, use_order=True):
-    if "nai-diffusion-4" not in model_id:
+    if not model_id.startswith(("nai-diffusion-4", "nai-diffusion-5")):
         return parameters
 
     parameters.update({
@@ -180,7 +189,10 @@ def apply_v4_parameters(parameters, model_id, prompt, negative_prompt, character
 
 
 def build_nai_payload(prompt, model_id, action, parameters, inpainting=False):
-    payload_model = f"{model_id}-inpainting" if inpainting else model_id
+    payload_model = (
+        INPAINT_MODEL_ID_OVERRIDES.get(model_id, f"{model_id}-inpainting")
+        if inpainting else model_id
+    )
     return {
         "input": prompt,
         "model": payload_model,
@@ -191,5 +203,5 @@ def build_nai_payload(prompt, model_id, action, parameters, inpainting=False):
 def get_nai_token():
     token = os.getenv('NAI_ACCESS_TOKEN') or os.getenv('NAI_API_TOKEN')
     if not token:
-        print("Warning: NAI_ACCESS_TOKEN (or NAI_API_TOKEN) not found in environment variables.")
+        raise RuntimeError("NAI_ACCESS_TOKEN (or NAI_API_TOKEN) not found in environment variables.")
     return token

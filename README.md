@@ -2,11 +2,21 @@
 
 This extension provides custom nodes for ComfyUI to interact with the **NovelAI API** using a synchronous `requests`-based approach. It allows you to generate images, perform image-to-image, inpainting, and advanced face detailing directly from within ComfyUI.
 
+> Current version: **2.1.1**
+
+## What's New in 2.1.1
+
+- Added NovelAI Diffusion V5 Curated and V5 Full model selection.
+- V5 requests use `params_version: 4` while older models keep `params_version: 3`.
+- V5 continues to use NovelAI's `v4_prompt` / `v4_negative_prompt` conditioning structure, including character prompts.
+- V5 Full uses native V5 inpainting. V5 Curated follows NovelAI's current client fallback to V4.5 Curated inpainting.
+- Autosaves are written under `output/<date>/NAI_autosave/`. A newly created nested folder may require refreshing the file browser or image feed before its first image appears in the listing.
+
 ## Features
 
-- **NovelAI API Integration**: Full support for NAI Diffusion V4.5, V4, V3, and more.
+- **NovelAI API Integration**: Image request support for NAI Diffusion V5, V4.5, V4, V3, and more.
 - **Synchronous Requests**: Stable connection using `requests` library.
-- **Multi-Character Support**: Specialized node for spatial multi-character prompting in NAI V4/V4.5.
+- **Multi-Character Support**: Specialized node for spatial multi-character prompting in NAI V4+.
 - **Face Detailer**: Intelligent face detection (YOLO) and segmentation (SAM) combined with NAI inpainting for high-quality face restoration.
 
 ## Installation
@@ -50,7 +60,7 @@ Main node for text-to-image generation.
 | :--- | :--- | :--- |
 | `prompt` | STRING | The main positive prompt. |
 | `negative_prompt` | STRING | The main negative prompt. |
-| `model` | LIST | NAI Model (V4.5, V4, V3, etc.). |
+| `model` | LIST | NAI Model (V5, V4.5, V4, V3, etc.). |
 | `width` / `height` | INT | Image dimensions (steps of 64). |
 | `sampler` | LIST | Sampler (e.g., k_euler, k_dpmpp_2m). |
 | `steps` | INT | Generation steps (1-50). |
@@ -60,7 +70,7 @@ Main node for text-to-image generation.
 | `cfg_rescale` | FLOAT (Optional) | Prompt guidance rescale (0.0–1.0). |
 | `prefer_brownian` | BOOLEAN (Optional) | Use brownian noise in sampler. |
 | `variety_boost` | BOOLEAN (Optional) | Enable `skip_cfg_above_sigma` for more varied outputs (V4/V4.5). |
-| `characterPrompts` | LIST (Optional) | Per-character prompts from `CharacterPromptSelect` (V4/V4.5 only). |
+| `characterPrompts` | LIST (Optional) | Per-character prompts from `CharacterPromptSelect` (V4+ only). |
 | `limit_opus_free` | BOOLEAN (Optional) | Cap total pixels to ≤ 1,048,576 and steps to ≤ 28. Applies Opus free-tier limits manually; no account detection or Anlas balance checking. Default: `True`. |
 
 ### 2. NAI Character Prompt Select (`CharacterPromptSelect`)
@@ -92,11 +102,13 @@ Performs image-to-image generation.
 | `prefer_brownian` | BOOLEAN (Optional) | Use brownian noise in sampler. |
 | `noise` | FLOAT (Optional) | Extra noise added before sampling (0.0–1.0). |
 | `variety_boost` | BOOLEAN (Optional) | Enable `skip_cfg_above_sigma` for more varied outputs (V4/V4.5). |
-| `characterPrompts` | LIST (Optional) | Per-character prompts from `CharacterPromptSelect` (V4/V4.5 only). |
+| `characterPrompts` | LIST (Optional) | Per-character prompts from `CharacterPromptSelect` (V4+ only). |
 | `limit_opus_free` | BOOLEAN (Optional) | Cap total pixels to ≤ 1,048,576 and steps to ≤ 28. Applies Opus free-tier limits manually; no account detection or Anlas balance checking. Default: `True`. |
 
 ### 4. NAI Inpaint (`NAIInpaintNode`)
 Specialized node for inpainting. Automatically snaps dimensions to 64px.
+
+V5 Full uses its native V5 inpainting model. Until NovelAI releases V5 Curated inpainting, selecting V5 Curated follows the official client and uses V4.5 Curated inpainting.
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
@@ -115,7 +127,7 @@ Specialized node for inpainting. Automatically snaps dimensions to 64px.
 | `prefer_brownian` | BOOLEAN (Optional) | Use brownian noise in sampler. |
 | `noise` | FLOAT (Optional) | Extra noise added before sampling (0.0–1.0). |
 | `variety_boost` | BOOLEAN (Optional) | Enable `skip_cfg_above_sigma` for more varied outputs (V4/V4.5). |
-| `characterPrompts` | LIST (Optional) | Per-character prompts from `CharacterPromptSelect` (V4/V4.5 only). |
+| `characterPrompts` | LIST (Optional) | Per-character prompts from `CharacterPromptSelect` (V4+ only). |
 | `limit_opus_free` | BOOLEAN (Optional) | Cap total pixels to ≤ 1,048,576 and steps to ≤ 28. Applies Opus free-tier limits manually; no account detection or Anlas balance checking. Default: `True`. |
 
 ### 5. NAI Face Detailer (`NAIFaceDetailerNode`)

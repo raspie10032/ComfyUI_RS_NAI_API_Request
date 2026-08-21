@@ -102,8 +102,8 @@ class CharacterPromptSelect:
                 uc = kwargs.get(f"character{i}_uc", "")
                 x_val = kwargs.get(f"character{i}_x", 0)
                 y_val = kwargs.get(f"character{i}_y", 0)
-                x = int(x_val * 0.099 * 10) / 10
-                y = int(y_val * 0.099 * 10) / 10
+                x = max(0.0, min(1.0, float(x_val) / 10.0))
+                y = max(0.0, min(1.0, float(y_val) / 10.0))
                 character_prompts.append(CharacterPrompt(prompt, uc, x, y))
         return (character_prompts,)
 
