@@ -1,13 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (c) 2025 raspie10032
 
+from datetime import datetime
+from pathlib import Path
+
 import numpy as np
 from PIL import Image
+
 from .image_utils import (
     pil_to_base64,
     pil_to_tensor,
     png_bytes_to_pil,
-    save_png_preserving_metadata,
     tensor_to_pil,
 )
 from .nai_api import (
@@ -23,8 +26,7 @@ from .nai_api import (
     post_nai,
     zip_to_png_bytes,
 )
-from pathlib import Path
-from datetime import datetime
+from .wd_tagger import WDTaggerLoader
 
 # Constants
 BOX_SIZE = 32
@@ -343,151 +345,23 @@ class NAIInpaintNode:
 
         return (pil_to_tensor(result_pil),)
 
-def _run_face_detail(image, primary_detector, secondary_detector, sam_model,
-                     prompt, negative_prompt, model, strength, threshold,
-                     sampler, steps, cfg_scale, bbox_threshold, dilation,
-                     crop_factor, scheduler, seed, eye_bbox_detector=None,
-                     limit_opus_free=True):
-    """Shared Face Detailer pipeline.
+def _run_face_detail(*args, **kwargs):
+    from .detailer import run_face_detail
+    return run_face_detail(*args, **kwargs)
 
-    primary_detector defines the crop region and contributes the first SAM
-    box. secondary_detector (optional) is an equal-layer additional source
-    whose detections add extra SAM boxes. SAM always produces the final mask.
-    """
-    token = get_nai_token()
-    model_id = get_model_id(model)
 
-    pil_img = tensor_to_pil(image)
-    w, h = pil_img.size
-
-    # 1. Primary detection (always active; defines the crop region).
-    segs = primary_detector.detect(image, bbox_threshold, dilation, crop_factor, drop_size=10, detailer_hook=None)
-    if not segs or len(segs[1]) == 0:
-        return (image, image)
-
-    # Use only the first detected face (original behavior)
-    seg = segs[1][0]
-
-    bbox = seg.bbox  # (x1, y1, x2, y2)
-    bx0, by0, bx1, by1 = bbox
-    crx0, cry0, crx1, cry1 = [int(v) for v in seg.crop_region]
-    crx0, cry0 = max(0, crx0), max(0, cry0)
-    crx1, cry1 = min(w, crx1), min(h, cry1)
-    if crx1 <= crx0 or cry1 <= cry0:
-        return (image, image)
-
-    # 2. Crop to crop_region
-    crop_img = pil_img.crop((crx0, cry0, crx1, cry1))
-    cw, ch = crop_img.size
-
-    # 3. Upscale to target longest side 1024 (fixed)
-    target_long_side = 1024
-    scale = target_long_side / max(cw, ch)
-    nw = max(64, (round(cw * scale) // 64) * 64)
-    nh = max(64, (round(ch * scale) // 64) * 64)
-    nw, nh, steps = apply_opus_free_limits(nw, nh, steps, limit_opus_free)
-
-    # 4. Resize crop
-    scaled_img = crop_img.resize((nw, nh), Image.LANCZOS)
-
-    # 5. SAM segmentation
-    from segment_anything import SamPredictor
-    if seed == -1:
-        seed = np.random.randint(0, 0x7fffffff)
-    predictor = SamPredictor(sam_model)
-    predictor.set_image(np.array(scaled_img.convert('RGB')))
-
-    # 6. Build SAM input boxes in scaled crop coordinates.
-    #    The primary detection is always one box. A connected secondary
-    #    detector is an equal-layer additional source: it does not disable
-    #    the primary, it contributes extra boxes.
-    sx, sy = nw / cw, nh / ch
-
-    def to_scaled_box(x0, y0, x1, y1):
-        return [
-            max(0.0, (x0 - crx0) * sx),
-            max(0.0, (y0 - cry0) * sy),
-            min(float(nw), (x1 - crx0) * sx),
-            min(float(nh), (y1 - cry0) * sy),
-        ]
-
-    input_boxes = [to_scaled_box(bx0, by0, bx1, by1)]
-
-    if secondary_detector is not None:
-        sec_segs = secondary_detector.detect(image, bbox_threshold, dilation, crop_factor, drop_size=10, detailer_hook=None)
-        if sec_segs and len(sec_segs[1]) > 0:
-            for s in sec_segs[1]:
-                sbx0, sby0, sbx1, sby1 = s.bbox
-                box = to_scaled_box(sbx0, sby0, sbx1, sby1)
-                # Keep only boxes that intersect the crop region.
-                if box[2] > box[0] and box[3] > box[1]:
-                    input_boxes.append(box)
-
-    # 7. Predict per box and union the resulting masks.
-    mask_np = np.zeros((nh, nw), dtype=np.uint8)
-    for box in input_boxes:
-        masks, scores, _ = predictor.predict(
-            box=np.array([box], dtype=float), multimask_output=False
-        )
-        mask_np = np.maximum(mask_np, (masks[0] * 255).astype(np.uint8))
-
-    # Eye region augmentation (optional)
-    if eye_bbox_detector is not None:
-        eye_tensor = pil_to_tensor(scaled_img)
-        eye_segs = eye_bbox_detector.detect(eye_tensor, bbox_threshold, dilation, 1.0, drop_size=4, detailer_hook=None)
-        if eye_segs and len(eye_segs[1]) > 0:
-            for eye_seg in eye_segs[1]:
-                ex0 = max(0, int(eye_seg.crop_region[0]))
-                ey0 = max(0, int(eye_seg.crop_region[1]))
-                ex1 = min(nw, int(eye_seg.crop_region[2]))
-                ey1 = min(nh, int(eye_seg.crop_region[3]))
-                mask_np[ey0:ey1, ex0:ex1] = 255
-
-    # 9. mask_to_grid_boxes
-    scaled_mask = mask_to_grid_boxes(mask_np, nw, nh, threshold=threshold)
-
-    # 10. NAI Inpaint (fixed API params matching original behavior)
-    parameters = build_common_parameters(
-        nw, nh, seed, sampler, steps, cfg_scale, negative_prompt,
-        scheduler=scheduler, cfg_rescale=0.0, prefer_brownian=False,
-        variety_boost=True, model_id=model_id
-    )
-    parameters.update({
-        "image": pil_to_base64(scaled_img),
-        "mask": pil_to_base64(scaled_mask),
-        "add_original_image": True,
-        "inpaintImg2ImgStrength": strength,
-        "noise": 0,
-    })
-    apply_v4_parameters(parameters, model_id, prompt, negative_prompt)
-    payload = build_nai_payload(prompt, model_id, "infill", parameters, inpainting=True)
-
-    result_bytes = post_nai(token, payload)
-    result_png_bytes = zip_to_png_bytes(result_bytes)
-
-    # 11. Convert result to PIL
-    result_pil = png_bytes_to_pil(result_png_bytes)
-
-    # 12. Downscale result to original crop size
-    result_downscaled = result_pil.resize((cw, ch), Image.LANCZOS)
-
-    # 13. Paste the downscaled result directly over the crop region
-    out_img = pil_img.copy()
-    out_img.paste(result_downscaled, (crx0, cry0))
-
-    # Autosave
-    save_folder, filename = NovelAIGenerator._get_save_path('NAI_face', NovelAIGenerator._get_output_directory(), subfolder='face')
-    save_path = save_folder / f'{filename}.png'
-    save_png_preserving_metadata(out_img, save_path, result_pil)
-    print(f'Image saved: {save_path}')
-
-    # Visualization mask
-    vis_mask = Image.new("L", (w, h), 0)
-    local_mask = scaled_mask.resize((cw, ch), Image.LANCZOS)
-    vis_mask.paste(local_mask, (crx0, cry0))
-    vis_mask_rgb = Image.merge("RGB", (vis_mask, vis_mask, vis_mask))
-
-    return (pil_to_tensor(out_img), pil_to_tensor(vis_mask_rgb))
+def _detailer_options():
+    return {
+        "detail_mode": (["first", "all"], {"default": "first"}),
+        "matching_mode": (["shared", "wd14"], {"default": "shared"}),
+        "characterPrompts": ("LIST",),
+        "tagger": ("RS_WD_TAGGER",),
+        "match_min_score": ("FLOAT", {"default": 0.25, "min": 0.01, "max": 1.0, "step": 0.01}),
+        "match_min_margin": ("FLOAT", {"default": 0.08, "min": 0.01, "max": 1.0, "step": 0.01}),
+        "match_crop_factor": ("FLOAT", {"default": 2.0, "min": 1.0, "max": 5.0, "step": 0.1}),
+        "max_regions": ("INT", {"default": 16, "min": 1, "max": 64}),
+        "preview_only": ("BOOLEAN", {"default": False}),
+    }
 
 
 class NAIFaceDetailerNode:
@@ -516,23 +390,24 @@ class NAIFaceDetailerNode:
                 "segm_detector": ("SEGM_DETECTOR",),
                 "eye_bbox_detector": ("BBOX_DETECTOR",),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
+                **_detailer_options(),
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "IMAGE")
-    RETURN_NAMES = ("image", "mask_visualization")
+    RETURN_TYPES = ("IMAGE", "IMAGE", "STRING")
+    RETURN_NAMES = ("image", "mask_visualization", "matching_report")
     FUNCTION = "detail"
     CATEGORY = "RS_NovelAI_API/FaceDetailer"
 
     def detail(self, image, bbox_detector, sam_model, prompt, negative_prompt, model, strength, threshold,
                sampler, steps, cfg_scale, bbox_threshold, dilation, crop_factor, scheduler, seed,
-               segm_detector=None, eye_bbox_detector=None, limit_opus_free=True):
+               segm_detector=None, eye_bbox_detector=None, limit_opus_free=True, **detail_options):
         return _run_face_detail(
             image, bbox_detector, segm_detector, sam_model,
             prompt, negative_prompt, model, strength, threshold,
             sampler, steps, cfg_scale, bbox_threshold, dilation,
             crop_factor, scheduler, seed,
-            eye_bbox_detector=eye_bbox_detector, limit_opus_free=limit_opus_free,
+            eye_bbox_detector=eye_bbox_detector, limit_opus_free=limit_opus_free, **detail_options,
         )
 
 
@@ -562,27 +437,30 @@ class NAIFaceDetailerSegmNode:
                 "bbox_detector": ("BBOX_DETECTOR",),
                 "eye_bbox_detector": ("BBOX_DETECTOR",),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
+                **_detailer_options(),
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "IMAGE")
-    RETURN_NAMES = ("image", "mask_visualization")
+    RETURN_TYPES = ("IMAGE", "IMAGE", "STRING")
+    RETURN_NAMES = ("image", "mask_visualization", "matching_report")
     FUNCTION = "detail"
     CATEGORY = "RS_NovelAI_API/FaceDetailer"
 
     def detail(self, image, segm_detector, sam_model, prompt, negative_prompt, model, strength, threshold,
                sampler, steps, cfg_scale, bbox_threshold, dilation, crop_factor, scheduler, seed,
-               bbox_detector=None, eye_bbox_detector=None, limit_opus_free=True):
+               bbox_detector=None, eye_bbox_detector=None, limit_opus_free=True, **detail_options):
         return _run_face_detail(
             image, segm_detector, bbox_detector, sam_model,
             prompt, negative_prompt, model, strength, threshold,
             sampler, steps, cfg_scale, bbox_threshold, dilation,
             crop_factor, scheduler, seed,
-            eye_bbox_detector=eye_bbox_detector, limit_opus_free=limit_opus_free,
+            eye_bbox_detector=eye_bbox_detector, limit_opus_free=limit_opus_free, **detail_options,
         )
 
 
+
 NODE_CLASS_MAPPINGS = {
+    "RSWDTaggerLoader": WDTaggerLoader,
     "NovelAIGenerator": NovelAIGenerator,
     "CharacterPromptSelect": CharacterPromptSelect,
     "NAIImg2ImgNode": NAIImg2ImgNode,
@@ -592,6 +470,7 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "RSWDTaggerLoader": "NAI WD Tagger Loader (PyTorch)",
     "NovelAIGenerator": "NAI Image Generator",
     "CharacterPromptSelect": "NAI Character Prompt Select",
     "NAIImg2ImgNode": "NAI Img2Img",

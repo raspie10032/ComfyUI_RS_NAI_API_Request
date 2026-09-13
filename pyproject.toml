@@ -12,6 +12,9 @@ dependencies = [
     "segment-anything>=1.0"
 ]
 
+[project.optional-dependencies]
+tagger = ["timm>=1.0.3,<2", "huggingface-hub>=0.23", "safetensors>=0.4"]
+
 [project.urls]
 Repository = "https://github.com/raspie10032/ComfyUI_RS_NAI_API_Request"
 #  Used by Comfy Registry https://comfyregistry.org

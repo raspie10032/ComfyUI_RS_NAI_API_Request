@@ -1,0 +1,5 @@
+# Optional: install in the existing ComfyUI Python environment.
+# Reuse ComfyUI torch/torchvision; no ONNX packages.
+timm>=1.0.3,<2
+huggingface-hub>=0.23
+safetensors>=0.4

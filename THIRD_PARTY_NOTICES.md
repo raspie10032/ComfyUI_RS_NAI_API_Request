@@ -92,3 +92,17 @@ This is provided for informational purposes and does not constitute legal advice
 - **License**: SPDX-License-Identifier: BSD-3-Clause (license to verify for specific build variants)
 - **Use**: Tensor type used for ComfyUI IMAGE and MASK values in image_utils helpers.
 - **Bundled**: No (external dependency provided by the host ComfyUI environment; not installed by this package)
+
+## Optional WD tagger runtime
+
+Automatic Detailer matching uses the existing PyTorch/timm WD ViT Tagger v3 model
+by SmilingWolf, distributed under Apache-2.0. Model files are downloaded separately
+at runtime; weights are not bundled in this source distribution.
+
+- Model: https://huggingface.co/SmilingWolf/wd-vit-tagger-v3
+- Pinned revision: `7f6b584d0bd3f55c4531f14ba3d4761b2bccdc0f`
+- Model-card-linked PyTorch inference reference: https://github.com/neggles/wdv3-timm
+- timm: https://github.com/huggingface/pytorch-image-models
+
+The internal wrapper implements preprocessing/inference against the published
+model configuration. It does not vendor the reference script or use ONNX.

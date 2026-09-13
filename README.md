@@ -135,7 +135,7 @@ Advanced face restoration using YOLO detection and SAM segmentation before sendi
 
 **Requirement**: Requires [ComfyUI-Impact-Pack](https://github.com/ltdrdata/ComfyUI-Impact-Pack) and [ComfyUI-Impact-Subpack](https://github.com/ltdrdata/ComfyUI-Impact-Subpack) for detectors. BBOX_DETECTOR types are provided by ComfyUI-Impact-Subpack.
 
-**Behavior**: Detects the first face, crops it, resizes the crop so its longest side is 1024 px, runs SAM segmentation, sends the crop to NAI inpaint, then pastes the downscaled inpaint result directly back over the original crop region.
+**Behavior**: Defaults to the first detected region. With `detail_mode=all`, plans all regions from the original image, assigns character prompts when enabled, and inpaints each region sequentially. Results are composited through masks with disjoint ownership where crops overlap. The crop targets a 1024 px longest side before 64 px dimension alignment.
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
@@ -154,14 +154,92 @@ Advanced face restoration using YOLO detection and SAM segmentation before sendi
 | `crop_factor` | FLOAT | Zoom factor around the detected face. |
 | `scheduler` | LIST | Noise scheduler. |
 | `seed` | INT | Random seed (-1 for random). |
-| `segm_detector` | SEGM_DETECTOR (Optional) | Additional detection source, equal layer to `bbox_detector`. Does not disable bbox; when connected its detections add extra SAM input boxes and the resulting masks are unioned. SAM still produces the final mask. |
+| `segm_detector` | SEGM_DETECTOR (Optional) | Additional detection source. Each detection is assigned to one primary region before contributing a SAM input box. SAM still produces the final mask. |
 | `eye_bbox_detector` | BBOX_DETECTOR (Optional) | Additional detector for eye area mask refinement. |
 | `limit_opus_free` | BOOLEAN (Optional) | Cap total pixels to ≤ 1,048,576 and steps to ≤ 28. Applies Opus free-tier limits manually; no account detection or Anlas balance checking. Default: `True`. |
 
-Face Detailer outputs the composited image and a mask visualization. If no face is detected the original image is returned on both outputs. Edited results are autosaved under `NAI_autosave/face` with metadata preserved from the NAI inpaint result.
+Face Detailer outputs the composited image, a mask visualization, and a JSON matching report. The existing first two output socket indices are unchanged. If no face is detected the original image is returned on the first two outputs. Edited results are autosaved under `NAI_autosave/face` with metadata preserved from the NAI inpaint result.
 
 ### 5b. Detailer (`NAIFaceDetailerSegmNode`)
-Same pipeline as NAI Face Detailer, but `segm_detector` is the **required** primary detector (defines the crop region) and `bbox_detector` is **optional** (additive equal-layer source). SAM always produces the final mask. `eye_bbox_detector` and `limit_opus_free` behave identically to the Face Detailer node. Displayed in ComfyUI as **Detailer**.
+Same pipeline as NAI Face Detailer, but `segm_detector` is the **required** primary detector (defines the crop region) and `bbox_detector` is **optional** (additional source assigned to primary regions). SAM always produces the final mask. `eye_bbox_detector` and `limit_opus_free` behave identically to the Face Detailer node. Displayed in ComfyUI as **Detailer**.
+
+### 5c. Automatic character matching (native PyTorch)
+
+Both Detailer nodes accept the original `CharacterPromptSelect` output through
+`characterPrompts`. Connect `NAI WD Tagger Loader (PyTorch)` to `tagger`, select
+`detail_mode=all` and `matching_mode=wd14` to process several characters.
+
+Install the optional dependencies **using the Python environment that runs
+ComfyUI**: `python -m pip install -r requirements-tagger.txt`. Reuse its existing
+PyTorch/torchvision installation. No ONNX package is used. Ordinary generation
+and shared-prompt detailing do not import timm or download a tagger.
+
+The loader provides `device=auto` (ComfyUI's selected device) or `cpu`, and a batch
+size. On the first WD match it downloads WD ViT Tagger v3's safetensors weights,
+config and tag vocabulary from the same pinned revision into
+`ComfyUI/models/rs_wd_tagger`. It caches the CPU model and offloads GPU weights
+back to CPU after tagging. Initial download/model load and CPU inference take
+additional time. The loader does not make a NovelAI request.
+
+**Tagger scores are used only to select a character. They never become positive
+or negative prompt text.** Each request combines the Detailer's user-supplied
+shared/stage prompt with the selected original character prompt verbatim, and
+combines the corresponding original negatives. Character names, franchise names,
+qualifiers and weights remain in that original text even when the tagger does
+not know the character. Only that selected character is sent; full-image
+character coordinates are not reused for a crop.
+
+Keep the Detailer `prompt` input for shared style/detail-stage instructions.
+Keep character identities, their franchise tags and character-specific attributes
+in the original character slots. A single flat prompt containing multiple mixed
+identities is not automatically split or assigned to characters. Tags should use
+Danbooru/NovelAI naming for matching; original strings are preserved for requests.
+
+| Input | Behavior |
+|---|---|
+| `detail_mode` | `first` preserves detector order; `all` numbers valid regions from left to right, then top to bottom. |
+| `matching_mode` | `shared` applies the common prompt (optionally one original character); `wd14` automatically selects among original character slots. Multiple slots require `wd14`. |
+| `match_crop_factor` | Context around each primary bbox for matching; independent of the inpaint `crop_factor`. Default 2.0. |
+| `match_min_score` | Minimum strongest discriminating tag score, default 0.25. This is a heuristic score, not a calibrated identity probability. |
+| `match_min_margin` | Minimum lead over the next character, default 0.08. |
+| `max_regions` | Maximum regions considered for API requests, default 16. Unprocessed regions still retain their mask ownership. |
+| `preview_only` | Show numbered detections and automatic matches, without reading the API token, running SAM, or making NAI requests. WD inference/download can still occur. |
+
+Matching ignores shared attributes and common scene/quality tags, reduces the
+weight of eye color, and uses the strongest distinct evidence without penalizing
+longer original prompts. Ambiguous contextual crops are retried once at a tighter
+factor (up to 1.25). Still-ambiguous regions are skipped with the source pixels
+preserved; there is **no manual mapping input and no forced ordering fallback**.
+Multiple regions can belong to the same character, as with separate eye detections.
+This is not a one-to-one assignment constraint.
+
+For eye refinement, prefer a face detector as the primary detector and an eye
+detector on `eye_bbox_detector`, so identity matching sees the head. Eye-only
+primary boxes are supported but may not contain enough identity evidence even
+after context expansion. Context that includes another character, similar
+identities, and characters absent from the tag vocabulary can remain ambiguous.
+There is no automatic semantic grouping of eye pairs into faces in this version.
+
+The JSON `matching_report` records detection boxes, selected original character
+slot, match score/margin and planned/edited/skipped/empty-mask status. It contains
+no inferred prompt. A final edited PNG preserves the last API response metadata
+and adds `rs_detailer_regions` for the multi-region report. The last response's
+metadata alone is not a full multi-request workflow record.
+
+### Request serialization and pacing
+
+All NAI calls from this extension share a process-local lock. The next request
+starts at least **2 seconds after the previous network attempt completes**, even
+when another node calls the common helper. The first request does not have an
+artificial initial delay and no trailing sleep is added after the last request.
+
+HTTP 429 is retried at most once. A valid numeric or HTTP-date `Retry-After` is
+respected, with a 2-second minimum and a 60-second fallback for invalid/missing
+values; the final 429 also leaves the cooldown in place. Every network attempt
+uses a 10-second connect / 300-second read timeout. Waiting for the lock/cooldown
+is cancellable through ComfyUI. An in-flight synchronous HTTP call finishes or
+times out before cancellation can take effect. This lock cannot coordinate other
+ComfyUI processes, programs, or separately installed extensions.
 
 ### 6. Prompt Converters
 Prompt converter nodes translate weighted prompts between ComfyUI, NovelAI V4, and old NovelAI styles.
@@ -241,7 +319,7 @@ This section summarizes the differences introduced in the `Add_facedetail` branc
 | :--- | :--- |
 | `nai_api.py` | New module housing shared NAI API helpers (request building, response parsing) extracted from `generators.py`. |
 | `image_utils.py` | New module with image manipulation helpers shared by the Face Detailer and generator nodes. |
-| `NAIFaceDetailerNode` | Full face detailer implementation: YOLO detection → SAM segmentation → NAI inpainting → crop-paste composite. Only the first detected face is processed per run. |
+| `NAIFaceDetailerNode` | Full face detailer implementation: YOLO detection → SAM segmentation → NAI inpainting → crop-paste composite. Defaults to the first detected face; `detail_mode=all` enables multiple regions. |
 | Metadata-preserving autosave | Face Detailer results are autosaved with NAI metadata intact (same metadata written by the inpainting call). |
 | `/face` autosave subfolder | Face Detailer autosaves are written to `NAI_autosave/face/` to keep them separate from standard generation outputs. |
 | `n_samples=1` policy | Face Detailer enforces a single sample per NAI API call, matching NAI inpaint constraints. |
@@ -256,7 +334,7 @@ This section summarizes the differences introduced in the `Add_facedetail` branc
 | `docs/converter_playtest_report.md` | Development artifact, not part of the runtime package. |
 | `docs/nai_feature_gap_report.md` | Development artifact, not part of the runtime package. |
 | `scripts/converter_playtest.py` | Development script, not part of the runtime package. |
-| `feather_radius` UI input (Face Detailer) | Unused parameter removed; the crop-paste approach does not apply feathering. |
+| `feather_radius` UI input (Face Detailer) | Unused parameter removed; the current masked composite uses hard mask boundaries, without feathering. |
 | `aiohttp>=3.8.4` dependency | Replaced by `requests>=2.31.0`, which is what the runtime has always used. |
 | NAI Upscaler node | Not present in this branch or `main`; removed prior to this work. |
 | Anlas Tracker node | Not implemented; Anlas balance tracking is out of scope. |
@@ -293,3 +371,14 @@ Copyright (c) 2025 raspie10032
 ## Workflow Examples
 
 Files in `workflow_example/` (`example.json`, `example.png`) are project-provided examples distributed with this project under GPL-3.0-only unless otherwise noted.
+
+## Detailer validation
+
+Run `python -m unittest discover -s tests -v` for deterministic regression tests
+(detectors, SAM and NAI transport are simulated in pipeline tests).
+
+For an optional real-weight CPU smoke after installing tagger dependencies, run
+`python tests/smoke_wd_tagger.py --cache-dir /path/to/model-cache --output /path/to/result.json`.
+This uses the repository screenshot and supplied face-box fixtures, then runs
+real PyTorch tagging and automatic matching, including the tighter-crop retry.
+It does not run live YOLO, SAM, ComfyUI UI execution or NovelAI generation.

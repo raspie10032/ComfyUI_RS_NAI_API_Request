@@ -1,13 +1,18 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (c) 2025 raspie10032
 
-import os
-import requests
-import zipfile
 import io
+import math
+import os
+import threading
 import time
+import zipfile
+from email.utils import parsedate_to_datetime
+
+import requests
 from dotenv import load_dotenv
-from .image_utils import pil_to_tensor, png_bytes_to_pil, tensor_to_pil
+
+from .runtime_control import check_interrupted, wait_until
 
 load_dotenv()
 
@@ -52,27 +57,57 @@ SCHEDULER_LIST = ["native", "karras", "exponential", "polyexponential"]
 OPUS_FREE_MAX_PIXELS = 1024 * 1024
 OPUS_FREE_MAX_STEPS = 28
 
+NAI_REQUEST_TIMEOUT = (10, 300)
+NAI_REQUEST_INTERVAL = 2.0
+_request_lock = threading.Lock()
+_next_request_at = 0.0
+
+
+def _retry_delay(response):
+    value = response.headers.get("Retry-After", "60")
+    try:
+        delay = float(value)
+    except (ValueError, TypeError):
+        try:
+            delay = parsedate_to_datetime(value).timestamp() - time.time()
+        except (ValueError, TypeError, OverflowError):
+            delay = 60.0
+    if not math.isfinite(delay):
+        delay = 60.0
+    return max(NAI_REQUEST_INTERVAL, delay)
+
 def post_nai(token, payload, url=GENERATE_IMAGE_URL):
+    """Serialize all requests, including retries, within this Python process."""
+    global _next_request_at
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
     
+    while not _request_lock.acquire(timeout=0.1):
+        check_interrupted()
     try:
-        response = _session.post(url, headers=headers, json=payload)
-        
-        if response.status_code == 429:
-            print("NAI API: 429 Too Many Requests. Sleeping for 60 seconds...")
-            time.sleep(60)
-            response = _session.post(url, headers=headers, json=payload)
-            
-        response.raise_for_status()
-        return response.content
-    except Exception as e:
-        print(f"NAI API Error: {e}")
-        if hasattr(e, 'response') and e.response is not None:
-            print(f"Response: {e.response.text}")
-        raise e
+        for attempt in range(2):
+            wait_until(_next_request_at)
+            try:
+                response = _session.post(
+                    url, headers=headers, json=payload, timeout=NAI_REQUEST_TIMEOUT
+                )
+            finally:
+                # Failures also count as attempts; no overlapping transport.
+                _next_request_at = time.monotonic() + NAI_REQUEST_INTERVAL
+            if response.status_code == 429:
+                _next_request_at = time.monotonic() + _retry_delay(response)
+                if attempt == 0:
+                    response.close()
+                    continue
+            try:
+                response.raise_for_status()
+                return response.content
+            finally:
+                response.close()
+    finally:
+        _request_lock.release()
 
 def zip_to_png_bytes(zip_bytes):
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zipped:
