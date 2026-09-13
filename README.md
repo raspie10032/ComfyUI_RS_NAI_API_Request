@@ -2,7 +2,15 @@
 
 This extension provides custom nodes for ComfyUI to interact with the **NovelAI API** using a synchronous `requests`-based approach. It allows you to generate images, perform image-to-image, inpainting, and advanced face detailing directly from within ComfyUI.
 
-> Current version: **2.1.1**
+> Current version: **2.2.0**
+
+## What's New in 2.2.0
+
+- Added `detail_mode=all` for sequential detailing of multiple detected regions; existing workflows keep the `first` default.
+- Added automatic matching to original character prompts with the optional native PyTorch WD tagger. Tagger output is used only for matching and never added to generation prompts.
+- Preserved the original API mask grid while compositing each region through its own mask.
+- Serialized NovelAI requests with a minimum two-second delay after each HTTP attempt completes.
+- Validated two-face processing with a real ComfyUI/YOLO/SAM/WD/NovelAI run and 39 regression tests. Exact four-eye detection and reliable expression preservation remain outside the verified coverage.
 
 ## What's New in 2.1.1
 
