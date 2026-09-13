@@ -2,7 +2,12 @@
 
 This extension provides custom nodes for ComfyUI to interact with the **NovelAI API** using a synchronous `requests`-based approach. It allows you to generate images, perform image-to-image, inpainting, and advanced face detailing directly from within ComfyUI.
 
-> Current version: **2.2.0**
+> Current version: **2.2.1**
+
+## What's New in 2.2.1
+
+- Character X/Y inputs now use **0.0–1.0 in 0.1 increments**, rounded to one decimal place and sent directly as normalized coordinates.
+- Default positions are unchanged (for example, the old `3` is now `0.3`). When loading an older workflow, update saved coordinate values to the new range (`5` becomes `0.5`, `10` becomes `1.0`); the old 0–10 input scale is no longer used.
 
 ## What's New in 2.2.0
 
@@ -82,13 +87,13 @@ Main node for text-to-image generation.
 | `limit_opus_free` | BOOLEAN (Optional) | Cap total pixels to ≤ 1,048,576 and steps to ≤ 28. Applies Opus free-tier limits manually; no account detection or Anlas balance checking. Default: `True`. |
 
 ### 2. NAI Character Prompt Select (`CharacterPromptSelect`)
-Defines up to 5 characters with spatial coordinates (0-10 scale) for NAI V4+.
+Defines up to 5 characters with spatial coordinates (0.0–1.0 scale) for NAI V4+.
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
 | `characterX` | STRING | Character specific prompt. |
 | `characterX_uc` | STRING | Character specific negative prompt. |
-| `characterX_x` / `y` | INT | Center coordinates (0-10). |
+| `characterX_x` / `y` | FLOAT | Center coordinates (0.0–1.0, step 0.1, one decimal place). |
 | `characterX_enable`| BOOLEAN| Enable/Disable specific character slot. |
 
 ### 3. NAI Img2Img (`NAIImg2ImgNode`)

@@ -14,20 +14,38 @@ from ComfyUI_RS_NAI_API_Request.nai_api import (
     apply_v4_parameters,
     build_common_parameters,
     build_nai_payload,
+    build_v4_prompt,
     get_nai_token,
 )
 
 
 class CharacterPromptSelectTests(unittest.TestCase):
-    def test_coordinates_map_zero_to_ten_scale_to_unit_float(self):
-        prompt = CharacterPromptSelect().build_character_prompt(
-            character1="character",
-            character1_uc="uc",
-            character1_x=5,
-            character1_y=10,
-        )[0][0]
-
-        self.assertEqual(prompt.center, {"x": 0.5, "y": 1.0})
+    def test_coordinates_keep_unit_scale_and_one_decimal_in_api_prompt(self):
+        node = CharacterPromptSelect()
+        schema = node.INPUT_TYPES()
+        inputs = {**schema["required"], **schema["optional"]}
+        for i in range(1, 6):
+            for axis in ("x", "y"):
+                kind, options = inputs[f"character{i}_{axis}"]
+                self.assertEqual(kind, "FLOAT")
+                self.assertEqual((options["min"], options["max"]), (0.0, 1.0))
+                self.assertEqual((options["step"], options["round"]), (0.1, 0.1))
+            with self.subTest(character=i):
+                prompts = node.build_character_prompt(**{
+                    "character1_enable": False,
+                    f"character{i}_enable": True,
+                    f"character{i}": "character",
+                    f"character{i}_uc": "uc",
+                    f"character{i}_x": 0.34,
+                    f"character{i}_y": 0.76,
+                })[0]
+                parameters = build_v4_prompt("scene", "bad", prompts)
+                for key in ("v4_prompt", "v4_negative_prompt"):
+                    center = parameters[key]["caption"]["char_captions"][0]["centers"][0]
+                    self.assertEqual(center, {"x": 0.3, "y": 0.8})
+        for x, y in ((0.0, 1.0), (-0.1, 1.1)):
+            prompts = node.build_character_prompt(character1_x=x, character1_y=y)[0]
+            self.assertEqual(prompts[0].center, {"x": 0.0, "y": 1.0})
 
 
 class ConverterTests(unittest.TestCase):

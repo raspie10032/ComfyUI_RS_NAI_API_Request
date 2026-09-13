@@ -63,30 +63,30 @@ class CharacterPromptSelect:
             "required": {
                 "character1": ("STRING", {"default": "Input Character 1"}),
                 "character1_uc": ("STRING", {"default": "negative_prompt"}),
-                "character1_x": ("INT", {"default": 3, "min": 0, "max": 10}),
-                "character1_y": ("INT", {"default": 3, "min": 0, "max": 10}),
+                "character1_x": ("FLOAT", {"default": 0.3, "min": 0.0, "max": 1.0, "step": 0.1, "round": 0.1}),
+                "character1_y": ("FLOAT", {"default": 0.3, "min": 0.0, "max": 1.0, "step": 0.1, "round": 0.1}),
             },
             "optional": {
                 "character2_enable": ("BOOLEAN", {"default": True}),
                 "character2": ("STRING", {"default": "Input Character 2"}),
                 "character2_uc": ("STRING", {"default": "negative_prompt"}),
-                "character2_x": ("INT", {"default": 1, "min": 0, "max": 10}),
-                "character2_y": ("INT", {"default": 3, "min": 0, "max": 10}),
+                "character2_x": ("FLOAT", {"default": 0.1, "min": 0.0, "max": 1.0, "step": 0.1, "round": 0.1}),
+                "character2_y": ("FLOAT", {"default": 0.3, "min": 0.0, "max": 1.0, "step": 0.1, "round": 0.1}),
                 "character3_enable": ("BOOLEAN", {"default": False}),
                 "character3": ("STRING", {"default": ""}),
                 "character3_uc": ("STRING", {"default": "negative_prompt"}),
-                "character3_x": ("INT", {"default": 1, "min": 0, "max": 10}),
-                "character3_y": ("INT", {"default": 3, "min": 0, "max": 10}),
+                "character3_x": ("FLOAT", {"default": 0.1, "min": 0.0, "max": 1.0, "step": 0.1, "round": 0.1}),
+                "character3_y": ("FLOAT", {"default": 0.3, "min": 0.0, "max": 1.0, "step": 0.1, "round": 0.1}),
                 "character4_enable": ("BOOLEAN", {"default": False}),
                 "character4": ("STRING", {"default": ""}),
                 "character4_uc": ("STRING", {"default": "negative_prompt"}),
-                "character4_x": ("INT", {"default": 1, "min": 0, "max": 10}),
-                "character4_y": ("INT", {"default": 3, "min": 0, "max": 10}),
+                "character4_x": ("FLOAT", {"default": 0.1, "min": 0.0, "max": 1.0, "step": 0.1, "round": 0.1}),
+                "character4_y": ("FLOAT", {"default": 0.3, "min": 0.0, "max": 1.0, "step": 0.1, "round": 0.1}),
                 "character5_enable": ("BOOLEAN", {"default": False}),
                 "character5": ("STRING", {"default": ""}),
                 "character5_uc": ("STRING", {"default": "negative_prompt"}),
-                "character5_x": ("INT", {"default": 1, "min": 0, "max": 10}),
-                "character5_y": ("INT", {"default": 3, "min": 0, "max": 10}),
+                "character5_x": ("FLOAT", {"default": 0.1, "min": 0.0, "max": 1.0, "step": 0.1, "round": 0.1}),
+                "character5_y": ("FLOAT", {"default": 0.3, "min": 0.0, "max": 1.0, "step": 0.1, "round": 0.1}),
             },
         }
 
@@ -104,8 +104,8 @@ class CharacterPromptSelect:
                 uc = kwargs.get(f"character{i}_uc", "")
                 x_val = kwargs.get(f"character{i}_x", 0)
                 y_val = kwargs.get(f"character{i}_y", 0)
-                x = max(0.0, min(1.0, float(x_val) / 10.0))
-                y = max(0.0, min(1.0, float(y_val) / 10.0))
+                x = round(max(0.0, min(1.0, float(x_val))), 1)
+                y = round(max(0.0, min(1.0, float(y_val))), 1)
                 character_prompts.append(CharacterPrompt(prompt, uc, x, y))
         return (character_prompts,)
 
