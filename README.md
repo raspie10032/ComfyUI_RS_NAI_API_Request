@@ -135,7 +135,7 @@ Advanced face restoration using YOLO detection and SAM segmentation before sendi
 
 **Requirement**: Requires [ComfyUI-Impact-Pack](https://github.com/ltdrdata/ComfyUI-Impact-Pack) and [ComfyUI-Impact-Subpack](https://github.com/ltdrdata/ComfyUI-Impact-Subpack) for detectors. BBOX_DETECTOR types are provided by ComfyUI-Impact-Subpack.
 
-**Behavior**: Defaults to the first detected region. With `detail_mode=all`, plans all regions from the original image, assigns character prompts when enabled, and inpaints each region sequentially. Results are composited through masks with disjoint ownership where crops overlap. The crop targets a 1024 px longest side before 64 px dimension alignment.
+**Behavior**: Defaults to the first detected region. With `detail_mode=all`, plans all regions from the original image, assigns character prompts when enabled, and inpaints each region sequentially. Results are composited through masks with disjoint ownership where crops overlap. The crop targets a 1024 px longest side before 64 px dimension alignment. The API mask retains the original 32 px boxes at an 8 px stride. Region ownership clips whole 8 px cells at request resolution; only the separate composite mask is resized to the source crop. This avoids a mask downscale/upscale round trip that produced visible artifacts during live V5 Full testing.
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |

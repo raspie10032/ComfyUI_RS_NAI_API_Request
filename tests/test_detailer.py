@@ -334,6 +334,16 @@ class PipelineTests(unittest.TestCase):
     def test_two_regions_original_prompts_and_masked_cumulative_composite(self):
         out, mask, report = self.run_detail()
         self.assertEqual(len(self.payloads), 2)
+        for payload in self.payloads:
+            encoded = Image.open(
+                io.BytesIO(base64.b64decode(payload["parameters"]["mask"]))
+            )
+            self.assertEqual(encoded.mode, "L")
+            pixels = np.array(encoded)
+            cells = pixels.reshape(encoded.height // 8, 8, encoded.width // 8, 8)
+            self.assertTrue(
+                np.array_equal(cells.max(axis=(1, 3)), cells.min(axis=(1, 3)))
+            )
         self.assertEqual(
             self.payloads[0]["input"], "eye detail, " + characters()[0].prompt
         )
@@ -421,6 +431,21 @@ class PipelineTests(unittest.TestCase):
         )
         self.assertEqual(len(self.payloads), 1)
         self.assertEqual(json.loads(report)[0]["bbox"], [84, 20, 108, 44])
+
+    def test_single_region_request_preserves_original_grid_without_resampling(self):
+        self.detector.detect.return_value = ((64, 128), [self.segs[1]])
+        from ComfyUI_RS_NAI_API_Request.generators import mask_to_grid_boxes
+
+        raw = np.zeros((768, 1024), dtype=np.uint8)
+        raw[240:528, 256:563] = 255
+        expected = np.array(mask_to_grid_boxes(raw, 1024, 768, 0.3))
+        self.run_detail(matching_mode="shared", characterPrompts=None)
+        actual = np.array(
+            Image.open(
+                io.BytesIO(base64.b64decode(self.payloads[0]["parameters"]["mask"]))
+            )
+        )
+        np.testing.assert_array_equal(actual, expected)
 
     def test_max_regions_limits_requests(self):
         self.run_detail(max_regions=1)

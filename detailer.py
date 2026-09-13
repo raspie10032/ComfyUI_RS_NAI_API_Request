@@ -287,12 +287,32 @@ def run_face_detail(
             report[index]["status"] = "empty_mask"
             continue
         grid_mask = mask_to_grid_boxes(mask_np, nw, nh, threshold)
-        local_mask = grid_mask.resize((cw, ch), Image.Resampling.NEAREST)
+        # Preserve the original 32px boxes / 8px stride at API resolution.
+        # A downscale/upscale round trip breaks that grid and produces corrupt
+        # infill edges on the live API. Clip ownership in whole 8px cells only.
+        centers = [_center(s.bbox) for s in regions]
+        own_x, own_y = centers[index]
+        gy, gx = np.ogrid[: nh // 8, : nw // 8]
+        gx = crx0 + (gx + 0.5) * 8 / sx
+        gy = cry0 + (gy + 0.5) * 8 / sy
+        own_cells = np.ones((nh // 8, nw // 8), dtype=bool)
+        cell_distance = (gx - own_x) ** 2 + (gy - own_y) ** 2
+        for other, (cx, cy) in enumerate(centers):
+            if other != index:
+                distance = (gx - cx) ** 2 + (gy - cy) ** 2
+                own_cells &= (
+                    cell_distance < distance
+                    if other < index
+                    else cell_distance <= distance
+                )
+        owned_pixels = np.repeat(np.repeat(own_cells, 8, axis=0), 8, axis=1)
+        request_mask = Image.fromarray(
+            np.where(owned_pixels, np.array(grid_mask), 0).astype(np.uint8)
+        )
+        local_mask = request_mask.resize((cw, ch), Image.Resampling.NEAREST)
         # Disjoint ownership at original resolution prevents overlapping crops from
         # overwriting another character. Build in crop space to bound memory.
         yy, xx = np.ogrid[cry0:cry1, crx0:crx1]
-        centers = [_center(s.bbox) for s in regions]
-        own_x, own_y = centers[index]
         own_distance = (xx - own_x) ** 2 + (yy - own_y) ** 2
         owns = np.ones((ch, cw), dtype=bool)
         for other, (cx, cy) in enumerate(centers):
@@ -308,7 +328,6 @@ def run_face_detail(
         if not local_array.any():
             report[index]["status"] = "empty_mask"
             continue
-        request_mask = local_mask.resize((nw, nh), Image.Resampling.NEAREST)
         request_prompt, request_negative = selected_prompts(
             prompt, negative_prompt, characters, matches[index]
         )
