@@ -1,6 +1,8 @@
 # ComfyUI_RS_NAI_API_Request
 
-This extension provides custom nodes for ComfyUI to interact with the **NovelAI API** using a synchronous `requests`-based approach. It allows you to generate images, perform image-to-image, inpainting, and advanced face detailing directly from within ComfyUI.
+ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting text-to-image generation, img2img, inpainting, multi-character prompts, and prompt-weight conversion.
+
+The YOLO/SAM detailer can process multiple detected regions sequentially. An optional **PyTorch WD tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads its model automatically on first use after the optional dependencies are installed.
 
 > Current version: **2.2.1**
 
@@ -27,10 +29,12 @@ This extension provides custom nodes for ComfyUI to interact with the **NovelAI 
 
 ## Features
 
-- **NovelAI API Integration**: Image request support for NAI Diffusion V5, V4.5, V4, V3, and more.
-- **Synchronous Requests**: Stable connection using `requests` library.
-- **Multi-Character Support**: Specialized node for spatial multi-character prompting in NAI V4+.
-- **Face Detailer**: Intelligent face detection (YOLO) and segmentation (SAM) combined with NAI inpainting for high-quality face restoration.
+- **NovelAI generation**: Text-to-image, img2img, and inpainting with NAI Diffusion V5, V4.5, V4, V3, and supported Furry models.
+- **Multi-character prompts**: Up to five character slots with separate positive/negative prompts and X/Y coordinates from 0.0 to 1.0 in 0.1 increments.
+- **Multiple-region detailing**: YOLO detection, SAM masks, and sequential NAI inpainting, with masked compositing for overlapping crops. Select `detail_mode=all` to process multiple regions.
+- **Automatic character matching**: An optional native PyTorch WD tagger selects the original character prompt for each region. Unclear matches are retried with a tighter crop and skipped if still ambiguous.
+- **Controlled API requests**: Requests run sequentially, with at least two seconds after each HTTP attempt completes before the next begins.
+- **Prompt-weight conversion**: Utilities for converting prompt-weight syntax between supported local formats and NovelAI.
 
 ## Installation
 
