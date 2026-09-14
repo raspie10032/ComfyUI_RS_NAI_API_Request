@@ -596,6 +596,44 @@ class PipelineTests(unittest.TestCase):
         self.assertLess(tight.width, context.width)
         self.post.assert_not_called()
 
+    def test_precise_reference_is_shared_without_rewriting_region_prompts(self):
+        from ComfyUI_RS_NAI_API_Request.references import NAIPreciseReference
+
+        refs = NAIPreciseReference().build(self.image, reference_type="style")[0]
+        self.run_detail(model="NAI Diffusion V4.5 Full", references=refs)
+        self.assertEqual(len(self.payloads), 2)
+        for payload in self.payloads:
+            self.assertEqual(payload["parameters"]["director_reference_images"], [refs[0].image])
+        self.assertIn("alice", self.payloads[0]["input"])
+        self.assertNotIn("alice", self.payloads[1]["input"])
+
+    def test_reference_preview_does_not_prepare_or_send_reference_requests(self):
+        from ComfyUI_RS_NAI_API_Request.references import NAIPreciseReference
+
+        refs = NAIPreciseReference().build(self.image)[0]
+        with mock.patch.object(detailer, "reference_parameters") as prepare:
+            self.run_detail(model="NAI Diffusion V4.5 Full", references=refs, preview_only=True)
+            prepare.assert_not_called()
+        self.post.assert_not_called()
+
+    def test_strict_mode_blocks_detailer_reference_before_token_or_preparation(self):
+        from ComfyUI_RS_NAI_API_Request.references import NAIPreciseReference
+
+        refs = NAIPreciseReference().build(self.image)[0]
+        with (
+            mock.patch.object(detailer, "get_nai_token") as token,
+            mock.patch.object(detailer, "reference_parameters") as prepare,
+            self.assertRaisesRegex(RuntimeError, "spend Anlas"),
+        ):
+            self.run_detail(
+                model="NAI Diffusion V4.5 Full",
+                references=refs,
+                limit_opus_free=True,
+            )
+        token.assert_not_called()
+        prepare.assert_not_called()
+        self.post.assert_not_called()
+
     def test_first_mode_preserves_original_detector_selection(self):
         _, _, report = self.run_detail(
             detail_mode="first", matching_mode="shared", characterPrompts=None

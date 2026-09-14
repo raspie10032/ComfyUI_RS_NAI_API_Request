@@ -4,7 +4,20 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The YOLO/SAM detailer can process multiple detected regions sequentially. An optional **PyTorch WD tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads its model automatically on first use after the optional dependencies are installed.
 
-> Current version: **2.2.1**
+> Current version: **2.3.1**
+
+## What's New in 2.3.1
+
+- Preserved the Vibe Transfer and Precise Reference inputs while allowing the Face Detailer to use Opus Focused Inpainting in `limit_opus_free` mode.
+- `limit_opus_free` still rejects Vibe and Precise Reference before token access or Vibe encoding, because reference features can add Anlas charges.
+- General img2img and inpainting remain blocked in strict mode; only the detailer's internally produced focused crops receive the narrowly validated exception.
+
+## What's New in 2.3.0
+
+- Added **NAI Vibe Transfer** and **NAI Precise Reference** image-input nodes with per-image settings and optional chaining.
+- Added reference inputs to generation, img2img, inpainting, and detailer nodes, with model/process compatibility checked before requests.
+- V4/V4.5 Vibe encodings are cached locally to avoid paying to encode the same image/settings again. Encoding uses the same serial request queue and two-second interval as generation.
+- V5 does not currently support these features. Select a supported model explicitly; the extension does not change models to enable references.
 
 ## What's New in 2.2.1
 
@@ -29,6 +42,7 @@ The YOLO/SAM detailer can process multiple detected regions sequentially. An opt
 
 ## Features
 
+- **Image references**: Vibe Transfer for supported V3/V4/V4.5 models, plus V4.5 Precise Reference for character and style guidance.
 - **NovelAI generation**: Text-to-image, img2img, and inpainting with NAI Diffusion V5, V4.5, V4, V3, and supported Furry models.
 - **Multi-character prompts**: Up to five character slots with separate positive/negative prompts and X/Y coordinates from 0.0 to 1.0 in 0.1 increments.
 - **Multiple-region detailing**: YOLO detection, SAM masks, and sequential NAI inpainting, with masked compositing for overlapping crops. Select `detail_mode=all` to process multiple regions.
@@ -243,6 +257,31 @@ no inferred prompt. A final edited PNG preserves the last API response metadata
 and adds `rs_detailer_regions` for the multi-region report. The last response's
 metadata alone is not a full multi-request workflow record.
 
+### Vibe Transfer and Precise Reference
+
+Connect `Load Image` to either **NAI Vibe Transfer** or **NAI Precise Reference**, then connect its output to the generator's `vibes` or `references` input. The same inputs are available on img2img, inpainting, and both detailer nodes, subject to the compatibility table below. Leave them disconnected for the existing behavior.
+
+| Feature | Models | Normal generation / img2img | Inpainting / detailing |
+| :--- | :--- | :--- | :--- |
+| Vibe Transfer | V3 | Supported | Supported |
+| Vibe Transfer | V4 / V4.5 | Supported | Not supported |
+| Precise Reference | V4.5 Full / Curated | Supported | Supported |
+| Either feature | V5, legacy Furry | Not supported | Not supported |
+
+Model capabilities follow the [official NovelAI client](https://novelai.net/image). [Precise Reference](https://docs.novelai.net/en/image/precisereference/) is currently incompatible with Vibe Transfer, so connect one feature at a time. Even when V5 Curated inpainting normally falls back to V4.5 internally, reference use requires selecting V4.5 explicitly.
+
+**NAI Vibe Transfer** accepts one image, `strength` (default 0.6), and `information_extracted` (default 1.0). To combine images, connect one Vibe node's output to the next Vibe node's optional `vibes` input, then connect the final output to the generator. Each node retains its own settings; up to 16 references can be chained. `enabled=false` or strength zero omits that node's image. The V4/V4.5 `normalize_vibe_strengths` option scales strengths down when their absolute sum exceeds 1.0.
+
+V3 sends a prepared image directly. V4/V4.5 first call the Vibe encoder and store the returned encoding in `ComfyUI/models/rs_nai_vibes`. Cache keys include image content, model, and information extracted. Changing strength or the generation seed reuses the encoding; changing image/model/extraction settings requires another encoding. Cache data contains no token. If a cache file is damaged, execution reports the file rather than silently paying to encode it again. The cache is shared within this ComfyUI installation; separate processes have separate request locks.
+
+**NAI Precise Reference** accepts one image, `reference_type` (`character`, `style`, or `character&style`), `strength`, and `fidelity` (both default 1.0). Chain nodes through `references` to combine up to 16 images. Images are fitted without stretching to the closest 1024×1536, 1472×1472, or 1536×1024 canvas, with black padding. Finite negative strength/fidelity values supplied through connected inputs are also forwarded; the default widgets cover 0–1.
+
+Precise references are global generation guidance. Multiple character references **blend identities**, rather than mapping each image to a character prompt slot. In a detailer, the connected references apply to every edited region; use a single region when applying one character's reference. This feature is separate from the local WD tagger and does not add tags to text prompts. A detailer's `preview_only` mode does not encode or upload references.
+
+**Costs:** according to the official [Vibe documentation](https://docs.novelai.net/en/image/vibetransfer/), a new V4/V4.5 encoding costs 2 Anlas; each Vibe beyond four adds 2 Anlas per generation. [Precise Reference](https://docs.novelai.net/en/image/precisereference/) adds 5 Anlas per reference per generation. These charges can apply even when base generation qualifies for Opus free generation. For that reason, `limit_opus_free=True` blocks both reference types before token access, Vibe encoding, or generation. Set it to `False` only when you intend to permit those charges, and check NovelAI's current pricing before use.
+
+Validation for this addition: real ComfyUI V3 Vibe generation and inpainting completed, and local payload/cache/regression tests passed. Live V4/V4.5 encoding returned HTTP 402 because the test account had insufficient Anlas. Precise Reference live generation remains unverified for the same balance limitation; neither is presented as a completed live test.
+
 ### Request serialization and pacing
 
 All NAI calls from this extension share a process-local lock. The next request
@@ -305,7 +344,7 @@ All generation nodes (`NovelAIGenerator`, `NAIImg2ImgNode`, `NAIInpaintNode`, `N
 
 **What it does**: For text-to-image, it clamps dimensions and steps, requires an active Opus subscription, and checks NovelAI's V5 allowance immediately before each V5 generation. An unknown response, expired subscription, or V5 allowance below 2% stops the request. V4.5 and older do not need the V5 allowance field. Subscription checks and generation run under one process-local lock, including retries.
 
-Image-to-image and general inpainting use a base image and can cost Anlas even at free-generation dimensions, so they stop before a request when this setting is `True`. Face Detailer is limited to its internally produced Focused Inpainting crops: each request must be smaller than the source image, at most 1,048,576 pixels, at most 28 steps, and exactly one sample. Unsupported payload fields, full-frame crops, and unknown models fail closed. Detailer `preview_only` remains local. Set `limit_opus_free` to `False` only when you intend to allow paid operations or text-to-image outside the free limits. See NovelAI's [Focused Inpainting documentation](https://docs.novelai.net/en/image/inpaint/).
+Image-to-image and general inpainting use a base image and can cost Anlas even at free-generation dimensions, so they stop before a request when this setting is `True`. Vibe and Precise Reference also stop before token access or reference encoding. With no references connected, Face Detailer is limited to its internally produced Focused Inpainting crops: each request must be smaller than the source image, at most 1,048,576 pixels, at most 28 steps, and exactly one sample. Unsupported payload fields, full-frame crops, reference payloads, and unknown models fail closed. Detailer `preview_only` remains local. Set `limit_opus_free` to `False` only when you intend to allow paid operations or text-to-image outside the free limits. See NovelAI's [Focused Inpainting documentation](https://docs.novelai.net/en/image/inpaint/).
 
 This is a conservative preflight, not a billing guarantee: NovelAI may change its pricing or usage accounting, and a separate client or ComfyUI process can consume the same allowance after the check. The check does not read or compare your Anlas balance. See NovelAI's [subscription rules](https://docs.novelai.net/en/subscription/) and [V5 usage FAQ](https://docs.novelai.net/en/faq/).
 
