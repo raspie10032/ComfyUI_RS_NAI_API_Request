@@ -88,7 +88,7 @@ Main node for text-to-image generation.
 | `prefer_brownian` | BOOLEAN (Optional) | Use brownian noise in sampler. |
 | `variety_boost` | BOOLEAN (Optional) | Enable `skip_cfg_above_sigma` for more varied outputs (V4/V4.5). |
 | `characterPrompts` | LIST (Optional) | Per-character prompts from `CharacterPromptSelect` (V4+ only). |
-| `limit_opus_free` | BOOLEAN (Optional) | Cap total pixels to ≤ 1,048,576 and steps to ≤ 28. Applies Opus free-tier limits manually; no account detection or Anlas balance checking. Default: `True`. |
+| `limit_opus_free` | BOOLEAN (Optional) | Require an active Opus subscription and Anlas-free text generation conditions; check V5 allowance before each request. Default: `True`. |
 
 ### 2. NAI Character Prompt Select (`CharacterPromptSelect`)
 Defines up to 5 characters with spatial coordinates (0.0–1.0 scale) for NAI V4+.
@@ -120,7 +120,7 @@ Performs image-to-image generation.
 | `noise` | FLOAT (Optional) | Extra noise added before sampling (0.0–1.0). |
 | `variety_boost` | BOOLEAN (Optional) | Enable `skip_cfg_above_sigma` for more varied outputs (V4/V4.5). |
 | `characterPrompts` | LIST (Optional) | Per-character prompts from `CharacterPromptSelect` (V4+ only). |
-| `limit_opus_free` | BOOLEAN (Optional) | Cap total pixels to ≤ 1,048,576 and steps to ≤ 28. Applies Opus free-tier limits manually; no account detection or Anlas balance checking. Default: `True`. |
+| `limit_opus_free` | BOOLEAN (Optional) | Blocks img2img while `True`, because a base image can cost Anlas. Set `False` to allow the paid request. Default: `True`. |
 
 ### 4. NAI Inpaint (`NAIInpaintNode`)
 Specialized node for inpainting. Automatically snaps dimensions to 64px.
@@ -145,7 +145,7 @@ V5 Full uses its native V5 inpainting model. Until NovelAI releases V5 Curated i
 | `noise` | FLOAT (Optional) | Extra noise added before sampling (0.0–1.0). |
 | `variety_boost` | BOOLEAN (Optional) | Enable `skip_cfg_above_sigma` for more varied outputs (V4/V4.5). |
 | `characterPrompts` | LIST (Optional) | Per-character prompts from `CharacterPromptSelect` (V4+ only). |
-| `limit_opus_free` | BOOLEAN (Optional) | Cap total pixels to ≤ 1,048,576 and steps to ≤ 28. Applies Opus free-tier limits manually; no account detection or Anlas balance checking. Default: `True`. |
+| `limit_opus_free` | BOOLEAN (Optional) | Blocks inpainting while `True`, including V5 Curated's V4.5 fallback, because a base image can cost Anlas. Set `False` to allow the paid request. Default: `True`. |
 
 ### 5. NAI Face Detailer (`NAIFaceDetailerNode`)
 Advanced face restoration using YOLO detection and SAM segmentation before sending to NAI API.
@@ -173,7 +173,7 @@ Advanced face restoration using YOLO detection and SAM segmentation before sendi
 | `seed` | INT | Random seed (-1 for random). |
 | `segm_detector` | SEGM_DETECTOR (Optional) | Additional detection source. Each detection is assigned to one primary region before contributing a SAM input box. SAM still produces the final mask. |
 | `eye_bbox_detector` | BBOX_DETECTOR (Optional) | Additional detector for eye area mask refinement. |
-| `limit_opus_free` | BOOLEAN (Optional) | Cap total pixels to ≤ 1,048,576 and steps to ≤ 28. Applies Opus free-tier limits manually; no account detection or Anlas balance checking. Default: `True`. |
+| `limit_opus_free` | BOOLEAN (Optional) | Blocks detailer inpainting while `True`; preview-only detection remains available. Set `False` to allow paid edits. Default: `True`. |
 
 Face Detailer outputs the composited image, a mask visualization, and a JSON matching report. The existing first two output socket indices are unchanged. If no face is detected the original image is returned on the first two outputs. Edited results are autosaved under `NAI_autosave/face` with metadata preserved from the NAI inpaint result.
 
@@ -303,14 +303,11 @@ All generation nodes (`NovelAIGenerator`, `NAIImg2ImgNode`, `NAIInpaintNode`, `N
 | Pixel cap | Total pixels ≤ 1,048,576 (e.g., 1024 × 1024) — width and height are scaled down proportionally if the product exceeds this limit |
 | Step cap | Steps ≤ 28 |
 
-**What it does**: When enabled, the node clamps the request dimensions and step count to the conditions allowed under the NovelAI Opus free-generation tier, following the same approach as [bedovyy/ComfyUI_NAIDGenerator](https://github.com/bedovyy/ComfyUI_NAIDGenerator).
+**What it does**: For text-to-image, it clamps dimensions and steps, requires an active Opus subscription, and checks NovelAI's V5 allowance immediately before each V5 generation. An unknown response, expired subscription, or V5 allowance below 2% stops the request. V4.5 and older do not need the V5 allowance field. Subscription checks and generation run under one process-local lock, including retries.
 
-**What it does NOT do**:
-- It does **not** auto-detect your account subscription tier.
-- It does **not** check your Anlas balance or block requests when balance is insufficient. The NovelAI API itself will reject any request that cannot be fulfilled.
-- An Anlas Tracker node is **not** included in this extension.
+Image-to-image, inpainting, and Detailer edits use a base image and can cost Anlas even at free-generation dimensions. They stop before a request when this setting is `True`. Detailer `preview_only` still works. Set `limit_opus_free` to `False` only when you intend to allow these paid operations or text-to-image outside the free limits.
 
-Set `limit_opus_free` to `False` if you have a paid subscription and want to generate at larger sizes or higher step counts.
+This is a conservative preflight, not a billing guarantee: NovelAI may change its pricing or usage accounting, and a separate client or ComfyUI process can consume the same allowance after the check. The check does not read or compare your Anlas balance. See NovelAI's [subscription rules](https://docs.novelai.net/en/subscription/) and [V5 usage FAQ](https://docs.novelai.net/en/faq/).
 
 ## Screenshots
 
@@ -341,7 +338,7 @@ This section summarizes the differences introduced in the `Add_facedetail` branc
 | `/face` autosave subfolder | Face Detailer autosaves are written to `NAI_autosave/face/` to keep them separate from standard generation outputs. |
 | `n_samples=1` policy | Face Detailer enforces a single sample per NAI API call, matching NAI inpaint constraints. |
 | `segment-anything>=1.0` | SAM added as an explicit runtime dependency in `requirements.txt` and `pyproject.toml`. |
-| `limit_opus_free` parameter | Manual toggle (default `True`) on all generation nodes that caps total pixels to ≤ 1,048,576 and steps to ≤ 28, matching Opus free-tier generation limits. No account detection or Anlas balance checking. |
+| `limit_opus_free` parameter | Default-on conservative free-generation preflight for text-to-image; blocks image-based paid actions. |
 
 ### Removed / Pruned
 

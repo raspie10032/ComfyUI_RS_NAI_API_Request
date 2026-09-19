@@ -104,6 +104,9 @@ def run_face_detail(
 ):
     from .generators import NovelAIGenerator, mask_to_grid_boxes
 
+    if limit_opus_free and not preview_only:
+        raise RuntimeError("limit_opus_free blocks face detailing because inpainting can spend Anlas. Set it to False to allow paid requests.")
+
     if detail_mode not in {"first", "all"} or matching_mode not in {"shared", "wd14"}:
         raise ValueError("Unknown detail or matching mode.")
     characters = list(characterPrompts or [])
@@ -361,7 +364,7 @@ def run_face_detail(
             request_prompt, model_id, "infill", parameters, inpainting=True
         )
         check_interrupted()
-        result = png_bytes_to_pil(zip_to_png_bytes(post_nai(token, payload)))
+        result = png_bytes_to_pil(zip_to_png_bytes(post_nai(token, payload, limit_opus_free=limit_opus_free)))
         if result.size != (nw, nh):
             raise ValueError("NAI returned an unexpected detail crop size.")
         out.paste(

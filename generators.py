@@ -180,7 +180,7 @@ class NovelAIGenerator:
         apply_v4_parameters(parameters, model_id, prompt, negative_prompt, characterPrompts)
         payload = build_nai_payload(prompt, model_id, "generate", parameters)
 
-        result_bytes = post_nai(token, payload)
+        result_bytes = post_nai(token, payload, limit_opus_free=limit_opus_free)
         png_bytes = zip_to_png_bytes(result_bytes)
         pil_img = png_bytes_to_pil(png_bytes)
 
@@ -227,6 +227,8 @@ class NAIImg2ImgNode:
     def generate(self, image, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, strength, seed,
                  scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None,
                  limit_opus_free=True):
+        if limit_opus_free:
+            raise RuntimeError("limit_opus_free blocks image-to-image because it can spend Anlas. Set it to False to allow paid requests.")
         token = get_nai_token()
         model_id = get_model_id(model)
 
@@ -250,7 +252,7 @@ class NAIImg2ImgNode:
         apply_v4_parameters(parameters, model_id, prompt, negative_prompt, characterPrompts)
         payload = build_nai_payload(prompt, model_id, "img2img", parameters)
 
-        result_bytes = post_nai(token, payload)
+        result_bytes = post_nai(token, payload, limit_opus_free=limit_opus_free)
         png_bytes = zip_to_png_bytes(result_bytes)
         result_pil = png_bytes_to_pil(png_bytes)
 
@@ -297,6 +299,8 @@ class NAIInpaintNode:
 
     def generate(self, image, mask, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, strength, seed,
                  scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None, limit_opus_free=True):
+        if limit_opus_free:
+            raise RuntimeError("limit_opus_free blocks inpainting because it can spend Anlas. Set it to False to allow paid requests.")
         token = get_nai_token()
         model_id = get_model_id(model)
 
@@ -333,7 +337,7 @@ class NAIInpaintNode:
         apply_v4_parameters(parameters, model_id, prompt, negative_prompt, characterPrompts)
         payload = build_nai_payload(prompt, model_id, "infill", parameters, inpainting=True)
 
-        result_bytes = post_nai(token, payload)
+        result_bytes = post_nai(token, payload, limit_opus_free=limit_opus_free)
         png_bytes = zip_to_png_bytes(result_bytes)
         result_pil = png_bytes_to_pil(png_bytes)
 

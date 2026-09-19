@@ -27,6 +27,8 @@ from ComfyUI_RS_NAI_API_Request.generators import (
     CharacterPrompt,
     NAIFaceDetailerNode,
     NAIFaceDetailerSegmNode,
+    NAIImg2ImgNode,
+    NAIInpaintNode,
     NovelAIGenerator,
 )
 from ComfyUI_RS_NAI_API_Request.wd_tagger import WDTagger
@@ -141,6 +143,101 @@ class RequestTests(unittest.TestCase):
         if retry is not None:
             response.headers["Retry-After"] = retry
         return response
+
+    def subscription(self, *, tier=3, active=True, usage=None):
+        response = self.response()
+        response._content = json.dumps({
+            "tier": tier,
+            "active": active,
+            **({"usage": usage} if usage is not None else {}),
+        }).encode()
+        return response
+
+    def free_payload(self, model="nai-diffusion-5-full"):
+        return {
+            "action": "generate",
+            "model": model,
+            "parameters": {"width": 832, "height": 1216, "steps": 28, "n_samples": 1},
+        }
+
+    def test_v5_subscription_check_and_post_share_the_request_lock(self):
+        calls = []
+
+        def get(*args, **kwargs):
+            self.assertTrue(nai_api._request_lock.locked())
+            self.assertEqual(kwargs["timeout"], (10, 30))
+            calls.append("subscription")
+            return self.subscription(usage={"percent": 2, "isNegative": False})
+
+        def post(*args, **kwargs):
+            self.assertTrue(nai_api._request_lock.locked())
+            calls.append("generation")
+            return self.response()
+
+        with (
+            mock.patch.object(nai_api._session, "get", side_effect=get),
+            mock.patch.object(nai_api._session, "post", side_effect=post),
+        ):
+            self.assertEqual(nai_api.post_nai("test", self.free_payload(), limit_opus_free=True), b"png")
+        self.assertEqual(calls, ["subscription", "generation"])
+
+    def test_v45_requires_active_opus_but_not_v5_usage(self):
+        with (
+            mock.patch.object(nai_api._session, "get", return_value=self.subscription()) as get,
+            mock.patch.object(nai_api._session, "post", return_value=self.response()) as post,
+        ):
+            nai_api.post_nai("test", self.free_payload("nai-diffusion-4-5-full"), limit_opus_free=True)
+        get.assert_called_once()
+        post.assert_called_once()
+
+    def test_paid_actions_and_reference_images_stop_before_network(self):
+        cases = [
+            {**self.free_payload(), "action": "img2img"},
+            {**self.free_payload("nai-diffusion-4-5-curated"), "action": "infill"},
+            {**self.free_payload(), "parameters": {**self.free_payload()["parameters"], "reference_image_multiple": ["encoded"]}},
+        ]
+        with (
+            mock.patch.object(nai_api._session, "get") as get,
+            mock.patch.object(nai_api._session, "post") as post,
+        ):
+            for payload in cases:
+                with self.subTest(action=payload["action"]), self.assertRaises(RuntimeError):
+                    nai_api.post_nai("test", payload, limit_opus_free=True)
+        get.assert_not_called()
+        post.assert_not_called()
+
+    def test_unverifiable_opus_or_v5_usage_stops_before_post(self):
+        states = [
+            self.subscription(tier=2, usage={"percent": 100, "isNegative": False}),
+            self.subscription(active=False, usage={"percent": 100, "isNegative": False}),
+            self.subscription(),
+            self.subscription(usage={"percent": 1, "isNegative": False}),
+            self.subscription(usage={"percent": 100, "isNegative": True}),
+            self.subscription(usage={"percent": "100", "isNegative": False}),
+        ]
+        for response in states:
+            with (
+                self.subTest(state=response.content),
+                mock.patch.object(nai_api._session, "get", return_value=response),
+                mock.patch.object(nai_api._session, "post") as post,
+            ):
+                with self.assertRaises(RuntimeError):
+                    nai_api.post_nai("test", self.free_payload(), limit_opus_free=True)
+                post.assert_not_called()
+
+    def test_retry_rechecks_allowance_before_second_post(self):
+        with (
+            mock.patch.object(nai_api._session, "get", side_effect=[
+                self.subscription(usage={"percent": 2, "isNegative": False}),
+                self.subscription(usage={"percent": 0, "isNegative": False}),
+            ]) as get,
+            mock.patch.object(nai_api._session, "post", return_value=self.response(429, "0")) as post,
+            mock.patch.object(nai_api, "wait_until"),
+        ):
+            with self.assertRaises(RuntimeError):
+                nai_api.post_nai("test", self.free_payload(), limit_opus_free=True)
+        self.assertEqual(get.call_count, 2)
+        post.assert_called_once()
 
     def test_two_second_gap_is_from_completion_not_start(self):
         now = [100.0]
@@ -287,7 +384,7 @@ class PipelineTests(unittest.TestCase):
             detailer, "post_nai", side_effect=self.fake_post
         ).start()
 
-    def fake_post(self, token, payload):
+    def fake_post(self, token, payload, **kwargs):
         self.payloads.append(payload)
         p = payload["parameters"]
         color = "red" if "alice" in payload["input"] else "blue"
@@ -319,6 +416,7 @@ class PipelineTests(unittest.TestCase):
             scheduler="karras",
             seed=123,
             detail_mode="all",
+            limit_opus_free=False,
             matching_mode="wd14",
             characterPrompts=characters(),
             tagger=SimpleNamespace(
@@ -479,6 +577,17 @@ class PipelineTests(unittest.TestCase):
             options = cls.INPUT_TYPES()["optional"]
             self.assertNotIn("manual_mapping", options)
             self.assertNotIn("manual", options["matching_mode"][0])
+
+    def test_strict_mode_blocks_paid_nodes_before_any_request(self):
+        with self.assertRaisesRegex(RuntimeError, "spend Anlas"):
+            self.run_detail(limit_opus_free=True)
+        self.post.assert_not_called()
+        with mock.patch("ComfyUI_RS_NAI_API_Request.generators.get_nai_token") as token:
+            with self.assertRaisesRegex(RuntimeError, "spend Anlas"):
+                NAIImg2ImgNode().generate(None, "p", "n", "NAI Diffusion V5 Full", 832, 1216, "k_euler", 28, 5, 0.5, 1)
+            with self.assertRaisesRegex(RuntimeError, "spend Anlas"):
+                NAIInpaintNode().generate(None, None, "p", "n", "NAI Diffusion V5 Curated", 832, 1216, "k_euler", 28, 5, 0.5, 1)
+            token.assert_not_called()
 
     def test_missing_tagger_fails_before_any_request(self):
         with self.assertRaises(ValueError):
