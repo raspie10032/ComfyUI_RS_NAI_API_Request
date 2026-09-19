@@ -19,6 +19,7 @@ load_dotenv()
 _session = requests.Session()
 
 GENERATE_IMAGE_URL = "https://image.novelai.net/ai/generate-image"
+SUBSCRIPTION_URL = "https://image.novelai.net/user/subscription"
 
 MODEL_DISPLAY_LIST = [
     "NAI Diffusion V5 Curated",
@@ -56,8 +57,17 @@ SCHEDULER_LIST = ["native", "karras", "exponential", "polyexponential"]
 
 OPUS_FREE_MAX_PIXELS = 1024 * 1024
 OPUS_FREE_MAX_STEPS = 28
+OPUS_V5_MIN_REMAINING_PERCENT = 2
+OPUS_FREE_PARAMETER_KEYS = {
+    "width", "height", "n_samples", "seed", "extra_noise_seed", "sampler",
+    "steps", "scale", "negative_prompt", "cfg_rescale", "prefer_brownian",
+    "noise_schedule", "params_version", "legacy", "legacy_v3_extend",
+    "skip_cfg_above_sigma", "add_original_image", "legacy_uc", "v4_prompt",
+    "v4_negative_prompt",
+}
 
 NAI_REQUEST_TIMEOUT = (10, 300)
+NAI_SUBSCRIPTION_TIMEOUT = (10, 30)
 NAI_REQUEST_INTERVAL = 2.0
 _request_lock = threading.Lock()
 _next_request_at = 0.0
@@ -76,9 +86,78 @@ def _retry_delay(response):
         delay = 60.0
     return max(NAI_REQUEST_INTERVAL, delay)
 
-def post_nai(token, payload, url=GENERATE_IMAGE_URL):
-    """Serialize all requests, including retries, within this Python process."""
+def validate_opus_free_request(payload):
+    """Reject requests that cannot qualify for Opus's Anlas-free generation."""
+    if payload.get("model") not in MODEL_ID_MAP.values():
+        raise RuntimeError("limit_opus_free cannot verify this model; request stopped.")
+    if payload.get("action") != "generate":
+        raise RuntimeError(
+            "limit_opus_free blocks image-to-image and inpainting because they can spend Anlas. "
+            "Set it to False to allow paid requests."
+        )
+    parameters = payload.get("parameters")
+    if not isinstance(parameters, dict) or parameters.keys() - OPUS_FREE_PARAMETER_KEYS:
+        raise RuntimeError(
+            "limit_opus_free blocks base and reference images because they can spend Anlas. "
+            "Set it to False to allow paid requests."
+        )
+    width = parameters.get("width")
+    height = parameters.get("height")
+    steps = parameters.get("steps")
+    if (
+        type(width) is not int or type(height) is not int or type(steps) is not int
+        or width <= 0 or height <= 0 or width * height > OPUS_FREE_MAX_PIXELS
+        or steps < 1 or steps > OPUS_FREE_MAX_STEPS
+        or type(parameters.get("n_samples")) is not int or parameters["n_samples"] != 1
+    ):
+        raise RuntimeError(
+            "limit_opus_free requires one image, at most 1024x1024 pixels and 28 steps."
+        )
+
+
+def _verify_opus_subscription(token, model_id):
+    """Fail closed on missing or uncertain subscription/usage state."""
+    try:
+        response = _session.get(
+            SUBSCRIPTION_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=NAI_SUBSCRIPTION_TIMEOUT,
+        )
+        try:
+            response.raise_for_status()
+            state = response.json()
+        finally:
+            response.close()
+    except (requests.RequestException, ValueError) as exc:
+        raise RuntimeError("Could not verify Opus free-generation eligibility; request stopped.") from exc
+
+    if (
+        not isinstance(state, dict)
+        or state.get("active") is not True
+        or type(state.get("tier")) is not int
+        or state["tier"] != 3
+    ):
+        raise RuntimeError("An active Opus subscription could not be verified; request stopped.")
+    if model_id.startswith("nai-diffusion-5"):
+        usage = state.get("usage")
+        if (
+            not isinstance(usage, dict)
+            or usage.get("isNegative") is not False
+            or type(usage.get("percent")) is not int
+            or usage["percent"] < OPUS_V5_MIN_REMAINING_PERCENT
+        ):
+            raise RuntimeError(
+                "V5 Opus free allowance is low or unverifiable; request stopped before generation."
+            )
+
+
+def post_nai(token, payload, url=GENERATE_IMAGE_URL, limit_opus_free=False):
+    """Serialize subscription preflight, generation and retries within this process."""
     global _next_request_at
+    if limit_opus_free:
+        if url != GENERATE_IMAGE_URL or not isinstance(payload, dict):
+            raise RuntimeError("limit_opus_free cannot verify this NovelAI request; request stopped.")
+        validate_opus_free_request(payload)
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
@@ -89,6 +168,9 @@ def post_nai(token, payload, url=GENERATE_IMAGE_URL):
     try:
         for attempt in range(2):
             wait_until(_next_request_at)
+            if limit_opus_free:
+                _verify_opus_subscription(token, payload.get("model", ""))
+                check_interrupted()
             try:
                 response = _session.post(
                     url, headers=headers, json=payload, timeout=NAI_REQUEST_TIMEOUT
