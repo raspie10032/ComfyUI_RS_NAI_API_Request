@@ -173,7 +173,7 @@ Advanced face restoration using YOLO detection and SAM segmentation before sendi
 | `seed` | INT | Random seed (-1 for random). |
 | `segm_detector` | SEGM_DETECTOR (Optional) | Additional detection source. Each detection is assigned to one primary region before contributing a SAM input box. SAM still produces the final mask. |
 | `eye_bbox_detector` | BBOX_DETECTOR (Optional) | Additional detector for eye area mask refinement. |
-| `limit_opus_free` | BOOLEAN (Optional) | Blocks detailer inpainting while `True`; preview-only detection remains available. Set `False` to allow paid edits. Default: `True`. |
+| `limit_opus_free` | BOOLEAN (Optional) | Allows only verified Opus Focused Inpainting crops while `True`; full-frame crops stop before token access or transport. Set `False` to allow other paid edits. Default: `True`. |
 
 Face Detailer outputs the composited image, a mask visualization, and a JSON matching report. The existing first two output socket indices are unchanged. If no face is detected the original image is returned on the first two outputs. Edited results are autosaved under `NAI_autosave/face` with metadata preserved from the NAI inpaint result.
 
@@ -305,7 +305,7 @@ All generation nodes (`NovelAIGenerator`, `NAIImg2ImgNode`, `NAIInpaintNode`, `N
 
 **What it does**: For text-to-image, it clamps dimensions and steps, requires an active Opus subscription, and checks NovelAI's V5 allowance immediately before each V5 generation. An unknown response, expired subscription, or V5 allowance below 2% stops the request. V4.5 and older do not need the V5 allowance field. Subscription checks and generation run under one process-local lock, including retries.
 
-Image-to-image, inpainting, and Detailer edits use a base image and can cost Anlas even at free-generation dimensions. They stop before a request when this setting is `True`. Detailer `preview_only` still works. Set `limit_opus_free` to `False` only when you intend to allow these paid operations or text-to-image outside the free limits.
+Image-to-image and general inpainting use a base image and can cost Anlas even at free-generation dimensions, so they stop before a request when this setting is `True`. Face Detailer is limited to its internally produced Focused Inpainting crops: each request must be smaller than the source image, at most 1,048,576 pixels, at most 28 steps, and exactly one sample. Unsupported payload fields, full-frame crops, and unknown models fail closed. Detailer `preview_only` remains local. Set `limit_opus_free` to `False` only when you intend to allow paid operations or text-to-image outside the free limits. See NovelAI's [Focused Inpainting documentation](https://docs.novelai.net/en/image/inpaint/).
 
 This is a conservative preflight, not a billing guarantee: NovelAI may change its pricing or usage accounting, and a separate client or ComfyUI process can consume the same allowance after the check. The check does not read or compare your Anlas balance. See NovelAI's [subscription rules](https://docs.novelai.net/en/subscription/) and [V5 usage FAQ](https://docs.novelai.net/en/faq/).
 
@@ -338,7 +338,7 @@ This section summarizes the differences introduced in the `Add_facedetail` branc
 | `/face` autosave subfolder | Face Detailer autosaves are written to `NAI_autosave/face/` to keep them separate from standard generation outputs. |
 | `n_samples=1` policy | Face Detailer enforces a single sample per NAI API call, matching NAI inpaint constraints. |
 | `segment-anything>=1.0` | SAM added as an explicit runtime dependency in `requirements.txt` and `pyproject.toml`. |
-| `limit_opus_free` parameter | Default-on conservative free-generation preflight for text-to-image; blocks image-based paid actions. |
+| `limit_opus_free` parameter | Default-on conservative preflight for text-to-image and Face Detailer Focused Inpainting; blocks other image-based paid actions. |
 
 ### Removed / Pruned
 

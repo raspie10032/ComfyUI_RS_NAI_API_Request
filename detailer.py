@@ -104,9 +104,6 @@ def run_face_detail(
 ):
     from .generators import NovelAIGenerator, mask_to_grid_boxes
 
-    if limit_opus_free and not preview_only:
-        raise RuntimeError("limit_opus_free blocks face detailing because inpainting can spend Anlas. Set it to False to allow paid requests.")
-
     if detail_mode not in {"first", "all"} or matching_mode not in {"shared", "wd14"}:
         raise ValueError("Unknown detail or matching mode.")
     characters = list(characterPrompts or [])
@@ -222,6 +219,15 @@ def run_face_detail(
         )
     if not any(r["status"] == "planned" for r in report):
         return image, pil_to_tensor(Image.new("RGB", source.size)), json.dumps(report)
+
+    if limit_opus_free:
+        for index, item in enumerate(report[:active_count]):
+            if item["status"] != "planned":
+                continue
+            if _crop_box(regions[index].crop_region, w, h) == (0, 0, w, h):
+                raise RuntimeError(
+                    "limit_opus_free requires a focused crop smaller than the source image."
+                )
 
     token = get_nai_token()
     model_id = get_model_id(model)
@@ -364,7 +370,12 @@ def run_face_detail(
             request_prompt, model_id, "infill", parameters, inpainting=True
         )
         check_interrupted()
-        result = png_bytes_to_pil(zip_to_png_bytes(post_nai(token, payload, limit_opus_free=limit_opus_free)))
+        result = png_bytes_to_pil(zip_to_png_bytes(post_nai(
+            token,
+            payload,
+            limit_opus_free=limit_opus_free,
+            allow_opus_focused_inpaint=limit_opus_free,
+        )))
         if result.size != (nw, nh):
             raise ValueError("NAI returned an unexpected detail crop size.")
         out.paste(
