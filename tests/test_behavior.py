@@ -9,6 +9,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from ComfyUI_RS_NAI_API_Request.converters import parse_comfyui
 from ComfyUI_RS_NAI_API_Request.generators import CharacterPromptSelect
 from ComfyUI_RS_NAI_API_Request.nai_api import (
+    MEDIUM_EFFORT_SAMPLER,
+    MEDIUM_EFFORT_STEPS,
+    MEDIUM_EFFORT_UNDESIRED_CONTENT,
     MODEL_DISPLAY_LIST,
     MODEL_ID_MAP,
     apply_v4_parameters,
@@ -58,9 +61,64 @@ class ConverterTests(unittest.TestCase):
 
 class NaiApiTests(unittest.TestCase):
     def test_v5_models_are_exposed_with_api_ids(self):
-        self.assertEqual(MODEL_DISPLAY_LIST[:2], ["NAI Diffusion V5 Curated", "NAI Diffusion V5 Full"])
+        self.assertEqual(MODEL_DISPLAY_LIST[:3], [
+            "NAI Diffusion V5 Curated",
+            "NAI Diffusion V5 Full",
+            "NAI Diffusion V5 Full — Medium Effort",
+        ])
         self.assertEqual(MODEL_ID_MAP["NAI Diffusion V5 Curated"], "nai-diffusion-5-curated")
         self.assertEqual(MODEL_ID_MAP["NAI Diffusion V5 Full"], "nai-diffusion-5-full")
+        self.assertEqual(
+            MODEL_ID_MAP["NAI Diffusion V5 Full — Medium Effort"],
+            "nai-diffusion-5-full-medium",
+        )
+
+    def test_medium_effort_pins_settings_and_removes_custom_uc(self):
+        character = CharacterPromptSelect().build_character_prompt(
+            character1="girl", character1_uc="hat", character1_x=0.3, character1_y=0.5
+        )[0]
+        parameters = build_common_parameters(
+            832, 1216, 123, "k_dpmpp_2m", 28, 6.0, "custom bad",
+            cfg_rescale=0.4,
+            model_id="nai-diffusion-5-full-medium",
+        )
+        apply_v4_parameters(
+            parameters,
+            "nai-diffusion-5-full-medium",
+            "1girl",
+            "custom bad",
+            character,
+        )
+
+        fixed_uc = f"nsfw, {MEDIUM_EFFORT_UNDESIRED_CONTENT}"
+        self.assertEqual(parameters["steps"], MEDIUM_EFFORT_STEPS)
+        self.assertEqual(parameters["sampler"], MEDIUM_EFFORT_SAMPLER)
+        self.assertEqual(parameters["cfg_rescale"], 0.0)
+        self.assertEqual(parameters["negative_prompt"], fixed_uc)
+        self.assertEqual(parameters["v4_negative_prompt"]["caption"]["base_caption"], fixed_uc)
+        self.assertEqual(
+            parameters["v4_negative_prompt"]["caption"]["char_captions"][0]["char_caption"],
+            "",
+        )
+        self.assertEqual(
+            parameters["v4_prompt"]["caption"]["char_captions"][0]["char_caption"],
+            "girl",
+        )
+
+    def test_medium_effort_model_ids_cover_all_image_modes(self):
+        normal = build_nai_payload(
+            "prompt", "nai-diffusion-5-full-medium", "generate", {}
+        )
+        inpaint = build_nai_payload(
+            "prompt", "nai-diffusion-5-full-medium", "infill", {}, inpainting=True
+        )
+        img2img = build_nai_payload(
+            "prompt", "nai-diffusion-5-full-medium", "img2img", {}
+        )
+
+        self.assertEqual(normal["model"], "nai-diffusion-5-full-medium")
+        self.assertEqual(inpaint["model"], "nai-diffusion-5-full-medium-inpainting")
+        self.assertEqual(img2img["model"], "nai-diffusion-5-full-medium")
 
     def test_v5_uses_v4_prompt_shape_and_params_version_four(self):
         parameters = build_common_parameters(

@@ -24,6 +24,7 @@ SUBSCRIPTION_URL = "https://image.novelai.net/user/subscription"
 MODEL_DISPLAY_LIST = [
     "NAI Diffusion V5 Curated",
     "NAI Diffusion V5 Full",
+    "NAI Diffusion V5 Full — Medium Effort",
     "NAI Diffusion V4.5 Curated",
     "NAI Diffusion V4.5 Full",
     "NAI Diffusion V4 Full",
@@ -35,6 +36,7 @@ MODEL_DISPLAY_LIST = [
 MODEL_ID_MAP = {
     "NAI Diffusion V5 Curated": "nai-diffusion-5-curated",
     "NAI Diffusion V5 Full": "nai-diffusion-5-full",
+    "NAI Diffusion V5 Full — Medium Effort": "nai-diffusion-5-full-medium",
     "NAI Diffusion V4.5 Curated": "nai-diffusion-4-5-curated",
     "NAI Diffusion V4.5 Full": "nai-diffusion-4-5-full",
     "NAI Diffusion V4 Full": "nai-diffusion-4-full",
@@ -43,9 +45,20 @@ MODEL_ID_MAP = {
     "NAI Diffusion Furry V3": "nai-diffusion-furry-3"
 }
 
+V5_FULL_MEDIUM_MODEL_ID = "nai-diffusion-5-full-medium"
+V5_FULL_MEDIUM_INPAINT_MODEL_ID = "nai-diffusion-5-full-medium-inpainting"
+MEDIUM_EFFORT_STEPS = 14
+MEDIUM_EFFORT_SAMPLER = "k_euler_ancestral"
+MEDIUM_EFFORT_UNDESIRED_CONTENT = (
+    "lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, "
+    "jpeg artifacts, very displeasing, chromatic aberration, dithering, halftone, "
+    "screentone, multiple views, logo, too many watermarks, negative space, blank page"
+)
+
 INPAINT_MODEL_ID_OVERRIDES = {
     # V5 Curated uses the V4.5 Curated inpainting model until its own is released.
     "nai-diffusion-5-curated": "nai-diffusion-4-5-curated-inpainting",
+    V5_FULL_MEDIUM_MODEL_ID: V5_FULL_MEDIUM_INPAINT_MODEL_ID,
 }
 
 SAMPLER_LIST = [
@@ -93,6 +106,28 @@ def _retry_delay(response):
         delay = 60.0
     return max(NAI_REQUEST_INTERVAL, delay)
 
+
+def _medium_effort_fixed_uc(payload, parameters):
+    prompt = payload.get("input")
+    if not isinstance(prompt, str):
+        return False
+    expected = MEDIUM_EFFORT_UNDESIRED_CONTENT
+    if "nsfw" not in prompt.lower():
+        expected = f"nsfw, {expected}"
+    if parameters.get("negative_prompt") != expected:
+        return False
+
+    structured = parameters.get("v4_negative_prompt")
+    caption = structured.get("caption") if isinstance(structured, dict) else None
+    if not isinstance(caption, dict) or caption.get("base_caption") != expected:
+        return False
+    character_captions = caption.get("char_captions")
+    return isinstance(character_captions, list) and all(
+        isinstance(character, dict) and character.get("char_caption") == ""
+        for character in character_captions
+    )
+
+
 def validate_opus_free_request(payload, allow_opus_focused_inpaint=False):
     """Reject requests that cannot qualify for Opus's Anlas-free generation."""
     action = payload.get("action")
@@ -119,6 +154,18 @@ def validate_opus_free_request(payload, allow_opus_focused_inpaint=False):
         raise RuntimeError(
             "limit_opus_free blocks base and reference images because they can spend Anlas. "
             "Set it to False to allow paid requests."
+        )
+    if payload.get("model") in {
+        V5_FULL_MEDIUM_MODEL_ID,
+        V5_FULL_MEDIUM_INPAINT_MODEL_ID,
+    } and (
+        parameters.get("steps") != MEDIUM_EFFORT_STEPS
+        or parameters.get("sampler") != MEDIUM_EFFORT_SAMPLER
+        or parameters.get("cfg_rescale") not in (0, 0.0)
+        or not _medium_effort_fixed_uc(payload, parameters)
+    ):
+        raise RuntimeError(
+            "limit_opus_free requires Medium Effort's fixed sampling and Undesired Content settings."
         )
     if focused_inpaint and (
         not isinstance(parameters.get("image"), str)
@@ -270,14 +317,24 @@ def apply_opus_free_limits(width, height, steps, limit_opus_free):
     return width, height, steps
 
 
-def build_v4_prompt(prompt, negative_prompt, character_prompts=None, use_coords=None, use_order=True):
+def build_v4_prompt(
+    prompt,
+    negative_prompt,
+    character_prompts=None,
+    use_coords=None,
+    use_order=True,
+    allow_character_uc=True,
+):
     char_captions = []
     neg_char_captions = []
     if character_prompts:
         for cp in character_prompts:
             center = getattr(cp, "center", {"x": 0.5, "y": 0.5})
             char_captions.append({"char_caption": getattr(cp, "prompt", ""), "centers": [center]})
-            neg_char_captions.append({"char_caption": getattr(cp, "uc", ""), "centers": [center]})
+            neg_char_captions.append({
+                "char_caption": getattr(cp, "uc", "") if allow_character_uc else "",
+                "centers": [center],
+            })
 
     if use_coords is None:
         use_coords = bool(char_captions)
@@ -332,6 +389,18 @@ def apply_v4_parameters(parameters, model_id, prompt, negative_prompt, character
     if not model_id.startswith(("nai-diffusion-4", "nai-diffusion-5")):
         return parameters
 
+    medium_effort = model_id == V5_FULL_MEDIUM_MODEL_ID
+    if medium_effort:
+        negative_prompt = MEDIUM_EFFORT_UNDESIRED_CONTENT
+        if "nsfw" not in prompt.lower():
+            negative_prompt = f"nsfw, {negative_prompt}"
+        parameters.update({
+            "steps": MEDIUM_EFFORT_STEPS,
+            "sampler": MEDIUM_EFFORT_SAMPLER,
+            "cfg_rescale": 0.0,
+            "negative_prompt": negative_prompt,
+        })
+
     parameters.update({
         "add_original_image": True,
         "legacy_uc": False,
@@ -341,6 +410,7 @@ def apply_v4_parameters(parameters, model_id, prompt, negative_prompt, character
             character_prompts=character_prompts,
             use_coords=use_coords,
             use_order=use_order,
+            allow_character_uc=not medium_effort,
         )
     })
     return parameters
