@@ -4,7 +4,14 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The YOLO/SAM detailer can process multiple detected regions sequentially. An optional **PyTorch WD tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads its model automatically on first use after the optional dependencies are installed.
 
-> Current version: **2.2.1**
+> Current version: **2.3.0**
+
+## What's New in 2.3.0
+
+- Added **NAI Diffusion V5 Full — Medium Effort** for generation, img2img, and inpainting.
+- Medium Effort uses NovelAI's distilled checkpoints and always sends 14 steps, Euler Ancestral, zero CFG Rescale, and the fixed Heavy Undesired Content preset. The node ignores the steps, sampler, CFG Rescale, base negative prompt, and character negative prompts shown in an existing workflow while this model is selected.
+- Medium Effort img2img and inpainting remain blocked when `limit_opus_free=True`, like every request carrying a base image, because those modes can spend Anlas.
+- `limit_opus_free=True` recognizes Medium text generation, still verifies the V5 Opus allowance, and rejects a payload whose fixed Medium settings were changed before transport.
 
 ## What's New in 2.2.1
 

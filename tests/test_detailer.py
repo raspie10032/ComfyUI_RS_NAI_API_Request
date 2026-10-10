@@ -190,6 +190,56 @@ class RequestTests(unittest.TestCase):
         get.assert_called_once()
         post.assert_called_once()
 
+    def test_medium_effort_uses_v5_allowance_and_fixed_settings(self):
+        payload = self.free_payload("nai-diffusion-5-full-medium")
+        fixed_uc = f"nsfw, {nai_api.MEDIUM_EFFORT_UNDESIRED_CONTENT}"
+        payload["input"] = "1girl"
+        payload["parameters"].update({
+            "steps": 14,
+            "sampler": "k_euler_ancestral",
+            "cfg_rescale": 0.0,
+            "negative_prompt": fixed_uc,
+            "v4_negative_prompt": {
+                "caption": {"base_caption": fixed_uc, "char_captions": []},
+            },
+        })
+        with (
+            mock.patch.object(
+                nai_api._session,
+                "get",
+                return_value=self.subscription(
+                    usage={"percent": 2, "isNegative": False}
+                ),
+            ) as get,
+            mock.patch.object(
+                nai_api._session, "post", return_value=self.response()
+            ) as post,
+        ):
+            nai_api.post_nai("test", payload, limit_opus_free=True)
+        get.assert_called_once()
+        post.assert_called_once()
+
+        payload["parameters"]["steps"] = 15
+        with (
+            mock.patch.object(nai_api._session, "get") as get,
+            mock.patch.object(nai_api._session, "post") as post,
+            self.assertRaisesRegex(RuntimeError, "fixed sampling"),
+        ):
+            nai_api.post_nai("test", payload, limit_opus_free=True)
+        get.assert_not_called()
+        post.assert_not_called()
+
+        payload["parameters"]["steps"] = 14
+        payload["parameters"]["negative_prompt"] = "custom uc"
+        with (
+            mock.patch.object(nai_api._session, "get") as get,
+            mock.patch.object(nai_api._session, "post") as post,
+            self.assertRaisesRegex(RuntimeError, "Undesired Content"),
+        ):
+            nai_api.post_nai("test", payload, limit_opus_free=True)
+        get.assert_not_called()
+        post.assert_not_called()
+
     def test_paid_actions_and_reference_images_stop_before_network(self):
         cases = [
             {**self.free_payload(), "action": "img2img"},
