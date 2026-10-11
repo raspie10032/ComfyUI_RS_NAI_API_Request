@@ -85,6 +85,13 @@ OPUS_FREE_PARAMETER_KEYS = {
     "skip_cfg_above_sigma", "add_original_image", "legacy_uc", "v4_prompt",
     "v4_negative_prompt",
 }
+OPUS_FREE_FOCUSED_INPAINT_PARAMETER_KEYS = OPUS_FREE_PARAMETER_KEYS | {
+    "image", "mask", "inpaintImg2ImgStrength", "noise", "img2img",
+}
+OPUS_FREE_FOCUSED_INPAINT_MODELS = {
+    INPAINT_MODEL_ID_OVERRIDES.get(model_id, f"{model_id}-inpainting")
+    for model_id in MODEL_ID_MAP.values()
+}
 
 NAI_REQUEST_TIMEOUT = (10, 300)
 NAI_SUBSCRIPTION_TIMEOUT = (10, 30)
@@ -128,22 +135,37 @@ def _medium_effort_fixed_uc(payload, parameters):
     )
 
 
-def validate_opus_free_request(payload):
+def validate_opus_free_request(payload, allow_opus_focused_inpaint=False):
     """Reject requests that cannot qualify for Opus's Anlas-free generation."""
-    if payload.get("model") not in MODEL_ID_MAP.values():
+    action = payload.get("action")
+    focused_inpaint = allow_opus_focused_inpaint and action == "infill"
+    allowed_models = (
+        OPUS_FREE_FOCUSED_INPAINT_MODELS
+        if focused_inpaint
+        else MODEL_ID_MAP.values()
+    )
+    if payload.get("model") not in allowed_models:
         raise RuntimeError("limit_opus_free cannot verify this model; request stopped.")
-    if payload.get("action") != "generate":
+    if action != "generate" and not focused_inpaint:
         raise RuntimeError(
             "limit_opus_free blocks image-to-image and inpainting because they can spend Anlas. "
             "Set it to False to allow paid requests."
         )
     parameters = payload.get("parameters")
-    if not isinstance(parameters, dict) or parameters.keys() - OPUS_FREE_PARAMETER_KEYS:
+    allowed_keys = (
+        OPUS_FREE_FOCUSED_INPAINT_PARAMETER_KEYS
+        if focused_inpaint
+        else OPUS_FREE_PARAMETER_KEYS
+    )
+    if not isinstance(parameters, dict) or parameters.keys() - allowed_keys:
         raise RuntimeError(
             "limit_opus_free blocks base and reference images because they can spend Anlas. "
             "Set it to False to allow paid requests."
         )
-    if payload.get("model") == V5_FULL_MEDIUM_MODEL_ID and (
+    if payload.get("model") in {
+        V5_FULL_MEDIUM_MODEL_ID,
+        V5_FULL_MEDIUM_INPAINT_MODEL_ID,
+    } and (
         parameters.get("steps") != MEDIUM_EFFORT_STEPS
         or parameters.get("sampler") != MEDIUM_EFFORT_SAMPLER
         or parameters.get("cfg_rescale") not in (0, 0.0)
@@ -152,12 +174,42 @@ def validate_opus_free_request(payload):
         raise RuntimeError(
             "limit_opus_free requires Medium Effort's fixed sampling and Undesired Content settings."
         )
+    if focused_inpaint and (
+        not isinstance(parameters.get("image"), str)
+        or not parameters["image"]
+        or not isinstance(parameters.get("mask"), str)
+        or not parameters["mask"]
+        or parameters.get("add_original_image") is not True
+        or type(parameters.get("inpaintImg2ImgStrength")) not in (int, float)
+        or not math.isfinite(parameters["inpaintImg2ImgStrength"])
+        or not 0 <= parameters["inpaintImg2ImgStrength"] <= 1
+        or type(parameters.get("noise")) not in (int, float)
+        or not math.isfinite(parameters["noise"])
+    ):
+        raise RuntimeError(
+            "limit_opus_free cannot verify this focused inpainting request; request stopped."
+        )
+    if focused_inpaint and "img2img" in parameters:
+        nested = parameters["img2img"]
+        if (
+            not payload["model"].startswith(("nai-diffusion-4", "nai-diffusion-5"))
+            or not isinstance(nested, dict)
+            or set(nested) != {"strength", "color_correct"}
+            or type(nested.get("strength")) not in (int, float)
+            or not 0 <= nested["strength"] < 1
+            or nested["strength"] != parameters["inpaintImg2ImgStrength"]
+            or nested.get("color_correct") is not True
+        ):
+            raise RuntimeError(
+                "limit_opus_free cannot verify this focused inpainting strength; request stopped."
+            )
     width = parameters.get("width")
     height = parameters.get("height")
     steps = parameters.get("steps")
     if (
         type(width) is not int or type(height) is not int or type(steps) is not int
         or width <= 0 or height <= 0 or width * height > OPUS_FREE_MAX_PIXELS
+        or (focused_inpaint and (width > 1024 or height > 1024))
         or steps < 1 or steps > OPUS_FREE_MAX_STEPS
         or type(parameters.get("n_samples")) is not int or parameters["n_samples"] != 1
     ):
@@ -202,13 +254,19 @@ def _verify_opus_subscription(token, model_id):
             )
 
 
-def post_nai(token, payload, url=GENERATE_IMAGE_URL, limit_opus_free=False):
+def post_nai(
+    token,
+    payload,
+    url=GENERATE_IMAGE_URL,
+    limit_opus_free=False,
+    allow_opus_focused_inpaint=False,
+):
     """Serialize subscription preflight, generation and retries within this process."""
     global _next_request_at
     if limit_opus_free:
         if url != GENERATE_IMAGE_URL or not isinstance(payload, dict):
             raise RuntimeError("limit_opus_free cannot verify this NovelAI request; request stopped.")
-        validate_opus_free_request(payload)
+        validate_opus_free_request(payload, allow_opus_focused_inpaint)
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",

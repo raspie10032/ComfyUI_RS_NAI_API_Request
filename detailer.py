@@ -24,6 +24,7 @@ from .nai_api import (
     post_nai,
     zip_to_png_bytes,
 )
+from .references import reference_parameters, validate_references
 from .runtime_control import check_interrupted
 
 
@@ -101,14 +102,20 @@ def run_face_detail(
     match_crop_factor=2.0,
     max_regions=16,
     preview_only=False,
+    vibes=None,
+    references=None,
+    normalize_vibe_strengths=True,
 ):
     from .generators import NovelAIGenerator, mask_to_grid_boxes
 
-    if limit_opus_free and not preview_only:
-        raise RuntimeError("limit_opus_free blocks face detailing because inpainting can spend Anlas. Set it to False to allow paid requests.")
-
+    if limit_opus_free and not preview_only and (vibes or references):
+        raise RuntimeError(
+            "limit_opus_free blocks Vibe and Precise Reference because they can spend Anlas. "
+            "Set it to False to allow paid requests."
+        )
     if detail_mode not in {"first", "all"} or matching_mode not in {"shared", "wd14"}:
         raise ValueError("Unknown detail or matching mode.")
+    validate_references(get_model_id(model), vibes, references, inpainting=True)
     characters = list(characterPrompts or [])
     if matching_mode != "shared" and not characters:
         raise ValueError(
@@ -223,6 +230,15 @@ def run_face_detail(
     if not any(r["status"] == "planned" for r in report):
         return image, pil_to_tensor(Image.new("RGB", source.size)), json.dumps(report)
 
+    if limit_opus_free:
+        for index, item in enumerate(report[:active_count]):
+            if item["status"] != "planned":
+                continue
+            if _crop_box(regions[index].crop_region, w, h) == (0, 0, w, h):
+                raise RuntimeError(
+                    "limit_opus_free requires a focused crop smaller than the source image."
+                )
+
     token = get_nai_token()
     model_id = get_model_id(model)
     secondaries = _detect(
@@ -235,6 +251,7 @@ def run_face_detail(
     total_mask = np.zeros((h, w), dtype=np.uint8)
     base_seed = int(np.random.randint(0, 0x7FFFFFFF)) if seed == -1 else int(seed)
     last_result = None
+    reference_params = None
     for index, seg in enumerate(regions[:active_count]):
         if report[index]["status"] != "planned":
             continue
@@ -348,6 +365,11 @@ def run_face_detail(
             variety_boost=True,
             model_id=model_id,
         )
+        if reference_params is None:
+            reference_params = reference_parameters(
+                model_id, token, vibes, references, normalize_vibe_strengths, inpainting=True
+            )
+        parameters.update(reference_params)
         parameters.update(
             {
                 "image": pil_to_base64(scaled),
@@ -364,7 +386,12 @@ def run_face_detail(
             request_prompt, model_id, "infill", parameters, inpainting=True
         )
         check_interrupted()
-        result = png_bytes_to_pil(zip_to_png_bytes(post_nai(token, payload, limit_opus_free=limit_opus_free)))
+        result = png_bytes_to_pil(zip_to_png_bytes(post_nai(
+            token,
+            payload,
+            limit_opus_free=limit_opus_free,
+            allow_opus_focused_inpaint=limit_opus_free,
+        )))
         if result.size != (nw, nh):
             raise ValueError("NAI returned an unexpected detail crop size.")
         out.paste(

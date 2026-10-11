@@ -1,0 +1,49 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "reference.png"
+    }
+  },
+  "2": {
+    "class_type": "NAIPreciseReference",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "reference_type": "character&style",
+      "strength": 1.0,
+      "fidelity": 1.0,
+      "enabled": true
+    }
+  },
+  "3": {
+    "class_type": "NovelAIGenerator",
+    "inputs": {
+      "prompt": "1girl, solo, portrait, fully clothed, very aesthetic",
+      "negative_prompt": "lowres, bad anatomy, text, watermark",
+      "model": "NAI Diffusion V4.5 Full",
+      "width": 832,
+      "height": 1216,
+      "sampler": "k_euler",
+      "steps": 23,
+      "cfg_scale": 5.0,
+      "seed": 12345,
+      "references": [
+        "2",
+        0
+      ]
+    }
+  },
+  "4": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "3",
+        0
+      ],
+      "filename_prefix": "NAI_Precise_Reference"
+    }
+  }
+}
