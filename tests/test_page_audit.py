@@ -34,7 +34,7 @@ class TaggerPreflightTests(unittest.TestCase):
                     self.assertIn("requirements-tagger.txt", str(caught.exception))
                     constructor.assert_not_called()
 
-    def test_loader_only_checks_imports_and_reuses_instance_without_loading_weights(self):
+    def test_loader_checks_imports_and_prepares_reused_instance(self):
         with tempfile.TemporaryDirectory() as folder, mock.patch.dict(sys.modules, {"folder_paths": mock.Mock(models_dir=folder)}):
             with mock.patch.object(wd_tagger, "check_dependencies") as check, mock.patch.object(wd_tagger.WDTagger, "_load") as load:
                 loader = wd_tagger.WDTaggerLoader()
@@ -42,7 +42,7 @@ class TaggerPreflightTests(unittest.TestCase):
                 again, = loader.load("cpu", 2)
                 self.assertIs(first, again)
                 self.assertEqual(check.call_count, 2)
-                load.assert_not_called()
+                self.assertEqual(load.call_count, 2)
 
 
 class NoticeTests(unittest.TestCase):
