@@ -33,6 +33,13 @@ MODEL_DISPLAY_LIST = [
     "NAI Diffusion Furry V3"
 ]
 
+MODEL_SELECTION_TOOLTIP = (
+    "V5 Full Medium Effort always uses 14 steps, Euler Ancestral, zero CFG Rescale, "
+    "and fixed Heavy Undesired Content. Custom base/character negative prompts "
+    "are ignored. Prompt Guidance remains adjustable. Image-to-image and "
+    "inpainting require limit_opus_free=False and can spend Anlas."
+)
+
 MODEL_ID_MAP = {
     "NAI Diffusion V5 Curated": "nai-diffusion-5-curated",
     "NAI Diffusion V5 Full": "nai-diffusion-5-full",
@@ -79,7 +86,7 @@ OPUS_FREE_PARAMETER_KEYS = {
     "v4_negative_prompt",
 }
 OPUS_FREE_FOCUSED_INPAINT_PARAMETER_KEYS = OPUS_FREE_PARAMETER_KEYS | {
-    "image", "mask", "inpaintImg2ImgStrength", "noise",
+    "image", "mask", "inpaintImg2ImgStrength", "noise", "img2img",
 }
 OPUS_FREE_FOCUSED_INPAINT_MODELS = {
     INPAINT_MODEL_ID_OVERRIDES.get(model_id, f"{model_id}-inpainting")
@@ -182,6 +189,20 @@ def validate_opus_free_request(payload, allow_opus_focused_inpaint=False):
         raise RuntimeError(
             "limit_opus_free cannot verify this focused inpainting request; request stopped."
         )
+    if focused_inpaint and "img2img" in parameters:
+        nested = parameters["img2img"]
+        if (
+            not payload["model"].startswith(("nai-diffusion-4", "nai-diffusion-5"))
+            or not isinstance(nested, dict)
+            or set(nested) != {"strength", "color_correct"}
+            or type(nested.get("strength")) not in (int, float)
+            or not 0 <= nested["strength"] < 1
+            or nested["strength"] != parameters["inpaintImg2ImgStrength"]
+            or nested.get("color_correct") is not True
+        ):
+            raise RuntimeError(
+                "limit_opus_free cannot verify this focused inpainting strength; request stopped."
+            )
     width = parameters.get("width")
     height = parameters.get("height")
     steps = parameters.get("steps")
@@ -421,6 +442,16 @@ def build_nai_payload(prompt, model_id, action, parameters, inpainting=False):
         INPAINT_MODEL_ID_OVERRIDES.get(model_id, f"{model_id}-inpainting")
         if inpainting else model_id
     )
+    if inpainting and model_id.startswith(("nai-diffusion-4", "nai-diffusion-5")):
+        # The UI strength field alone is not the API's inpainting control.
+        # Match the official client: partial denoising uses nested img2img;
+        # full-strength infill omits it. Do not mutate the caller's parameters.
+        parameters = dict(parameters)
+        strength = parameters.get("inpaintImg2ImgStrength", 1.0)
+        if strength != 1.0:
+            parameters["img2img"] = {"strength": strength, "color_correct": True}
+        else:
+            parameters.pop("img2img", None)
     return {
         "input": prompt,
         "model": payload_model,

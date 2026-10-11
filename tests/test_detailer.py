@@ -173,6 +173,7 @@ class RequestTests(unittest.TestCase):
                 "mask": "encoded-mask",
                 "add_original_image": True,
                 "inpaintImg2ImgStrength": 0.55,
+                "img2img": {"strength": 0.55, "color_correct": True},
                 "noise": 0,
             },
         }
@@ -328,6 +329,21 @@ class RequestTests(unittest.TestCase):
                     )
         get.assert_not_called()
         post.assert_not_called()
+
+    def test_focused_nested_strength_rejects_mutations_before_http(self):
+        for nested in (None, {}, {"strength": 0.5, "color_correct": True},
+                       {"strength": 0.55, "color_correct": False},
+                       {"strength": True, "color_correct": True},
+                       {"strength": 0.55, "color_correct": True, "reference_image": "x"}):
+            payload = self.focused_inpaint_payload()
+            payload["parameters"]["img2img"] = nested
+            with self.subTest(nested=nested), mock.patch.object(nai_api._session, "get") as get, \
+                    mock.patch.object(nai_api._session, "post") as post:
+                with self.assertRaises(RuntimeError):
+                    nai_api.post_nai("test", payload, limit_opus_free=True,
+                                     allow_opus_focused_inpaint=True)
+                get.assert_not_called()
+                post.assert_not_called()
 
     def test_unverifiable_opus_or_v5_usage_stops_before_post(self):
         states = [
@@ -732,6 +748,18 @@ class PipelineTests(unittest.TestCase):
             self.run_detail(secondary_detector=secondary)
         # One primary + its own secondary per region, not all secondary boxes.
         self.assertEqual(predict.call_count, 4)
+
+    def test_medium_detailer_sends_fixed_settings_and_inpainting_strength(self):
+        self.run_detail(model="NAI Diffusion V5 Full — Medium Effort", strength=0.4)
+        self.assertEqual(len(self.payloads), 2)
+        for payload in self.payloads:
+            self.assertEqual(payload["model"], "nai-diffusion-5-full-medium-inpainting")
+            params = payload["parameters"]
+            self.assertEqual(params["steps"], 14)
+            self.assertEqual(params["sampler"], "k_euler_ancestral")
+            self.assertEqual(params["img2img"], {"strength": 0.4, "color_correct": True})
+            nai_api.validate_opus_free_request(payload, allow_opus_focused_inpaint=True)
+
 
     def test_no_manual_matching_option_exposed(self):
         for cls in (NAIFaceDetailerNode, NAIFaceDetailerSegmNode):

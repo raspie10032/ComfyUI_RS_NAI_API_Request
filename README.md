@@ -4,7 +4,13 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The YOLO/SAM detailer can process multiple detected regions sequentially. An optional **PyTorch WD tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads its model automatically on first use after the optional dependencies are installed.
 
-> Current version: **2.4.0**
+> Current version: **2.4.1**
+
+## What's New in 2.4.1
+
+- Fixed V4/V5 inpainting strength, including Medium and focused detail crops, using the API's nested `img2img.strength` control.
+- Added Medium model help text and HTTP-boundary, output decoding, autosave, and error regression tests.
+- Retained the existing Vibe/Precise and Focused Inpainting integration; this local candidate is separate from main's 2.3.1 patch.
 
 ## What's New in 2.4.0
 
