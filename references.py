@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """NovelAI image references, separate from WD prompt matching."""
 
+from .errors import user_error
+
 import base64
 import hashlib
 import io
@@ -53,22 +55,22 @@ class PreciseReference:
 def _finite(value, name):
     value = float(value)
     if not math.isfinite(value):
-        raise ValueError(f"{name} must be finite.")
+        raise user_error("REFERENCE_INPUT", ValueError, f"{name} must be finite.")
     return value
 
 
 def _unit(value, name):
     value = _finite(value, name)
     if not 0 <= value <= 1:
-        raise ValueError(f"{name} must be between 0 and 1.")
+        raise user_error("REFERENCE_INPUT", ValueError, f"{name} must be between 0 and 1.")
     return value
 
 
 def _image(image):
     if image.ndim != 4 or image.shape[0] != 1 or image.shape[-1] not in (3, 4):
-        raise ValueError("Each reference node requires one RGB/RGBA image; chain nodes for multiple references.")
+        raise user_error("IMAGE_INPUT", ValueError, "Each reference node requires one RGB/RGBA image; chain nodes for multiple references.")
     if min(image.shape[1:3]) < 1 or not torch.isfinite(image).all():
-        raise ValueError("Reference image must contain finite pixels and have nonzero dimensions.")
+        raise user_error("IMAGE_INPUT", ValueError, "Reference image must contain finite pixels and have nonzero dimensions.")
     rgba = tensor_to_pil(image).convert("RGBA")
     result = Image.new("RGBA", rgba.size, "black")
     result.alpha_composite(rgba)
@@ -86,11 +88,11 @@ def _precise_image(image):
 def _chain(previous, reference, kind):
     items = tuple(previous or ())
     if any(not isinstance(item, kind) for item in items):
-        raise ValueError("Connect references of the same type when chaining nodes.")
+        raise user_error("REFERENCE_INPUT", ValueError, "Connect references of the same type when chaining nodes.")
     if reference is not None:
         items += (reference,)
     if len(items) > MAX_REFERENCES:
-        raise ValueError(f"At most {MAX_REFERENCES} references can be connected.")
+        raise user_error("REFERENCE_INPUT", ValueError, f"At most {MAX_REFERENCES} references can be connected.")
     return (items,)
 
 
@@ -149,7 +151,7 @@ class NAIPreciseReference:
         reference = None
         if enabled:
             if reference_type not in REFERENCE_TYPES:
-                raise ValueError("Unknown Precise Reference type.")
+                raise user_error("REFERENCE_INPUT", ValueError, "Unknown Precise Reference type.")
             strength = _finite(strength, "strength")
             fidelity = _finite(fidelity, "fidelity")
             if strength != 0:
@@ -170,29 +172,29 @@ def reference_inputs():
 def validate_references(model_id, vibes=None, references=None, inpainting=False):
     """Check every entry before any paid encoding or generation request."""
     if vibes and references:
-        raise ValueError("NovelAI does not support Vibe Transfer and Precise Reference together. Connect only one.")
+        raise user_error("REFERENCE_BOTH", ValueError, "NovelAI does not support Vibe Transfer and Precise Reference together. Connect only one.")
     for items, kind in ((vibes, VibeReference), (references, PreciseReference)):
         if not items:
             continue
         if len(items) > MAX_REFERENCES or any(not isinstance(item, kind) for item in items):
-            raise ValueError(f"Expected at most {MAX_REFERENCES} references of the connected type.")
+            raise user_error("REFERENCE_INPUT", ValueError, f"Expected at most {MAX_REFERENCES} references of the connected type.")
         for item in items:
             _finite(item.strength, "strength")
             if not item.image:
-                raise ValueError("Reference image is empty.")
+                raise user_error("REFERENCE_INPUT", ValueError, "Reference image is empty.")
             if isinstance(item, VibeReference):
                 _unit(item.information_extracted, "information_extracted")
             else:
                 _finite(item.fidelity, "fidelity")
                 if item.reference_type not in REFERENCE_TYPES:
-                    raise ValueError("Unknown Precise Reference type.")
+                    raise user_error("REFERENCE_INPUT", ValueError, "Unknown Precise Reference type.")
     if vibes:
         if model_id not in VIBE_MODELS:
-            raise ValueError("Vibe Transfer requires NAI V3, V4, or V4.5. V5 and the legacy Furry model are not supported; select a supported model explicitly.")
+            raise user_error("VIBE_MODEL", ValueError, "Vibe Transfer requires NAI V3, V4, or V4.5. V5 and the legacy Furry model are not supported; select a supported model explicitly.")
         if inpainting and model_id.startswith("nai-diffusion-4"):
-            raise ValueError("V4/V4.5 Vibe Transfer does not support inpainting/detailing. Use V4.5 Precise Reference for this process.")
+            raise user_error("VIBE_INPAINT", ValueError, "V4/V4.5 Vibe Transfer does not support inpainting/detailing. Use V4.5 Precise Reference for this process.")
     if references and model_id not in PRECISE_MODELS:
-        raise ValueError("Precise Reference requires NAI V4.5 Full or Curated. Select V4.5 explicitly.")
+        raise user_error("PRECISE_MODEL", ValueError, "Precise Reference requires NAI V4.5 Full or Curated. Select V4.5 explicitly.")
 
 
 def _encoded_vibe(vibe, model_id, token):
@@ -216,7 +218,7 @@ def _encoded_vibe(vibe, model_id, token):
                     raise ValueError("Invalid checksum")
                 return cached["encoding"]
             except (ValueError, KeyError, TypeError) as exc:
-                raise RuntimeError(f"Invalid Vibe cache: {path}. Restore or remove this file before re-encoding; re-encoding can cost Anlas.") from exc
+                raise user_error("VIBE_CACHE", RuntimeError, f"Invalid Vibe cache: {path}. Restore or remove this file before re-encoding; re-encoding can cost Anlas.") from exc
         # Create/check the destination before requesting a paid encoding.
         directory.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=directory,
@@ -231,12 +233,12 @@ def _encoded_vibe(vibe, model_id, token):
                     }, url=ENCODE_VIBE_URL)
                 except requests.HTTPError as exc:
                     if exc.response is not None and exc.response.status_code == 402:
-                        raise RuntimeError(
+                        raise user_error("VIBE_PAYMENT", RuntimeError,
                             "NovelAI requires more Anlas to encode this Vibe. Check your Anlas balance; no encoding was cached and no generation was sent."
                         ) from exc
                     raise
                 if not raw:
-                    raise RuntimeError("NovelAI returned an empty Vibe encoding.")
+                    raise user_error("VIBE_RESPONSE", RuntimeError, "NovelAI returned an empty Vibe encoding.")
                 encoding = base64.b64encode(raw).decode("ascii")
                 json.dump({"encoding": encoding, "sha256": hashlib.sha256(raw).hexdigest()}, handle)
                 handle.flush()

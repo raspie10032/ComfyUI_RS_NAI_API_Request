@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Region planning, identity selection and sequential masked inpainting."""
 
+from .errors import user_error
+
 import json
 
 import numpy as np
@@ -111,22 +113,22 @@ def run_face_detail(
     from .generators import NovelAIGenerator, mask_to_grid_boxes
 
     if limit_opus_free and not preview_only and (vibes or references):
-        raise RuntimeError(
+        raise user_error("PAID_BLOCKED", RuntimeError,
             "limit_opus_free blocks Vibe and Precise Reference because they can spend Anlas. "
             "Set it to False to allow paid requests."
         )
     if detail_mode not in {"first", "all"} or matching_mode not in {"shared", "wd14"}:
-        raise ValueError("Unknown detail or matching mode.")
+        raise user_error("DETAIL_MODE", ValueError, "Unknown detail or matching mode.")
     validate_references(get_model_id(model), vibes, references, inpainting=True)
     characters = list(characterPrompts or [])
     if matching_mode != "shared" and not characters:
-        raise ValueError(
+        raise user_error("MATCHING_INPUT", ValueError,
             "Connect original CharacterPromptSelect output for character matching."
         )
     if matching_mode == "shared" and len(characters) > 1:
-        raise ValueError("Multiple characters require wd14 matching.")
+        raise user_error("MATCHING_INPUT", ValueError, "Multiple characters require wd14 matching.")
     if matching_mode == "wd14" and tagger is None:
-        raise ValueError("Connect NAI WD Tagger Loader for wd14 matching.")
+        raise user_error("MATCHING_INPUT", ValueError, "Connect NAI WD Tagger Loader for wd14 matching.")
 
     validate_single_image(image)
     source = tensor_to_pil(image)
@@ -165,7 +167,7 @@ def run_face_detail(
             [_context_crop(source, regions[i].bbox, match_crop_factor) for i in pending]
         )
         if len(scores) != len(pending):
-            raise ValueError("Tagger returned an unexpected number of regions.")
+            raise user_error("TAGGER_MODEL", ValueError, "Tagger returned an unexpected number of regions.")
         for i, score in zip(pending, scores):
             matches[i] = match_characters(
                 score, characters, match_min_score, match_min_margin
@@ -184,7 +186,7 @@ def run_face_detail(
                 ]
             )
             if len(tight_scores) != len(uncertain):
-                raise ValueError("Tagger returned an unexpected number of regions.")
+                raise user_error("TAGGER_MODEL", ValueError, "Tagger returned an unexpected number of regions.")
             for i, score in zip(uncertain, tight_scores):
                 match = match_characters(
                     score, characters, match_min_score, match_min_margin
@@ -261,7 +263,7 @@ def run_face_detail(
             if item["status"] != "planned":
                 continue
             if _crop_box(regions[index].crop_region, w, h) == (0, 0, w, h):
-                raise RuntimeError(
+                raise user_error("FOCUSED_CROP", RuntimeError,
                     "limit_opus_free requires a focused crop smaller than the source image."
                 )
 
@@ -419,7 +421,7 @@ def run_face_detail(
             allow_opus_focused_inpaint=limit_opus_free,
         )))
         if result.size != (nw, nh):
-            raise ValueError("NAI returned an unexpected detail crop size.")
+            raise user_error("IMAGE_RESPONSE", ValueError, "NAI returned an unexpected detail crop size.")
         out.paste(
             result.resize((cw, ch), Image.Resampling.LANCZOS), (crx0, cry0), local_mask
         )

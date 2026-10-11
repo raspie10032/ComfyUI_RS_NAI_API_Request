@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (c) 2025 raspie10032
 
+from .errors import mark_api_error, user_error
+
 import io
 import math
 import os
@@ -145,9 +147,9 @@ def validate_opus_free_request(payload, allow_opus_focused_inpaint=False):
         else MODEL_ID_MAP.values()
     )
     if payload.get("model") not in allowed_models:
-        raise RuntimeError("limit_opus_free cannot verify this model; request stopped.")
+        raise user_error("FREE_CONDITIONS", RuntimeError, "limit_opus_free cannot verify this model; request stopped.")
     if action != "generate" and not focused_inpaint:
-        raise RuntimeError(
+        raise user_error("PAID_BLOCKED", RuntimeError,
             "limit_opus_free blocks image-to-image and inpainting because they can spend Anlas. "
             "Set it to False to allow paid requests."
         )
@@ -158,7 +160,7 @@ def validate_opus_free_request(payload, allow_opus_focused_inpaint=False):
         else OPUS_FREE_PARAMETER_KEYS
     )
     if not isinstance(parameters, dict) or parameters.keys() - allowed_keys:
-        raise RuntimeError(
+        raise user_error("PAID_BLOCKED", RuntimeError,
             "limit_opus_free blocks base and reference images because they can spend Anlas. "
             "Set it to False to allow paid requests."
         )
@@ -171,7 +173,7 @@ def validate_opus_free_request(payload, allow_opus_focused_inpaint=False):
         or parameters.get("cfg_rescale") not in (0, 0.0)
         or not _medium_effort_fixed_uc(payload, parameters)
     ):
-        raise RuntimeError(
+        raise user_error("FREE_CONDITIONS", RuntimeError,
             "limit_opus_free requires Medium Effort's fixed sampling and Undesired Content settings."
         )
     if focused_inpaint and (
@@ -186,7 +188,7 @@ def validate_opus_free_request(payload, allow_opus_focused_inpaint=False):
         or type(parameters.get("noise")) not in (int, float)
         or not math.isfinite(parameters["noise"])
     ):
-        raise RuntimeError(
+        raise user_error("FREE_CONDITIONS", RuntimeError,
             "limit_opus_free cannot verify this focused inpainting request; request stopped."
         )
     if focused_inpaint and "img2img" in parameters:
@@ -200,7 +202,7 @@ def validate_opus_free_request(payload, allow_opus_focused_inpaint=False):
             or nested["strength"] != parameters["inpaintImg2ImgStrength"]
             or nested.get("color_correct") is not True
         ):
-            raise RuntimeError(
+            raise user_error("FREE_CONDITIONS", RuntimeError,
                 "limit_opus_free cannot verify this focused inpainting strength; request stopped."
             )
     width = parameters.get("width")
@@ -213,7 +215,7 @@ def validate_opus_free_request(payload, allow_opus_focused_inpaint=False):
         or steps < 1 or steps > OPUS_FREE_MAX_STEPS
         or type(parameters.get("n_samples")) is not int or parameters["n_samples"] != 1
     ):
-        raise RuntimeError(
+        raise user_error("FREE_CONDITIONS", RuntimeError,
             "limit_opus_free requires one image, at most 1024x1024 pixels and 28 steps."
         )
 
@@ -232,7 +234,8 @@ def _verify_opus_subscription(token, model_id):
         finally:
             response.close()
     except (requests.RequestException, ValueError) as exc:
-        raise RuntimeError("Could not verify Opus free-generation eligibility; request stopped.") from exc
+        mark_api_error(exc, phase="subscription", token=token)
+        raise user_error(exc.rs_nai_code, RuntimeError, "Could not verify Opus free-generation eligibility; request stopped.") from exc
 
     if (
         not isinstance(state, dict)
@@ -240,7 +243,7 @@ def _verify_opus_subscription(token, model_id):
         or type(state.get("tier")) is not int
         or state["tier"] != 3
     ):
-        raise RuntimeError("An active Opus subscription could not be verified; request stopped.")
+        raise user_error("OPUS_REQUIRED", RuntimeError, "An active Opus subscription could not be verified; request stopped.")
     if model_id.startswith("nai-diffusion-5"):
         usage = state.get("usage")
         if (
@@ -249,7 +252,7 @@ def _verify_opus_subscription(token, model_id):
             or type(usage.get("percent")) is not int
             or usage["percent"] < OPUS_V5_MIN_REMAINING_PERCENT
         ):
-            raise RuntimeError(
+            raise user_error("V5_ALLOWANCE", RuntimeError,
                 "V5 Opus free allowance is low or unverifiable; request stopped before generation."
             )
 
@@ -265,7 +268,7 @@ def post_nai(
     global _next_request_at
     if limit_opus_free:
         if url != GENERATE_IMAGE_URL or not isinstance(payload, dict):
-            raise RuntimeError("limit_opus_free cannot verify this NovelAI request; request stopped.")
+            raise user_error("FREE_CONDITIONS", RuntimeError, "limit_opus_free cannot verify this NovelAI request; request stopped.")
         validate_opus_free_request(payload, allow_opus_focused_inpaint)
     headers = {
         "Authorization": f"Bearer {token}",
@@ -284,6 +287,9 @@ def post_nai(
                 response = _session.post(
                     url, headers=headers, json=payload, timeout=NAI_REQUEST_TIMEOUT
                 )
+            except requests.RequestException as exc:
+                mark_api_error(exc, phase="generation" if url == GENERATE_IMAGE_URL else "vibe encoding", token=token)
+                raise
             finally:
                 # Failures also count as attempts; no overlapping transport.
                 _next_request_at = time.monotonic() + NAI_REQUEST_INTERVAL
@@ -295,6 +301,9 @@ def post_nai(
             try:
                 response.raise_for_status()
                 return response.content
+            except requests.RequestException as exc:
+                mark_api_error(exc, phase="generation" if url == GENERATE_IMAGE_URL else "vibe encoding", token=token)
+                raise
             finally:
                 response.close()
     finally:
@@ -305,12 +314,12 @@ def zip_to_png_bytes(zip_bytes):
         images = [item for item in zipped.infolist()
                   if not item.is_dir() and item.filename.lower().endswith(".png")]
         if len(images) != 1:
-            raise ValueError("NovelAI response must contain exactly one PNG image; no image was saved.")
+            raise user_error("IMAGE_RESPONSE", ValueError, "NovelAI response must contain exactly one PNG image; no image was saved.")
         return zipped.read(images[0])
 
 def get_model_id(model):
     if model not in MODEL_ID_MAP:
-        raise ValueError("Unknown NovelAI model. Select a model from the current node list.")
+        raise user_error("MODEL", ValueError, "Unknown NovelAI model. Select a model from the current node list.")
     return MODEL_ID_MAP[model]
 
 
@@ -331,9 +340,9 @@ def validate_character_prompts(model_id, character_prompts, *, inpainting=False)
     count = len(character_prompts or [])
     limit = character_limit(model_id)
     if count and not limit:
-        raise ValueError("characterPrompts requires V4/V4.5/V5. Disconnect it for V3/Furry; these models cannot apply character slots.")
+        raise user_error("CHARACTER_MODEL", ValueError, "characterPrompts requires V4/V4.5/V5. Disconnect it for V3/Furry; these models cannot apply character slots.")
     if count > limit:
-        raise ValueError(
+        raise user_error("CHARACTER_LIMIT", ValueError,
             f"{model_id} supports at most {limit} character prompts; received {count}. "
             "Reduce character_count or disable unused slots. V5 Curated inpainting uses V4.5 (6 characters)."
         )
@@ -507,5 +516,5 @@ def build_nai_payload(prompt, model_id, action, parameters, inpainting=False):
 def get_nai_token():
     token = os.getenv('NAI_ACCESS_TOKEN') or os.getenv('NAI_API_TOKEN')
     if not token:
-        raise RuntimeError("NAI_ACCESS_TOKEN (or NAI_API_TOKEN) not found in environment variables.")
+        raise user_error("TOKEN_MISSING", RuntimeError, "NAI_ACCESS_TOKEN (or NAI_API_TOKEN) not found in environment variables.")
     return token

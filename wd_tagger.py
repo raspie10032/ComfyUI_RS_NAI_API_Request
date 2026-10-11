@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Optional local WD/PixAI inference. No ONNX runtime or generated prompts."""
 
+from .errors import user_error
+
 import csv
 import hashlib
 import inspect
@@ -10,7 +12,7 @@ import sys
 import threading
 from pathlib import Path
 
-from .runtime_control import check_interrupted
+from .runtime_control import check_interrupted, is_interruption
 from .tagger_progress import TaggerProgress
 
 MODEL_REPO = "SmilingWolf/wd-vit-tagger-v3"
@@ -46,7 +48,7 @@ def check_dependencies(model_name=DEFAULT_MODEL):
         requirements = Path(__file__).with_name(
             "requirements-tagger-pixai.txt" if model_name == PIXAI_MODEL else "requirements-tagger.txt"
         )
-        raise RuntimeError(
+        raise user_error("TAGGER_DEPENDENCY", RuntimeError,
             f"{model_name} tagger dependencies failed to import ({type(exc).__name__}: {exc}). "
             f'Install in this ComfyUI environment: "{sys.executable}" -m pip install -r "{requirements}". '
             "If already installed, check that torch and torchvision are compatible."
@@ -57,7 +59,7 @@ def check_dependencies(model_name=DEFAULT_MODEL):
 class WDTagger:
     def __init__(self, cache_dir, device="auto", batch_size=4, model_name=DEFAULT_MODEL):
         if model_name not in MODELS:
-            raise ValueError(f"Unknown tagger model: {model_name!r}. Choose from {list(MODELS)}.")
+            raise user_error("TAGGER_SETTINGS", ValueError, f"Unknown tagger model: {model_name!r}. Choose from {list(MODELS)}.")
         self.model_name = model_name
         self.cache_dir = str(cache_dir)
         self.device = device
@@ -81,10 +83,16 @@ class WDTagger:
             check_interrupted()
             progress.report(f"Checking cache: {name}", force=True)
             logging.info("[RS NAI Tagger] %s: resolving %s", self.model_name, name)
-            paths[name] = hf_hub_download(
-                repo, name, revision=revision, cache_dir=self.cache_dir,
-                tqdm_class=progress.download_bar(name),
-            )
+            try:
+                paths[name] = hf_hub_download(
+                    repo, name, revision=revision, cache_dir=self.cache_dir,
+                    tqdm_class=progress.download_bar(name),
+                )
+            except Exception as exc:
+                if not is_interruption(exc):
+                    exc.rs_nai_code = "TAGGER_DOWNLOAD"
+                    exc.rs_nai_details = f"Model: {self.model_name}; file: {name}"
+                raise
             progress.report(f"File ready: {name}", 1, force=True)
         logging.info("[RS NAI Tagger] %s: loading weights on CPU.", self.model_name)
         progress.report(f"Loading {self.model_name} on CPU…", force=True)
@@ -107,7 +115,7 @@ class WDTagger:
         with open(paths["selected_tags.csv"], encoding="utf-8", newline="") as handle:
             labels = list(csv.DictReader(handle))
         if len(labels) != config["num_classes"]:
-            raise ValueError("WD model and tag vocabulary have different lengths.")
+            raise user_error("TAGGER_MODEL", ValueError, "WD model and tag vocabulary have different lengths.")
         self._labels = labels
         self._transform = transform
         self._model = model.eval()
@@ -118,9 +126,9 @@ class WDTagger:
 
         # The official architecture is custom code; only execute the reviewed revision.
         if hashlib.sha256(Path(paths["tagger_pipeline.py"]).read_bytes()).hexdigest() != PIXAI_CODE_SHA256:
-            raise ValueError("PixAI model code checksum mismatch. Remove the cached tagger_pipeline.py and retry.")
+            raise user_error("TAGGER_MODEL", ValueError, "PixAI model code checksum mismatch. Remove the cached tagger_pipeline.py and retry.")
         if sum(count for _, count in config["tags_split"]) != config["num_classes"]:
-            raise ValueError("PixAI tag category lengths do not match the model.")
+            raise user_error("TAGGER_MODEL", ValueError, "PixAI tag category lengths do not match the model.")
         labels = []
         for category, count in config["tags_split"]:
             labels.extend(
@@ -128,7 +136,7 @@ class WDTagger:
                 for name in config["tags"][len(labels):len(labels) + count]
             )
         if len(labels) != config["num_classes"] or len(labels) != len(config["tags"]):
-            raise ValueError("PixAI model and tag vocabulary have different lengths.")
+            raise user_error("TAGGER_MODEL", ValueError, "PixAI model and tag vocabulary have different lengths.")
         snapshot = str(Path(paths["config.json"]).parent)
         processor = AutoImageProcessor.from_pretrained(snapshot, trust_remote_code=True, local_files_only=True)
         model = AutoModel.from_pretrained(snapshot, trust_remote_code=True, local_files_only=True)
@@ -179,7 +187,7 @@ class WDTagger:
                         output = self._model(batch).float().sigmoid().cpu()
                     del batch
                     if output.ndim != 2 or output.shape != (len(crops), len(self._labels)):
-                        raise ValueError(f"{self.model_name} returned scores inconsistent with its tag vocabulary.")
+                        raise user_error("TAGGER_MODEL", ValueError, f"{self.model_name} returned scores inconsistent with its tag vocabulary.")
                     for row in output.tolist():
                         results.append(
                             {
@@ -229,9 +237,9 @@ class WDTaggerLoader:
 
     def load(self, device="auto", batch_size=4, model_name=DEFAULT_MODEL, tagger_node_id=None):
         if device not in {"auto", "cpu"} or type(batch_size) is not int or not 1 <= batch_size <= 16:
-            raise ValueError("WD tagger requires device auto/cpu and batch_size 1–16.")
+            raise user_error("TAGGER_SETTINGS", ValueError, "WD tagger requires device auto/cpu and batch_size 1–16.")
         if model_name not in MODELS:
-            raise ValueError(f"Unknown tagger model: {model_name!r}. Choose from {list(MODELS)}.")
+            raise user_error("TAGGER_SETTINGS", ValueError, f"Unknown tagger model: {model_name!r}. Choose from {list(MODELS)}.")
         progress = TaggerProgress(tagger_node_id)
         try:
             progress.report(f"Checking dependencies: {model_name}", force=True)
