@@ -314,9 +314,29 @@ def get_model_id(model):
     return MODEL_ID_MAP[model]
 
 
-def validate_character_prompts(model_id, character_prompts):
-    if character_prompts and not model_id.startswith(("nai-diffusion-4", "nai-diffusion-5")):
+MAX_CHARACTER_SLOTS = 22
+
+
+def character_limit(model_id):
+    if model_id.startswith("nai-diffusion-5"):
+        return MAX_CHARACTER_SLOTS
+    if model_id.startswith("nai-diffusion-4"):
+        return 6
+    return 0
+
+
+def validate_character_prompts(model_id, character_prompts, *, inpainting=False):
+    if inpainting:
+        model_id = INPAINT_MODEL_ID_OVERRIDES.get(model_id, f"{model_id}-inpainting")
+    count = len(character_prompts or [])
+    limit = character_limit(model_id)
+    if count and not limit:
         raise ValueError("characterPrompts requires V4/V4.5/V5. Disconnect it for V3/Furry; these models cannot apply character slots.")
+    if count > limit:
+        raise ValueError(
+            f"{model_id} supports at most {limit} character prompts; received {count}. "
+            "Reduce character_count or disable unused slots. V5 Curated inpainting uses V4.5 (6 characters)."
+        )
 
 
 def default_skip_cfg_above_sigma(model_id):
@@ -460,6 +480,10 @@ def build_nai_payload(prompt, model_id, action, parameters, inpainting=False):
         INPAINT_MODEL_ID_OVERRIDES.get(model_id, f"{model_id}-inpainting")
         if inpainting else model_id
     )
+    for key in ("v4_prompt", "v4_negative_prompt"):
+        validate_character_prompts(
+            payload_model, parameters.get(key, {}).get("caption", {}).get("char_captions", [])
+        )
     if inpainting and payload_model != f"{model_id}-inpainting":
         from .diagnostics import notice
         notice(f"Inpainting uses {payload_model} for the selected model.")

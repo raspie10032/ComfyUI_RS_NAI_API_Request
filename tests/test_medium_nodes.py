@@ -75,6 +75,21 @@ class MediumNodeTests(unittest.TestCase):
             characterPrompts=self.characters,
         )
 
+    def test_all_generators_send_22_medium_characters_without_truncation(self):
+        self.characters = [generators.CharacterPrompt(f"bird {i}", f"negative {i}", 0.5, 0.5) for i in range(22)]
+        for node, extra in (
+            (generators.NovelAIGenerator, {}),
+            (generators.NAIImg2ImgNode, {"image": torch.zeros((1, 64, 64, 3)), "strength": 0.5}),
+            (generators.NAIInpaintNode, {"image": torch.zeros((1, 64, 64, 3)), "mask": torch.ones((1, 64, 64)), "strength": 0.5}),
+        ):
+            with self.subTest(node=node.__name__):
+                output, = node().generate(**self.options(), **extra, limit_opus_free=False)
+                self.assertEqual(tuple(output.shape), (1, 64, 64, 3))
+                params = self.post.call_args.kwargs["json"]["parameters"]
+                self.assertEqual([c["char_caption"] for c in params["v4_prompt"]["caption"]["char_captions"]],
+                                 [c.prompt for c in self.characters])
+                self.assertEqual([c["char_caption"] for c in params["v4_negative_prompt"]["caption"]["char_captions"]], [""] * 22)
+
     def test_all_nodes_send_medium_settings_decode_and_autosave(self):
         image = torch.zeros((1, 64, 64, 3))
         mask = torch.zeros((1, 64, 64))

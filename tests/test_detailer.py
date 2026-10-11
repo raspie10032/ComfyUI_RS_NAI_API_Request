@@ -635,6 +635,14 @@ class PipelineTests(unittest.TestCase):
         self.assertTrue(all("Margin" in r["explanation"] for r in json.loads(report)))
         self.assertTrue(all(r["tight_crop_retried"] for r in json.loads(report)))
 
+    def test_preview_matches_last_of_22_original_candidates(self):
+        cs = [CharacterPrompt(f"person_{i} (series)", f"negative {i}", 0.5, 0.5) for i in range(1, 23)]
+        tagger = SimpleNamespace(score=lambda images: [{"person_22_(series)": 0.99}] * len(images))
+        with mock.patch.object(detailer, "get_nai_token", side_effect=AssertionError("token read")):
+            _, _, report = self.run_detail(characterPrompts=cs, tagger=tagger, preview_only=True)
+        self.post.assert_not_called()
+        self.assertEqual([r["character"] for r in json.loads(report)], [22, 22])
+
     def test_failed_tighter_crop_reports_latest_low_score(self):
         tagger = SimpleNamespace(score=mock.Mock(side_effect=[
             [{"blonde_hair": 0.8, "black_hair": 0.8}] * 2,
