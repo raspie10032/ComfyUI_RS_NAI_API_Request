@@ -14,6 +14,16 @@ This is provided for informational purposes and does not constitute legal advice
 
 ---
 
+## NAIA 2.0
+
+- **URL**: https://github.com/DNT-LAB/NAIA2.0
+- **Upstream license**: GPL-3.0, as reported by the upstream repository.
+- **Referenced article**: [NAIA — Reference Inset, V5 Assets](https://arca.live/b/aiart/185642997)
+- **Use**: The article's reference inset and character asset workflows informed the workflow and usability design of this package's inset and asset nodes. These nodes were implemented for ComfyUI using this package's existing NovelAI request path and NovelAI's reference inpainting documentation.
+- **Bundled**: No NAIA source code, images, or other assets are bundled (workflow reference only).
+
+---
+
 ## ComfyUI-Impact-Pack
 
 - **URL**: https://github.com/ltdrdata/ComfyUI-Impact-Pack

@@ -1,0 +1,436 @@
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "revision": 0,
+  "last_node_id": 5,
+  "last_link_id": 4,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        20,
+        120
+      ],
+      "size": [
+        280,
+        102
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "COMBO",
+          "widget": {
+            "name": "image"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "choose file to upload",
+          "name": "upload",
+          "type": "IMAGEUPLOAD",
+          "widget": {
+            "name": "upload"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "IMAGE",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ]
+        },
+        {
+          "localized_name": "MASK",
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "choose-your-reference.png",
+        "image"
+      ],
+      "widgets_values_named": {
+        "image": "choose-your-reference.png",
+        "upload": "image"
+      }
+    },
+    {
+      "id": 2,
+      "type": "NAIReferenceInset",
+      "pos": [
+        380,
+        120
+      ],
+      "size": [
+        270,
+        170
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "localized_name": "canvas_width",
+          "name": "canvas_width",
+          "type": "INT",
+          "widget": {
+            "name": "canvas_width"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "canvas_height",
+          "name": "canvas_height",
+          "type": "INT",
+          "widget": {
+            "name": "canvas_height"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "placement",
+          "name": "placement",
+          "type": "COMBO",
+          "widget": {
+            "name": "placement"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "reference_percent",
+          "name": "reference_percent",
+          "type": "INT",
+          "widget": {
+            "name": "reference_percent"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "inset",
+          "name": "inset",
+          "type": "RS_NAI_INSET",
+          "links": [
+            2
+          ]
+        },
+        {
+          "localized_name": "canvas",
+          "name": "canvas",
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "localized_name": "generation_mask",
+          "name": "generation_mask",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "NAIReferenceInset"
+      },
+      "widgets_values": [
+        1216,
+        832,
+        "left",
+        50
+      ],
+      "widgets_values_named": {
+        "canvas_width": 1216,
+        "canvas_height": 832,
+        "placement": "left",
+        "reference_percent": 50
+      }
+    },
+    {
+      "id": 3,
+      "type": "NAIReferenceInsetGenerate",
+      "pos": [
+        750,
+        120
+      ],
+      "size": [
+        400,
+        374
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "inset",
+          "name": "inset",
+          "type": "RS_NAI_INSET",
+          "link": 2
+        },
+        {
+          "localized_name": "characterPrompts",
+          "name": "characterPrompts",
+          "shape": 7,
+          "type": "LIST",
+          "link": null
+        },
+        {
+          "localized_name": "prompt",
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "negative_prompt",
+          "name": "negative_prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "negative_prompt"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "model",
+          "name": "model",
+          "type": "COMBO",
+          "widget": {
+            "name": "model"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "steps",
+          "name": "steps",
+          "type": "INT",
+          "widget": {
+            "name": "steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "cfg_scale",
+          "name": "cfg_scale",
+          "type": "FLOAT",
+          "widget": {
+            "name": "cfg_scale"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "limit_opus_free",
+          "name": "limit_opus_free",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "limit_opus_free"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "sampler",
+          "name": "sampler",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "sampler"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "scheduler",
+          "name": "scheduler",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "scheduler"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            3
+          ]
+        },
+        {
+          "localized_name": "full_canvas",
+          "name": "full_canvas",
+          "type": "IMAGE",
+          "links": [
+            4
+          ]
+        },
+        {
+          "localized_name": "applied_prompt",
+          "name": "applied_prompt",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "NAIReferenceInsetGenerate"
+      },
+      "widgets_values": [
+        "same character as the reference, sitting on a park bench, holding a flower",
+        "lowres, bad anatomy",
+        "NAI Diffusion V5 Full",
+        -1,
+        "randomize",
+        28,
+        6,
+        true,
+        "k_euler_ancestral",
+        "karras"
+      ],
+      "widgets_values_named": {
+        "prompt": "same character as the reference, sitting on a park bench, holding a flower",
+        "negative_prompt": "lowres, bad anatomy",
+        "model": "NAI Diffusion V5 Full",
+        "seed": -1,
+        "control_after_generate": "randomize",
+        "steps": 28,
+        "cfg_scale": 6,
+        "limit_opus_free": true,
+        "sampler": "k_euler_ancestral",
+        "scheduler": "karras"
+      }
+    },
+    {
+      "id": 4,
+      "type": "PreviewImage",
+      "pos": [
+        1180,
+        120
+      ],
+      "size": [
+        140,
+        26
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    },
+    {
+      "id": 5,
+      "type": "PreviewImage",
+      "pos": [
+        1180,
+        650
+      ],
+      "size": [
+        140,
+        26
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      2,
+      0,
+      3,
+      0,
+      "RS_NAI_INSET"
+    ],
+    [
+      3,
+      3,
+      0,
+      4,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      3,
+      1,
+      5,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

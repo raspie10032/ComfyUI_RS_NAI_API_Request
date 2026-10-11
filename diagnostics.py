@@ -46,6 +46,8 @@ def node_notices(cls):
             _messages.reset(marker)
         if unique_id is None:
             return result
+        if isinstance(result, dict):
+            return {**result, "ui": {**result.get("ui", {}), "rs_nai_notice": messages}}
         return {"ui": {"rs_nai_notice": messages}, "result": result}
 
     cls.INPUT_TYPES = inputs

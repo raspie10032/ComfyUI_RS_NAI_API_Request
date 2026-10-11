@@ -991,5 +991,148 @@
         "name": "ComfyUIプロンプト"
       }
     }
+  },
+  "NAIReferenceInset": {
+    "display_name": "NAI 参照インセット",
+    "description": "参照画像を自動配置し、空白領域のマスクを作成します。API送信やAnlas消費なしで実行して配置を確認できます。キャンバスは参照を含む全体のサイズです。切り抜き後のサイズはノードに表示されます。",
+    "inputs": {
+      "image": {
+        "name": "画像",
+        "tooltip": "参照画像を1枚接続します。比率を保ち、引き伸ばしや切り抜きはしません。透明部分は白に合成します。"
+      },
+      "canvas_width": {
+        "name": "全体キャンバス幅",
+        "tooltip": "参照を含む全体の幅です。最終結果は小さくなり、サイズをノードで確認できます。"
+      },
+      "canvas_height": {
+        "name": "全体キャンバス高さ",
+        "tooltip": "参照を含む全体の高さです。最終結果は小さくなり、サイズをノードで確認できます。"
+      },
+      "placement": {
+        "name": "参照の位置",
+        "tooltip": "参照を配置する側です。反対側の空白領域を生成します。",
+        "options": {
+          "left": "左",
+          "right": "右",
+          "top": "上",
+          "bottom": "下"
+        }
+      },
+      "reference_percent": {
+        "name": "参照領域の割合 (%)",
+        "tooltip": "参照が占める割合です。減らすと結果領域が広がりますが、一貫性が弱まる可能性があります。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "インセット"
+      },
+      "1": {
+        "name": "キャンバス"
+      },
+      "2": {
+        "name": "生成領域マスク"
+      }
+    }
+  },
+  "NAIReferenceInsetGenerate": {
+    "display_name": "NAI 参照インセット生成",
+    "description": "空白領域を強度1のインペイントで生成し、自動で切り抜きます。reference insetタグを一度追加します。Anlasを消費する可能性があり、初期設定の保護を解除するまで送信しません。キャラクター座標は切り抜き結果基準です。全体と結果を両方自動保存します。",
+    "inputs": {
+      "inset": {
+        "name": "インセット"
+      },
+      "prompt": {
+        "name": "プロンプト",
+        "tooltip": "元のキャラクター説明と描きたい場面を入力します。インセット生成時にreference insetタグを自動追加します。"
+      },
+      "negative_prompt": {
+        "name": "ネガティブプロンプト"
+      },
+      "model": {
+        "name": "モデル",
+        "tooltip": "V5 Full Mediumは14ステップ・Euler Ancestral・CFG Rescale 0・固定Heavy UCを使用し、ネガティブを無視します。V5 CuratedのインペイントはV4.5 Curatedを使用します。"
+      },
+      "seed": {
+        "name": "シード"
+      },
+      "steps": {
+        "name": "ステップ数"
+      },
+      "cfg_scale": {
+        "name": "プロンプトガイダンス"
+      },
+      "limit_opus_free": {
+        "name": "Anlas消費を防ぐ",
+        "tooltip": "オンではトークン取得・エンコード前に生成を停止します。オフはAnlas消費を許可します。プレビューだけなら準備ノードを実行してください。"
+      },
+      "sampler": {
+        "name": "サンプラー"
+      },
+      "scheduler": {
+        "name": "ノイズスケジュール"
+      },
+      "characterPrompts": {
+        "name": "キャラクタープロンプト",
+        "tooltip": "元のキャラクタープロンプトです。0〜1の座標は切り抜き結果基準で、全体キャンバスへ自動変換されます。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "画像"
+      },
+      "1": {
+        "name": "全体キャンバス"
+      },
+      "2": {
+        "name": "適用されたプロンプト"
+      }
+    }
+  },
+  "NAICharacterAssetSave": {
+    "display_name": "NAI キャラクターアセット保存",
+    "description": "参照画像と元のキャラクタープロンプト・ネガティブを一つのPNGに保存します。保存先: ComfyUI/input/rs_nai_assets。既存ファイルは上書きせず、Anlasも消費しません。共有するPNGにはプロンプトが含まれます。",
+    "inputs": {
+      "image": {
+        "name": "画像"
+      },
+      "name": {
+        "name": "アセット名",
+        "tooltip": "ファイル名に使うアセット名です。一意の識別子を付け、既存ファイルを上書きしません。"
+      },
+      "prompt": {
+        "name": "プロンプト",
+        "tooltip": "元のキャラクター説明と描きたい場面を入力します。インセット生成時にreference insetタグを自動追加します。"
+      },
+      "negative_prompt": {
+        "name": "ネガティブプロンプト"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "アセットファイル"
+      }
+    }
+  },
+  "NAICharacterAssetLoad": {
+    "display_name": "NAI キャラクターアセット読み込み",
+    "description": "保存したアセットPNGから画像と元のプロンプトをそのまま読み込みます。保存・コピー後は一覧を更新してください。プロンプト出力をキャラクタースロットまたはインセット生成のプロンプトに接続し、描きたい場面を追加してください。",
+    "inputs": {
+      "asset_file": {
+        "name": "アセットファイル",
+        "tooltip": "保存したアセットPNGを選択します。保存・コピー後はアセット一覧を更新してください。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "画像"
+      },
+      "1": {
+        "name": "プロンプト"
+      },
+      "2": {
+        "name": "ネガティブプロンプト"
+      }
+    }
   }
 }

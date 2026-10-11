@@ -4,7 +4,14 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The YOLO/SAM detailer can process multiple detected regions sequentially. An optional **local PyTorch tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads only the selected model when the loader executes, after the optional dependencies are installed.
 
-> Current version: **2.4.6**
+> Current version: **2.5.0**
+
+## What's New in 2.5.0
+
+- **Reference Inset** prepares a reference canvas and generation mask locally. Choose left/right/top/bottom and the reference percentage; the node shows both canvas and cropped output dimensions and previews the canvas when executed.
+- **Reference Inset Generate** fills the empty area with NovelAI inpainting, adds `reference inset` once, and returns the cropped image, preserved full canvas, and applied prompt. Both images are autosaved. Default Anlas protection blocks generation; preparation remains local.
+- **Character Asset Save / Load** keep one reference image and its original positive/negative character prompts in a portable PNG. Save locally, refresh the loader list, and reuse the image and prompts in other workflows.
+- New nodes have Korean/Japanese native labels, tooltips, and friendly error messages. Existing node inputs and workflow defaults are unchanged. See the [reference inset and asset guide](docs/reference-inset.md).
 
 ## What's New in 2.4.6
 
@@ -98,6 +105,8 @@ See [Vibe Transfer and Precise Reference](#vibe-transfer-and-precise-reference) 
 
 ## Features
 
+- **Reference inset**: Automatic canvas/mask preparation, output-size preview, reference-guided inpainting, and exact result cropping.
+- **Character assets**: Portable reference PNGs with original prompts, a local save/load library, and an in-node refresh button.
 - **Image references**: Vibe Transfer for supported V3/V4/V4.5 models, plus V4.5 Precise Reference for character and style guidance.
 - **NovelAI generation**: Text-to-image, img2img, and inpainting with NAI Diffusion V5, V4.5, V4, V3, and supported Furry models.
 - **Multi-character prompts**: Up to 22 character slots for V5 (6 for V4/V4.5), with separate positive/negative prompts and X/Y coordinates from 0.0 to 1.0 in 0.1 increments.
@@ -421,7 +430,9 @@ Old NovelAI brace/bracket syntax cannot exactly represent arbitrary numeric weig
 
 ## Opus Free-Generation Protection
 
-All generation nodes (`NovelAIGenerator`, `NAIImg2ImgNode`, `NAIInpaintNode`, `NAIFaceDetailerNode`) include a `limit_opus_free` parameter.
+All generation nodes, including `NAIReferenceInsetGenerate` and both Face Detailers, include a `limit_opus_free` parameter.
+
+Reference inset generation uses ordinary inpainting and is blocked before token access or image encoding when protection is enabled. Canvas preparation and character asset save/load are local operations and use no Anlas.
 
 | Property | Value |
 | :--- | :--- |
@@ -490,12 +501,15 @@ These changes originated in `Add_facedetail` and are included in the current `ma
 | Project | License | Role |
 | :--- | :--- | :--- |
 | [bedovyy/ComfyUI_NAIDGenerator](https://github.com/bedovyy/ComfyUI_NAIDGenerator) | GPL-3.0-only | Reference for Opus free-generation limit behavior (pixel cap and step cap logic) |
+| [NAIA 2.0](https://github.com/DNT-LAB/NAIA2.0) | GPL-3.0 (upstream) | Reference for the reference inset and character asset workflows, introduced in [NAIA — Reference Inset, V5 Assets](https://arca.live/b/aiart/185642997) |
 | [ComfyUI-Impact-Pack](https://github.com/ltdrdata/ComfyUI-Impact-Pack) | GPL-3.0-only | External detector dependency and workflow integration for the Face Detailer node |
 | [ComfyUI-Impact-Subpack](https://github.com/ltdrdata/ComfyUI-Impact-Subpack) | GPL-3.0-only | External sub-package providing BBOX_DETECTOR types; bbox loading moved to this package |
 | [segment-anything](https://github.com/facebookresearch/segment-anything) | Apache-2.0 | SAM segmentation runtime dependency used by the Face Detailer node |
 | NovelAI API | Proprietary (external service) | Remote image generation API; no NovelAI code is bundled |
 
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for full details.
+
+Thanks to NAIA for sharing the reference inset and V5 asset workflow. Its linked article informed the workflow and usability design of our ComfyUI inset and asset nodes.
 
 ## License
 

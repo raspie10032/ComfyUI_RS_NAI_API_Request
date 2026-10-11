@@ -179,6 +179,18 @@
     "UNKNOWN": [
       "An unexpected error occurred in this NAI node.",
       "The cause could not be identified automatically. Keep the error type and traceback when reporting it, and review the report for private data before sharing."
+    ],
+    "INSET_LAYOUT": [
+      "The reference layout is invalid.",
+      "Connect NAI Reference Inset and use canvas sizes in steps of 64. Check the reference side and percentage."
+    ],
+    "INSET_RESPONSE": [
+      "The returned image size differs from the reference canvas.",
+      "The result cannot be cropped reliably. Check the model and the sizes in the details before retrying; the request may already have spent Anlas."
+    ],
+    "ASSET_FILE": [
+      "The character asset could not be loaded.",
+      "Save it with NAI Character Asset Save, or copy an asset PNG into input/rs_nai_assets. Refresh the asset list and select it again. Ordinary PNGs without asset metadata can be opened with Load Image."
     ]
   },
   "ko": {
@@ -361,6 +373,18 @@
     "UNKNOWN": [
       "NAI 노드에서 예상하지 못한 오류가 발생했습니다.",
       "원인을 자동으로 특정하지 못했습니다. 오류 종류와 추적 정보를 함께 제보해 주세요. 공유 전에 보고서에 개인 정보가 있는지 확인하세요."
+    ],
+    "INSET_LAYOUT": [
+      "레퍼런스 인셋 배치를 만들 수 없습니다.",
+      "NAI 레퍼런스 인셋을 연결하고 캔버스 크기를 64 단위로 지정하세요. 참조 위치와 비율도 확인하세요."
+    ],
+    "INSET_RESPONSE": [
+      "반환된 이미지 크기가 인셋 캔버스와 다릅니다.",
+      "정확한 위치로 자를 수 없습니다. 상세 정보의 크기와 모델을 확인하세요. 요청이 이미 처리되어 Anlas가 소모됐을 수 있으니 재실행 전에 확인하세요."
+    ],
+    "ASSET_FILE": [
+      "캐릭터 에셋을 불러올 수 없습니다.",
+      "NAI 캐릭터 에셋 저장으로 저장하거나 에셋 PNG를 input/rs_nai_assets에 복사하세요. 목록을 새로고침하고 다시 선택하세요. 에셋 정보가 없는 일반 PNG는 이미지 불러오기 노드를 사용하세요."
     ]
   },
   "ja": {
@@ -543,6 +567,18 @@
     "UNKNOWN": [
       "NAIノードで予期しないエラーが発生しました。",
       "原因を自動判定できませんでした。報告にはエラーの種類とトレースバックを含め、共有前に個人情報がないか確認してください。"
+    ],
+    "INSET_LAYOUT": [
+      "参照インセットの配置が無効です。",
+      "NAI 参照インセットを接続し、キャンバスを64単位で設定してください。参照の位置と割合も確認してください。"
+    ],
+    "INSET_RESPONSE": [
+      "返された画像のサイズが参照キャンバスと異なります。",
+      "正しい位置で切り抜けません。詳細のサイズとモデルを確認してください。既にAnlasを消費した可能性があるため、再実行前に確認してください。"
+    ],
+    "ASSET_FILE": [
+      "キャラクターアセットを読み込めません。",
+      "NAI キャラクターアセット保存で保存するか、アセットPNGをinput/rs_nai_assetsにコピーしてください。一覧を更新して再選択してください。アセット情報のない通常のPNGには画像読み込みノードを使用してください。"
     ]
   }
 }

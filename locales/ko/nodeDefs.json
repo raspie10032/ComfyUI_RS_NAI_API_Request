@@ -991,5 +991,148 @@
         "name": "ComfyUI 프롬프트"
       }
     }
+  },
+  "NAIReferenceInset": {
+    "display_name": "NAI 레퍼런스 인셋",
+    "description": "참조 이미지를 자동 배치하고 빈 영역의 마스크를 만듭니다. API 요청과 Anlas 소모 없이 실행하여 실제 배치를 미리 볼 수 있습니다. 캔버스는 참조를 포함한 전체 크기이며, 잘라낸 결과 크기는 노드에 표시됩니다.",
+    "inputs": {
+      "image": {
+        "name": "이미지",
+        "tooltip": "참조 이미지 한 장을 연결하세요. 늘이거나 자르지 않고 비율을 유지합니다. 투명한 부분은 흰색으로 합성합니다."
+      },
+      "canvas_width": {
+        "name": "전체 캔버스 너비",
+        "tooltip": "참조 이미지를 포함한 전체 너비입니다. 최종 결과는 더 작으며 노드에서 크기를 확인할 수 있습니다."
+      },
+      "canvas_height": {
+        "name": "전체 캔버스 높이",
+        "tooltip": "참조 이미지를 포함한 전체 높이입니다. 최종 결과는 더 작으며 노드에서 크기를 확인할 수 있습니다."
+      },
+      "placement": {
+        "name": "참조 위치",
+        "tooltip": "참조 이미지를 놓을 쪽입니다. 반대쪽 빈 영역을 생성합니다.",
+        "options": {
+          "left": "왼쪽",
+          "right": "오른쪽",
+          "top": "위쪽",
+          "bottom": "아래쪽"
+        }
+      },
+      "reference_percent": {
+        "name": "참조 영역 비율 (%)",
+        "tooltip": "참조 영역이 차지하는 비율입니다. 줄이면 결과 영역이 커지지만 참조 일관성이 약해질 수 있습니다."
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "인셋"
+      },
+      "1": {
+        "name": "캔버스"
+      },
+      "2": {
+        "name": "생성 영역 마스크"
+      }
+    }
+  },
+  "NAIReferenceInsetGenerate": {
+    "display_name": "NAI 레퍼런스 인셋 생성",
+    "description": "빈 영역을 인페인팅 강도 1로 생성한 뒤 자동으로 잘라냅니다. reference inset 태그를 한 번 추가합니다. Anlas가 소모될 수 있어 기본 보호 옵션을 끄기 전에는 요청하지 않습니다. 캐릭터 좌표는 잘라낸 결과 기준입니다. 전체 캔버스와 결과를 모두 자동 저장합니다.",
+    "inputs": {
+      "inset": {
+        "name": "인셋"
+      },
+      "prompt": {
+        "name": "프롬프트",
+        "tooltip": "원래 캐릭터 설명과 원하는 장면을 입력하세요. 인셋 생성 노드에서 reference inset 태그를 자동 추가합니다."
+      },
+      "negative_prompt": {
+        "name": "네거티브 프롬프트"
+      },
+      "model": {
+        "name": "모델",
+        "tooltip": "V5 Full Medium은 14스텝·Euler Ancestral·CFG Rescale 0·고정 Heavy UC를 사용하고 네거티브를 무시합니다. V5 Curated 인페인팅은 V4.5 Curated를 사용합니다."
+      },
+      "seed": {
+        "name": "시드"
+      },
+      "steps": {
+        "name": "스텝 수"
+      },
+      "cfg_scale": {
+        "name": "프롬프트 가이던스"
+      },
+      "limit_opus_free": {
+        "name": "Anlas 사용 방지",
+        "tooltip": "켜면 토큰 확인·인코딩 전에 생성을 차단합니다. 끄면 Anlas를 사용할 수 있습니다. 미리보기만 하려면 준비 노드를 실행하세요."
+      },
+      "sampler": {
+        "name": "샘플러"
+      },
+      "scheduler": {
+        "name": "노이즈 스케줄"
+      },
+      "characterPrompts": {
+        "name": "캐릭터 프롬프트",
+        "tooltip": "원래 캐릭터 프롬프트입니다. 0~1 좌표는 잘라낸 결과를 기준으로 하며 전체 캔버스 좌표로 자동 변환됩니다."
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "이미지"
+      },
+      "1": {
+        "name": "전체 캔버스"
+      },
+      "2": {
+        "name": "적용된 프롬프트"
+      }
+    }
+  },
+  "NAICharacterAssetSave": {
+    "display_name": "NAI 캐릭터 에셋 저장",
+    "description": "참조 이미지와 원래 캐릭터 프롬프트·네거티브를 PNG 하나에 함께 저장합니다. 위치: ComfyUI/input/rs_nai_assets. 기존 파일은 덮어쓰지 않으며 Anlas 소모가 없습니다. 공유할 PNG에 프롬프트가 포함됩니다.",
+    "inputs": {
+      "image": {
+        "name": "이미지"
+      },
+      "name": {
+        "name": "에셋 이름",
+        "tooltip": "파일 이름에 쓰는 에셋 이름입니다. 고유 식별자를 붙여 기존 파일을 덮어쓰지 않습니다."
+      },
+      "prompt": {
+        "name": "프롬프트",
+        "tooltip": "원래 캐릭터 설명과 원하는 장면을 입력하세요. 인셋 생성 노드에서 reference inset 태그를 자동 추가합니다."
+      },
+      "negative_prompt": {
+        "name": "네거티브 프롬프트"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "에셋 파일"
+      }
+    }
+  },
+  "NAICharacterAssetLoad": {
+    "display_name": "NAI 캐릭터 에셋 불러오기",
+    "description": "저장한 에셋 PNG에서 이미지와 원래 프롬프트를 그대로 불러옵니다. 저장·복사 후 목록 새로고침을 누르세요. 프롬프트 출력을 캐릭터 슬롯 또는 인셋 생성의 프롬프트에 연결하고 원하는 장면을 추가하세요.",
+    "inputs": {
+      "asset_file": {
+        "name": "에셋 파일",
+        "tooltip": "저장된 에셋 PNG를 선택하세요. 저장·복사 후 에셋 목록 새로고침을 누르세요."
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "이미지"
+      },
+      "1": {
+        "name": "프롬프트"
+      },
+      "2": {
+        "name": "네거티브 프롬프트"
+      }
+    }
   }
 }
