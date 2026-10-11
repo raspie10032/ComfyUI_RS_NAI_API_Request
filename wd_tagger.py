@@ -3,6 +3,8 @@
 
 import csv
 import json
+import logging
+import sys
 import threading
 from pathlib import Path
 
@@ -10,6 +12,23 @@ from .runtime_control import check_interrupted
 
 MODEL_REPO = "SmilingWolf/wd-vit-tagger-v3"
 MODEL_REVISION = "7f6b584d0bd3f55c4531f14ba3d4761b2bccdc0f"
+
+
+def check_dependencies():
+    """Import optional dependencies only when the loader/matcher is used."""
+    try:
+        import timm
+        from huggingface_hub import hf_hub_download
+        from safetensors.torch import load_file
+        from timm.data import create_transform, resolve_data_config
+    except (ImportError, RuntimeError, OSError) as exc:
+        requirements = Path(__file__).with_name("requirements-tagger.txt")
+        raise RuntimeError(
+            f"WD tagger dependencies failed to import ({type(exc).__name__}: {exc}). "
+            f'Install in this ComfyUI environment: "{sys.executable}" -m pip install -r "{requirements}". '
+            "If already installed, check that torch and torchvision are compatible."
+        ) from exc
+    return timm, hf_hub_download, load_file, create_transform, resolve_data_config
 
 
 class WDTagger:
@@ -23,22 +42,17 @@ class WDTagger:
     def _load(self):
         if self._model is not None:
             return
-        try:
-            import timm
-            from huggingface_hub import hf_hub_download
-            from safetensors.torch import load_file
-            from timm.data import create_transform, resolve_data_config
-        except ImportError as exc:
-            raise RuntimeError(
-                "WD matching requires requirements-tagger.txt in the ComfyUI Python environment."
-            ) from exc
+        timm, hf_hub_download, load_file, create_transform, resolve_data_config = check_dependencies()
         paths = {}
+        logging.info("[RS NAI WD] Checking cached model files; missing files download on first match.")
         for name in ("config.json", "selected_tags.csv", "model.safetensors"):
             check_interrupted()
+            logging.info("[RS NAI WD] Resolving %s", name)
             paths[name] = hf_hub_download(
                 MODEL_REPO, name, revision=MODEL_REVISION, cache_dir=self.cache_dir
             )
-        config = json.loads(Path(paths["config.json"]).read_text())
+        logging.info("[RS NAI WD] Loading model weights on CPU.")
+        config = json.loads(Path(paths["config.json"]).read_text(encoding="utf-8"))
         model = timm.create_model(
             config["architecture"],
             pretrained=False,
@@ -89,6 +103,7 @@ class WDTagger:
                 device = torch.device("cpu")
             results = []
             try:
+                logging.info("[RS NAI WD] Scoring %d crops on %s (batch size %d).", len(images), device, self.batch_size)
                 self._model.to(device)
                 for start in range(0, len(images), self.batch_size):
                     check_interrupted()
@@ -123,6 +138,7 @@ class WDTagger:
 
 
 class WDTaggerLoader:
+    DESCRIPTION = "Checks optional PyTorch tagger dependencies immediately. Model files download on the first match. Scores select an original character slot; they never become prompt text."
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -137,6 +153,9 @@ class WDTaggerLoader:
     CATEGORY = "RS_NovelAI_API/FaceDetailer"
 
     def load(self, device="auto", batch_size=4):
+        if device not in {"auto", "cpu"} or type(batch_size) is not int or not 1 <= batch_size <= 16:
+            raise ValueError("WD tagger requires device auto/cpu and batch_size 1–16.")
+        check_dependencies()
         import folder_paths
 
         key = (device, batch_size, folder_paths.models_dir)

@@ -632,6 +632,28 @@ class PipelineTests(unittest.TestCase):
         self.post.assert_not_called()
         self.assertTrue(torch.equal(out, self.image))
         self.assertTrue(all(r["status"] == "skipped" for r in json.loads(report)))
+        self.assertTrue(all("Margin" in r["explanation"] for r in json.loads(report)))
+        self.assertTrue(all(r["tight_crop_retried"] for r in json.loads(report)))
+
+    def test_failed_tighter_crop_reports_latest_low_score(self):
+        tagger = SimpleNamespace(score=mock.Mock(side_effect=[
+            [{"blonde_hair": 0.8, "black_hair": 0.8}] * 2,
+            [{"blonde_hair": 0.1, "black_hair": 0.1}] * 2,
+        ]))
+        out, _, report = self.run_detail(tagger=tagger, preview_only=True)
+        for region in json.loads(report):
+            self.assertEqual(region["status"], "skipped")
+            self.assertAlmostEqual(region["score"], 0.1)
+            self.assertIn("Score 0.100 below", region["explanation"])
+            self.assertTrue(region["tight_crop_retried"])
+        self.post.assert_not_called()
+
+    def test_detailer_rejects_image_batch_before_detection_or_requests(self):
+        self.image = self.image.repeat(2, 1, 1, 1)
+        with self.assertRaisesRegex(ValueError, "one RGB/RGBA image"):
+            self.run_detail()
+        self.detector.detect.assert_not_called()
+        self.post.assert_not_called()
 
     def test_empty_masks_do_not_send_requests(self):
         with mock.patch.object(

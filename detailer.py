@@ -13,7 +13,9 @@ from .image_utils import (
     png_bytes_to_pil,
     save_png_preserving_metadata,
     tensor_to_pil,
+    validate_single_image,
 )
+from .diagnostics import notice
 from .nai_api import (
     apply_opus_free_limits,
     apply_v4_parameters,
@@ -126,6 +128,7 @@ def run_face_detail(
     if matching_mode == "wd14" and tagger is None:
         raise ValueError("Connect NAI WD Tagger Loader for wd14 matching.")
 
+    validate_single_image(image)
     source = tensor_to_pil(image)
     w, h = source.size
     detected = _detect(primary_detector, image, bbox_threshold, dilation, crop_factor)
@@ -142,6 +145,7 @@ def run_face_detail(
         if x1 > x0 and y1 > y0 and bx1 > bx0 and by1 > by0:
             regions.append(seg)
     if not regions:
+        notice("No regions detected. Original image returned; no NovelAI request sent.")
         return image, image, json.dumps({"regions": [], "status": "no_detections"})
     # Ownership uses every detection, even when limiting the number of requests.
     active_count = min(len(regions), 1 if detail_mode == "first" else max_regions)
@@ -155,6 +159,7 @@ def run_face_detail(
         for _ in regions
     ]
     pending = list(range(active_count))
+    retried = set()
     if matching_mode == "wd14" and pending:
         scores = tagger.score(
             [_context_crop(source, regions[i].bbox, match_crop_factor) for i in pending]
@@ -171,6 +176,7 @@ def run_face_detail(
         uncertain = [i for i in pending if matches[i].character_index is None]
         tight_factor = min(1.25, match_crop_factor)
         if uncertain and tight_factor < match_crop_factor:
+            retried.update(uncertain)
             tight_scores = tagger.score(
                 [
                     _context_crop(source, regions[i].bbox, tight_factor)
@@ -190,6 +196,8 @@ def run_face_detail(
                         match.margin,
                         "tag_match_tight",
                     )
+                else:
+                    matches[i] = match
             del tight_scores
 
     report = []
@@ -197,6 +205,16 @@ def run_face_detail(
         eligible = i < active_count and (
             matching_mode == "shared" or match.character_index is not None
         )
+        if i >= active_count:
+            explanation = "Not processed: detail_mode=first or max_regions limit."
+        elif matching_mode == "wd14" and match.character_index is None:
+            explanation = (
+                f"Score {match.score:.3f} below minimum {match_min_score:.3f}."
+                if match.score < match_min_score else
+                f"Margin {match.margin:.3f} below minimum {match_min_margin:.3f}; candidates too similar."
+            )
+        else:
+            explanation = "Shared prompt." if matching_mode == "shared" else "Original character prompt selected."
         report.append(
             {
                 "region": i + 1,
@@ -209,8 +227,15 @@ def run_face_detail(
                 "margin": match.margin,
                 "reason": match.reason,
                 "status": "planned" if eligible else "skipped",
+                "explanation": explanation,
+                "tight_crop_retried": i in retried,
             }
         )
+    if matching_mode == "wd14" or any(r["status"] == "skipped" for r in report):
+        notice("\n".join(
+            f"Region {r['region']} -> character {r['character'] or '?'}: {r['explanation']}"
+            for r in report
+        ))
     if preview_only:
         preview = source.copy()
         draw = ImageDraw.Draw(preview)
@@ -219,7 +244,8 @@ def run_face_detail(
             draw.rectangle(item["bbox"], outline=color, width=2)
             draw.text(
                 (item["bbox"][0], item["bbox"][1]),
-                f"{item['region']} -> {item['character'] or '?'}",
+                f"{item['region']} -> {item['character'] or '?'} "
+                f"{item['status']} score={item['score']:.2f} margin={item['margin']:.2f}",
                 fill=color,
             )
         return (
