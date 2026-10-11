@@ -132,7 +132,8 @@
         "name": "多様性の強化"
       },
       "characterPrompts": {
-        "name": "キャラクタープロンプト"
+        "name": "キャラクタープロンプト",
+        "tooltip": "V5は最大22人、V4/V4.5は最大6人。V5 CuratedのインペイントはV4.5を使うため最大6人です。"
       },
       "limit_opus_free": {
         "name": "Anlas消費制限（Opus無料条件）",
@@ -157,7 +158,7 @@
   },
   "CharacterPromptSelect": {
     "display_name": "NAI キャラクタープロンプト設定",
-    "description": "V4/V4.5/V5で使う元のキャラクタープロンプトを最大5件設定します。X/Yは0～1の座標です。旧形式の0～10の座標は10で割って入力してください。座標は位置の目安であり、領域を厳密に指定するマスクではありません。",
+    "description": "キャラクタースロット数で1～22件を表示します（既定5件）。非表示の内容は保持されますが出力には含まれません。V5は最大22人、V4/V4.5およびV5 Curatedのインペイントは最大6人です。X/Yは0～1の位置の目安です。",
     "inputs": {
       "character1": {
         "name": "キャラクター1 プロンプト"
@@ -230,6 +231,265 @@
       },
       "character5_y": {
         "name": "キャラクター5 Y座標"
+      },
+      "character_count": {
+        "name": "キャラクタースロット数",
+        "tooltip": "必要なスロットだけを表示します。減らしても入力内容は保持されます。V5は最大22人、V4/V4.5とV5 Curatedのインペイントは最大6人。個別スイッチで途中のスロットを除外できます。"
+      },
+      "character6_enable": {
+        "name": "キャラクター6 有効"
+      },
+      "character6": {
+        "name": "キャラクター6 プロンプト"
+      },
+      "character6_uc": {
+        "name": "キャラクター6 ネガティブ"
+      },
+      "character6_x": {
+        "name": "キャラクター6 X座標"
+      },
+      "character6_y": {
+        "name": "キャラクター6 Y座標"
+      },
+      "character7_enable": {
+        "name": "キャラクター7 有効"
+      },
+      "character7": {
+        "name": "キャラクター7 プロンプト"
+      },
+      "character7_uc": {
+        "name": "キャラクター7 ネガティブ"
+      },
+      "character7_x": {
+        "name": "キャラクター7 X座標"
+      },
+      "character7_y": {
+        "name": "キャラクター7 Y座標"
+      },
+      "character8_enable": {
+        "name": "キャラクター8 有効"
+      },
+      "character8": {
+        "name": "キャラクター8 プロンプト"
+      },
+      "character8_uc": {
+        "name": "キャラクター8 ネガティブ"
+      },
+      "character8_x": {
+        "name": "キャラクター8 X座標"
+      },
+      "character8_y": {
+        "name": "キャラクター8 Y座標"
+      },
+      "character9_enable": {
+        "name": "キャラクター9 有効"
+      },
+      "character9": {
+        "name": "キャラクター9 プロンプト"
+      },
+      "character9_uc": {
+        "name": "キャラクター9 ネガティブ"
+      },
+      "character9_x": {
+        "name": "キャラクター9 X座標"
+      },
+      "character9_y": {
+        "name": "キャラクター9 Y座標"
+      },
+      "character10_enable": {
+        "name": "キャラクター10 有効"
+      },
+      "character10": {
+        "name": "キャラクター10 プロンプト"
+      },
+      "character10_uc": {
+        "name": "キャラクター10 ネガティブ"
+      },
+      "character10_x": {
+        "name": "キャラクター10 X座標"
+      },
+      "character10_y": {
+        "name": "キャラクター10 Y座標"
+      },
+      "character11_enable": {
+        "name": "キャラクター11 有効"
+      },
+      "character11": {
+        "name": "キャラクター11 プロンプト"
+      },
+      "character11_uc": {
+        "name": "キャラクター11 ネガティブ"
+      },
+      "character11_x": {
+        "name": "キャラクター11 X座標"
+      },
+      "character11_y": {
+        "name": "キャラクター11 Y座標"
+      },
+      "character12_enable": {
+        "name": "キャラクター12 有効"
+      },
+      "character12": {
+        "name": "キャラクター12 プロンプト"
+      },
+      "character12_uc": {
+        "name": "キャラクター12 ネガティブ"
+      },
+      "character12_x": {
+        "name": "キャラクター12 X座標"
+      },
+      "character12_y": {
+        "name": "キャラクター12 Y座標"
+      },
+      "character13_enable": {
+        "name": "キャラクター13 有効"
+      },
+      "character13": {
+        "name": "キャラクター13 プロンプト"
+      },
+      "character13_uc": {
+        "name": "キャラクター13 ネガティブ"
+      },
+      "character13_x": {
+        "name": "キャラクター13 X座標"
+      },
+      "character13_y": {
+        "name": "キャラクター13 Y座標"
+      },
+      "character14_enable": {
+        "name": "キャラクター14 有効"
+      },
+      "character14": {
+        "name": "キャラクター14 プロンプト"
+      },
+      "character14_uc": {
+        "name": "キャラクター14 ネガティブ"
+      },
+      "character14_x": {
+        "name": "キャラクター14 X座標"
+      },
+      "character14_y": {
+        "name": "キャラクター14 Y座標"
+      },
+      "character15_enable": {
+        "name": "キャラクター15 有効"
+      },
+      "character15": {
+        "name": "キャラクター15 プロンプト"
+      },
+      "character15_uc": {
+        "name": "キャラクター15 ネガティブ"
+      },
+      "character15_x": {
+        "name": "キャラクター15 X座標"
+      },
+      "character15_y": {
+        "name": "キャラクター15 Y座標"
+      },
+      "character16_enable": {
+        "name": "キャラクター16 有効"
+      },
+      "character16": {
+        "name": "キャラクター16 プロンプト"
+      },
+      "character16_uc": {
+        "name": "キャラクター16 ネガティブ"
+      },
+      "character16_x": {
+        "name": "キャラクター16 X座標"
+      },
+      "character16_y": {
+        "name": "キャラクター16 Y座標"
+      },
+      "character17_enable": {
+        "name": "キャラクター17 有効"
+      },
+      "character17": {
+        "name": "キャラクター17 プロンプト"
+      },
+      "character17_uc": {
+        "name": "キャラクター17 ネガティブ"
+      },
+      "character17_x": {
+        "name": "キャラクター17 X座標"
+      },
+      "character17_y": {
+        "name": "キャラクター17 Y座標"
+      },
+      "character18_enable": {
+        "name": "キャラクター18 有効"
+      },
+      "character18": {
+        "name": "キャラクター18 プロンプト"
+      },
+      "character18_uc": {
+        "name": "キャラクター18 ネガティブ"
+      },
+      "character18_x": {
+        "name": "キャラクター18 X座標"
+      },
+      "character18_y": {
+        "name": "キャラクター18 Y座標"
+      },
+      "character19_enable": {
+        "name": "キャラクター19 有効"
+      },
+      "character19": {
+        "name": "キャラクター19 プロンプト"
+      },
+      "character19_uc": {
+        "name": "キャラクター19 ネガティブ"
+      },
+      "character19_x": {
+        "name": "キャラクター19 X座標"
+      },
+      "character19_y": {
+        "name": "キャラクター19 Y座標"
+      },
+      "character20_enable": {
+        "name": "キャラクター20 有効"
+      },
+      "character20": {
+        "name": "キャラクター20 プロンプト"
+      },
+      "character20_uc": {
+        "name": "キャラクター20 ネガティブ"
+      },
+      "character20_x": {
+        "name": "キャラクター20 X座標"
+      },
+      "character20_y": {
+        "name": "キャラクター20 Y座標"
+      },
+      "character21_enable": {
+        "name": "キャラクター21 有効"
+      },
+      "character21": {
+        "name": "キャラクター21 プロンプト"
+      },
+      "character21_uc": {
+        "name": "キャラクター21 ネガティブ"
+      },
+      "character21_x": {
+        "name": "キャラクター21 X座標"
+      },
+      "character21_y": {
+        "name": "キャラクター21 Y座標"
+      },
+      "character22_enable": {
+        "name": "キャラクター22 有効"
+      },
+      "character22": {
+        "name": "キャラクター22 プロンプト"
+      },
+      "character22_uc": {
+        "name": "キャラクター22 ネガティブ"
+      },
+      "character22_x": {
+        "name": "キャラクター22 X座標"
+      },
+      "character22_y": {
+        "name": "キャラクター22 Y座標"
       }
     },
     "outputs": {
@@ -293,7 +553,8 @@
         "name": "多様性の強化"
       },
       "characterPrompts": {
-        "name": "キャラクタープロンプト"
+        "name": "キャラクタープロンプト",
+        "tooltip": "V5は最大22人、V4/V4.5は最大6人。V5 CuratedのインペイントはV4.5を使うため最大6人です。"
       },
       "limit_opus_free": {
         "name": "Anlas消費制限（Opus無料条件）",
@@ -375,7 +636,8 @@
         "name": "多様性の強化"
       },
       "characterPrompts": {
-        "name": "キャラクタープロンプト"
+        "name": "キャラクタープロンプト",
+        "tooltip": "V5は最大22人、V4/V4.5は最大6人。V5 CuratedのインペイントはV4.5を使うため最大6人です。"
       },
       "limit_opus_free": {
         "name": "Anlas消費制限（Opus無料条件）",

@@ -32,6 +32,7 @@ from .nai_api import (
     post_nai,
     zip_to_png_bytes,
     validate_character_prompts,
+    MAX_CHARACTER_SLOTS,
 )
 from .wd_tagger import WDTaggerLoader
 from .references import (
@@ -68,10 +69,10 @@ class CharacterPrompt:
         self.center = {"x": x, "y": y}
 
 class CharacterPromptSelect:
-    DESCRIPTION = "Up to five original character prompts for V4/V4.5/V5. X/Y are normalized 0–1 coordinates; migrate old 0–10 values by dividing by ten. Positions guide the model; they are not hard masks."
+    DESCRIPTION = "Choose character_count to show 1–22 slots (default 5). Hidden slots keep their values but are excluded from output. V5 supports 22 active prompts; V4/V4.5 and V5 Curated inpainting support 6. X/Y are normalized 0–1 coordinates; migrate old 0–10 values by dividing by ten. Positions guide the model; they are not hard masks."
     @classmethod
     def INPUT_TYPES(cls):
-        return {
+        inputs = {
             "required": {
                 "character1": ("STRING", {"default": "Input Character 1"}),
                 "character1_uc": ("STRING", {"default": "negative_prompt"}),
@@ -102,15 +103,31 @@ class CharacterPromptSelect:
             },
         }
 
+        inputs["optional"]["character_count"] = ("INT", {
+            "default": 5, "min": 1, "max": MAX_CHARACTER_SLOTS,
+            "tooltip": "Show and use only these slots. Hidden values are kept. V5: 22; V4/V4.5 and V5 Curated inpainting: 6. Disable individual slots to skip them.",
+        })
+        for i in range(6, MAX_CHARACTER_SLOTS + 1):
+            inputs["optional"].update({
+                f"character{i}_enable": ("BOOLEAN", {"default": True}),
+                f"character{i}": ("STRING", {"default": ""}),
+                f"character{i}_uc": ("STRING", {"default": ""}),
+                f"character{i}_x": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.1, "round": 0.1}),
+                f"character{i}_y": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.1, "round": 0.1}),
+            })
+        return inputs
+
     RETURN_TYPES = ("LIST",)
     RETURN_NAMES = ("CharacterPrompt",)
     FUNCTION = "build_character_prompt"
     CATEGORY = "RS_NovelAI_API/Characters"
 
-    def build_character_prompt(self, **kwargs):
+    def build_character_prompt(self, character_count=5, **kwargs):
+        if isinstance(character_count, bool) or not isinstance(character_count, int) or not 1 <= character_count <= MAX_CHARACTER_SLOTS:
+            raise ValueError("character_count must be an integer from 1 to 22.")
         character_prompts = []
-        for i in range(1, 6):
-            enable = kwargs.get(f"character{i}_enable", True) if i == 1 else kwargs.get(f"character{i}_enable", False)
+        for i in range(1, character_count + 1):
+            enable = kwargs.get(f"character{i}_enable", i == 1 or i >= 6)
             if enable:
                 prompt = kwargs.get(f"character{i}", "")
                 uc = kwargs.get(f"character{i}_uc", "")
@@ -169,7 +186,7 @@ class NovelAIGenerator:
                 "cfg_rescale": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
                 "prefer_brownian": ("BOOLEAN", {"default": False}),
                 "variety_boost": ("BOOLEAN", {"default": True}),
-                "characterPrompts": ("LIST",),
+                "characterPrompts": ("LIST", {"tooltip": "V5: up to 22 active character prompts; V4/V4.5: up to 6. V5 Curated inpainting uses V4.5 (6)."}),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **reference_inputs(),
             }
@@ -245,7 +262,7 @@ class NAIImg2ImgNode:
                 "prefer_brownian": ("BOOLEAN", {"default": False}),
                 "noise": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
                 "variety_boost": ("BOOLEAN", {"default": True}),
-                "characterPrompts": ("LIST",),
+                "characterPrompts": ("LIST", {"tooltip": "V5: up to 22 active character prompts; V4/V4.5: up to 6. V5 Curated inpainting uses V4.5 (6)."}),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **reference_inputs(),
             }
@@ -327,7 +344,7 @@ class NAIInpaintNode:
                 "prefer_brownian": ("BOOLEAN", {"default": False}),
                 "noise": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
                 "variety_boost": ("BOOLEAN", {"default": True}),
-                "characterPrompts": ("LIST",),
+                "characterPrompts": ("LIST", {"tooltip": "V5: up to 22 active character prompts; V4/V4.5: up to 6. V5 Curated inpainting uses V4.5 (6)."}),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **reference_inputs(),
             }
@@ -343,7 +360,7 @@ class NAIInpaintNode:
         if limit_opus_free:
             raise RuntimeError("limit_opus_free blocks inpainting because it can spend Anlas. Set it to False to allow paid requests.")
         model_id = get_model_id(model)
-        validate_character_prompts(model_id, characterPrompts)
+        validate_character_prompts(model_id, characterPrompts, inpainting=True)
         validate_references(model_id, vibes, references, inpainting=True)
         validate_single_image(image)
         pil_mask = mask_to_pil(mask)

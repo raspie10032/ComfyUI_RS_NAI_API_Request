@@ -132,7 +132,8 @@
         "name": "다양성 강화"
       },
       "characterPrompts": {
-        "name": "캐릭터 프롬프트"
+        "name": "캐릭터 프롬프트",
+        "tooltip": "V5 최대 22명, V4/V4.5 최대 6명. V5 Curated 인페인팅은 V4.5를 사용하므로 최대 6명입니다."
       },
       "limit_opus_free": {
         "name": "Anlas 사용 제한 (Opus 무료 조건)",
@@ -157,7 +158,7 @@
   },
   "CharacterPromptSelect": {
     "display_name": "NAI 캐릭터 프롬프트 설정",
-    "description": "V4/V4.5/V5에서 사용할 원본 캐릭터 프롬프트를 최대 5개 설정합니다. X/Y는 0~1 좌표입니다. 구형 0~10 좌표는 10으로 나누어 입력하세요. 좌표는 위치를 유도하며 정확한 영역을 지정하는 마스크가 아닙니다.",
+    "description": "캐릭터 슬롯 수로 1~22개를 펼칩니다(기본 5개). 접힌 슬롯의 내용은 보존되지만 출력에는 포함하지 않습니다. V5는 최대 22명, V4/V4.5와 V5 Curated 인페인팅은 최대 6명입니다. X/Y는 0~1 좌표이며 위치를 유도합니다.",
     "inputs": {
       "character1": {
         "name": "캐릭터 1 프롬프트"
@@ -230,6 +231,265 @@
       },
       "character5_y": {
         "name": "캐릭터 5 Y 좌표"
+      },
+      "character_count": {
+        "name": "캐릭터 슬롯 수",
+        "tooltip": "필요한 슬롯만 펼칩니다. 줄여도 작성한 내용은 보존됩니다. V5 최대 22명, V4/V4.5 및 V5 Curated 인페인팅 최대 6명. 개별 사용 스위치로 중간 슬롯을 제외할 수 있습니다."
+      },
+      "character6_enable": {
+        "name": "캐릭터 6 사용"
+      },
+      "character6": {
+        "name": "캐릭터 6 프롬프트"
+      },
+      "character6_uc": {
+        "name": "캐릭터 6 네거티브"
+      },
+      "character6_x": {
+        "name": "캐릭터 6 X 좌표"
+      },
+      "character6_y": {
+        "name": "캐릭터 6 Y 좌표"
+      },
+      "character7_enable": {
+        "name": "캐릭터 7 사용"
+      },
+      "character7": {
+        "name": "캐릭터 7 프롬프트"
+      },
+      "character7_uc": {
+        "name": "캐릭터 7 네거티브"
+      },
+      "character7_x": {
+        "name": "캐릭터 7 X 좌표"
+      },
+      "character7_y": {
+        "name": "캐릭터 7 Y 좌표"
+      },
+      "character8_enable": {
+        "name": "캐릭터 8 사용"
+      },
+      "character8": {
+        "name": "캐릭터 8 프롬프트"
+      },
+      "character8_uc": {
+        "name": "캐릭터 8 네거티브"
+      },
+      "character8_x": {
+        "name": "캐릭터 8 X 좌표"
+      },
+      "character8_y": {
+        "name": "캐릭터 8 Y 좌표"
+      },
+      "character9_enable": {
+        "name": "캐릭터 9 사용"
+      },
+      "character9": {
+        "name": "캐릭터 9 프롬프트"
+      },
+      "character9_uc": {
+        "name": "캐릭터 9 네거티브"
+      },
+      "character9_x": {
+        "name": "캐릭터 9 X 좌표"
+      },
+      "character9_y": {
+        "name": "캐릭터 9 Y 좌표"
+      },
+      "character10_enable": {
+        "name": "캐릭터 10 사용"
+      },
+      "character10": {
+        "name": "캐릭터 10 프롬프트"
+      },
+      "character10_uc": {
+        "name": "캐릭터 10 네거티브"
+      },
+      "character10_x": {
+        "name": "캐릭터 10 X 좌표"
+      },
+      "character10_y": {
+        "name": "캐릭터 10 Y 좌표"
+      },
+      "character11_enable": {
+        "name": "캐릭터 11 사용"
+      },
+      "character11": {
+        "name": "캐릭터 11 프롬프트"
+      },
+      "character11_uc": {
+        "name": "캐릭터 11 네거티브"
+      },
+      "character11_x": {
+        "name": "캐릭터 11 X 좌표"
+      },
+      "character11_y": {
+        "name": "캐릭터 11 Y 좌표"
+      },
+      "character12_enable": {
+        "name": "캐릭터 12 사용"
+      },
+      "character12": {
+        "name": "캐릭터 12 프롬프트"
+      },
+      "character12_uc": {
+        "name": "캐릭터 12 네거티브"
+      },
+      "character12_x": {
+        "name": "캐릭터 12 X 좌표"
+      },
+      "character12_y": {
+        "name": "캐릭터 12 Y 좌표"
+      },
+      "character13_enable": {
+        "name": "캐릭터 13 사용"
+      },
+      "character13": {
+        "name": "캐릭터 13 프롬프트"
+      },
+      "character13_uc": {
+        "name": "캐릭터 13 네거티브"
+      },
+      "character13_x": {
+        "name": "캐릭터 13 X 좌표"
+      },
+      "character13_y": {
+        "name": "캐릭터 13 Y 좌표"
+      },
+      "character14_enable": {
+        "name": "캐릭터 14 사용"
+      },
+      "character14": {
+        "name": "캐릭터 14 프롬프트"
+      },
+      "character14_uc": {
+        "name": "캐릭터 14 네거티브"
+      },
+      "character14_x": {
+        "name": "캐릭터 14 X 좌표"
+      },
+      "character14_y": {
+        "name": "캐릭터 14 Y 좌표"
+      },
+      "character15_enable": {
+        "name": "캐릭터 15 사용"
+      },
+      "character15": {
+        "name": "캐릭터 15 프롬프트"
+      },
+      "character15_uc": {
+        "name": "캐릭터 15 네거티브"
+      },
+      "character15_x": {
+        "name": "캐릭터 15 X 좌표"
+      },
+      "character15_y": {
+        "name": "캐릭터 15 Y 좌표"
+      },
+      "character16_enable": {
+        "name": "캐릭터 16 사용"
+      },
+      "character16": {
+        "name": "캐릭터 16 프롬프트"
+      },
+      "character16_uc": {
+        "name": "캐릭터 16 네거티브"
+      },
+      "character16_x": {
+        "name": "캐릭터 16 X 좌표"
+      },
+      "character16_y": {
+        "name": "캐릭터 16 Y 좌표"
+      },
+      "character17_enable": {
+        "name": "캐릭터 17 사용"
+      },
+      "character17": {
+        "name": "캐릭터 17 프롬프트"
+      },
+      "character17_uc": {
+        "name": "캐릭터 17 네거티브"
+      },
+      "character17_x": {
+        "name": "캐릭터 17 X 좌표"
+      },
+      "character17_y": {
+        "name": "캐릭터 17 Y 좌표"
+      },
+      "character18_enable": {
+        "name": "캐릭터 18 사용"
+      },
+      "character18": {
+        "name": "캐릭터 18 프롬프트"
+      },
+      "character18_uc": {
+        "name": "캐릭터 18 네거티브"
+      },
+      "character18_x": {
+        "name": "캐릭터 18 X 좌표"
+      },
+      "character18_y": {
+        "name": "캐릭터 18 Y 좌표"
+      },
+      "character19_enable": {
+        "name": "캐릭터 19 사용"
+      },
+      "character19": {
+        "name": "캐릭터 19 프롬프트"
+      },
+      "character19_uc": {
+        "name": "캐릭터 19 네거티브"
+      },
+      "character19_x": {
+        "name": "캐릭터 19 X 좌표"
+      },
+      "character19_y": {
+        "name": "캐릭터 19 Y 좌표"
+      },
+      "character20_enable": {
+        "name": "캐릭터 20 사용"
+      },
+      "character20": {
+        "name": "캐릭터 20 프롬프트"
+      },
+      "character20_uc": {
+        "name": "캐릭터 20 네거티브"
+      },
+      "character20_x": {
+        "name": "캐릭터 20 X 좌표"
+      },
+      "character20_y": {
+        "name": "캐릭터 20 Y 좌표"
+      },
+      "character21_enable": {
+        "name": "캐릭터 21 사용"
+      },
+      "character21": {
+        "name": "캐릭터 21 프롬프트"
+      },
+      "character21_uc": {
+        "name": "캐릭터 21 네거티브"
+      },
+      "character21_x": {
+        "name": "캐릭터 21 X 좌표"
+      },
+      "character21_y": {
+        "name": "캐릭터 21 Y 좌표"
+      },
+      "character22_enable": {
+        "name": "캐릭터 22 사용"
+      },
+      "character22": {
+        "name": "캐릭터 22 프롬프트"
+      },
+      "character22_uc": {
+        "name": "캐릭터 22 네거티브"
+      },
+      "character22_x": {
+        "name": "캐릭터 22 X 좌표"
+      },
+      "character22_y": {
+        "name": "캐릭터 22 Y 좌표"
       }
     },
     "outputs": {
@@ -293,7 +553,8 @@
         "name": "다양성 강화"
       },
       "characterPrompts": {
-        "name": "캐릭터 프롬프트"
+        "name": "캐릭터 프롬프트",
+        "tooltip": "V5 최대 22명, V4/V4.5 최대 6명. V5 Curated 인페인팅은 V4.5를 사용하므로 최대 6명입니다."
       },
       "limit_opus_free": {
         "name": "Anlas 사용 제한 (Opus 무료 조건)",
@@ -375,7 +636,8 @@
         "name": "다양성 강화"
       },
       "characterPrompts": {
-        "name": "캐릭터 프롬프트"
+        "name": "캐릭터 프롬프트",
+        "tooltip": "V5 최대 22명, V4/V4.5 최대 6명. V5 Curated 인페인팅은 V4.5를 사용하므로 최대 6명입니다."
       },
       "limit_opus_free": {
         "name": "Anlas 사용 제한 (Opus 무료 조건)",

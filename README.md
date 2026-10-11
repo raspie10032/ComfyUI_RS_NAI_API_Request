@@ -4,7 +4,14 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The YOLO/SAM detailer can process multiple detected regions sequentially. An optional **local PyTorch tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads only the selected model when the loader executes, after the optional dependencies are installed.
 
-> Current version: **2.4.4**
+> Current version: **2.4.5**
+
+## What's New in 2.4.5
+
+- **Expandable character slots**: `character_count` shows 1–22 slots, with the familiar 5-slot view as the default. Increase it to add characters; decrease it to hide and exclude the later slots. Their text and coordinates are kept when saved and reopened. Existing five-slot workflows retain their input order and defaults.
+- **Model limits**: V5 supports up to 22 active character prompts; V4/V4.5 supports 6. V5 Curated inpainting uses V4.5 Curated, so its limit is also 6. Excess prompts produce a local error before image/reference encoding or an API request; nothing is silently dropped. See the [official multi-character documentation](https://docs.novelai.net/en/image/multiplecharacters/).
+- Both face detailers can match against all 22 original character candidates. `detail_mode` and `max_regions` still control how many detected regions are processed (`first` by default; `all` with up to 64 regions). The slot limit is not a guarantee of multi-character recognition accuracy. Use `preview_only` to inspect uncertain matches without generation.
+- Korean and Japanese labels and tooltips include the new slots and count control. Refresh the ComfyUI page after updating.
 
 ## What's New in 2.4.4
 
@@ -82,7 +89,7 @@ See [Vibe Transfer and Precise Reference](#vibe-transfer-and-precise-reference) 
 
 - **Image references**: Vibe Transfer for supported V3/V4/V4.5 models, plus V4.5 Precise Reference for character and style guidance.
 - **NovelAI generation**: Text-to-image, img2img, and inpainting with NAI Diffusion V5, V4.5, V4, V3, and supported Furry models.
-- **Multi-character prompts**: Up to five character slots with separate positive/negative prompts and X/Y coordinates from 0.0 to 1.0 in 0.1 increments.
+- **Multi-character prompts**: Up to 22 character slots for V5 (6 for V4/V4.5), with separate positive/negative prompts and X/Y coordinates from 0.0 to 1.0 in 0.1 increments.
 - **Multiple-region detailing**: YOLO detection, SAM masks, and sequential NAI inpainting, with masked compositing for overlapping crops. Select `detail_mode=all` to process multiple regions.
 - **Automatic character matching**: An optional native PyTorch WD tagger selects the original character prompt for each region. Unclear matches are retried with a tighter crop and skipped if still ambiguous.
 - **Controlled API requests**: Requests run sequentially, with at least two seconds after each HTTP attempt completes before the next begins.
@@ -144,10 +151,11 @@ Main node for text-to-image generation.
 | `limit_opus_free` | BOOLEAN (Optional) | Require an active Opus subscription and Anlas-free text generation conditions; check V5 allowance before each request. Default: `True`. |
 
 ### 2. NAI Character Prompt Select (`CharacterPromptSelect`)
-Defines up to 5 characters with spatial coordinates (0.0–1.0 scale) for NAI V4+.
+Defines up to 22 characters with spatial coordinates (0.0–1.0 scale). Start with the default five slots and increase `character_count` as needed. V4/V4.5 accept 6 active prompts; V5 accepts 22 (except V5 Curated inpainting: 6). Newly revealed slots 6–22 are enabled; fill them in or turn off their individual switch. Slots outside the count are excluded even if their switches are on.
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
+| `character_count` | INT | Visible/usable slots, 1–22; default 5. Hidden values are preserved. |
 | `characterX` | STRING | Character specific prompt. |
 | `characterX_uc` | STRING | Character specific negative prompt. |
 | `characterX_x` / `y` | FLOAT | Center coordinates (0.0–1.0, step 0.1, one decimal place). |
