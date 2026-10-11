@@ -27,7 +27,21 @@ The offline suite exercises all three generation nodes through the mocked HTTP b
 python -m unittest discover -s tests -p 'test_*.py'
 ```
 
-Live validation requires a supplied NovelAI environment token. Image-input validation requires an explicit Anlas budget; the offline suite never calls the live API. The original 2.3.0 release was live-tested for 512×512 Medium text generation only. Image-input results for this patch are recorded after their live checks complete; source or mocked success does not establish live API behavior.
+Live validation requires a supplied NovelAI environment token. Image-input validation requires an explicit Anlas budget; the offline suite never calls the live API.
+
+Validation on 2026-10-11:
+
+| Check | Result |
+| --- | --- |
+| Main candidate offline suite | 56 tests passed |
+| Separate Linux integration with Vibe/Precise and Focused Inpainting | 78 tests passed |
+| Resident ComfyUI Medium text generation, 512×512 | Passed; decoded RGB PNG; no Anlas deducted |
+| Returned PNG settings | 14 steps, `k_euler_ancestral`, CFG Rescale 0, selected guidance retained |
+| Resident ComfyUI strict img2img / general inpainting | Both stopped with the expected guard error |
+| Paid Medium img2img / inpainting | Pending budget approval and live execution |
+| Windows native runtime | Not run from this Linux host |
+
+These live checks exercised the separately installed Linux integration. The source and mocked checks do not establish live image-input API behavior. Paid image-input acceptance remains incomplete until both paths have been executed and their images and billing deltas inspected.
 
 ## Protocol references
 
