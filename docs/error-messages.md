@@ -20,6 +20,8 @@ The error dialog and a read-only field on the failed node show the explanation. 
 | `TAGGER_DEPENDENCY`, `TAGGER_DOWNLOAD`, `TAGGER_MODEL` | Missing/broken packages, download failure, or inconsistent model data | Use the shown Python install command or resolve the named file/download issue. |
 | `MEMORY` | RAM or GPU allocation failure | Reduce tagger batch size or use CPU for inference; loading the model still needs RAM. |
 | `DISK_FULL`, `FILE_PERMISSION`, `FILE_MISSING` | Full disk, denied file access, or missing path | Fix the reported path/storage issue. A save failure can occur after successful paid generation. |
+| `INSET_LAYOUT`, `INSET_RESPONSE` | Invalid reference layout or an unexpected server image size | Check canvas dimensions and the inset connection, or inspect the returned dimensions before retrying. |
+| `ASSET_FILE` | Missing/unreadable asset or unsupported PNG metadata | Save an asset PNG, place it in `input/rs_nai_assets`, then refresh the loader list. |
 | `UNKNOWN` | No supported diagnosis matched | Keep the actual exception type and traceback when reporting the issue. |
 
 ## Diagnostic details and limits
