@@ -624,6 +624,112 @@ class PipelineTests(unittest.TestCase):
         self.post.assert_not_called()
         self.assertEqual([r["character"] for r in json.loads(report)], [1, 2])
 
+    def test_native_segm_masks_run_without_sam(self):
+        native_segs = []
+        for seg in self.segs:
+            x0, y0, x1, y1 = seg.crop_region
+            mask = np.zeros((y1 - y0, x1 - x0), dtype=np.float32)
+            bx0, by0, bx1, by1 = seg.bbox
+            mask[by0 - y0:by1 - y0, bx0 - x0:bx1 - x0] = 1
+            native_segs.append(
+                SimpleNamespace(
+                    bbox=seg.bbox,
+                    crop_region=seg.crop_region,
+                    cropped_mask=mask,
+                )
+            )
+        native_detector = SimpleNamespace(
+            detect=mock.Mock(return_value=((64, 128), native_segs))
+        )
+        broken_sam = SimpleNamespace(
+            SamPredictor=mock.Mock(side_effect=AssertionError("SAM instantiated"))
+        )
+        with mock.patch.dict(sys.modules, {"segment_anything": broken_sam}):
+            _, mask, report = self.run_detail(
+                primary_detector=native_detector,
+                secondary_detector=None,
+                sam_model=None,
+                primary_uses_native_mask=True,
+                mask_source="auto",
+            )
+        self.assertEqual(len(self.payloads), 2)
+        self.assertTrue(all(r["mask_source"] == "segm" for r in json.loads(report)))
+        self.assertGreater(float(mask.max()), 0)
+        broken_sam.SamPredictor.assert_not_called()
+
+    def test_external_mask_batch_is_a_sam3_compatible_region_source(self):
+        masks = torch.zeros((2, 64, 128), dtype=torch.float32)
+        masks[0, 18:46, 18:46] = 1
+        masks[1, 18:46, 82:110] = 1
+        broken_sam = SimpleNamespace(
+            SamPredictor=mock.Mock(side_effect=AssertionError("SAM instantiated"))
+        )
+        with mock.patch.dict(sys.modules, {"segment_anything": broken_sam}):
+            _, mask, report = self.run_detail(
+                primary_detector=None,
+                secondary_detector=None,
+                sam_model=None,
+                detail_mask=masks,
+                mask_source="external_mask",
+                matching_mode="shared",
+                characterPrompts=None,
+            )
+        parsed = json.loads(report)
+        self.assertEqual(len(self.payloads), 2)
+        self.assertEqual([r["mask_source"] for r in parsed], ["external_mask"] * 2)
+        self.assertTrue(all(r["status"] == "edited" for r in parsed))
+        self.assertGreater(float(mask.max()), 0)
+        broken_sam.SamPredictor.assert_not_called()
+
+    def test_native_mask_preview_shows_mask_without_token_sam_or_request(self):
+        mask = torch.zeros((1, 64, 128), dtype=torch.float32)
+        mask[0, 20:44, 20:44] = 1
+        with (
+            mock.patch.object(detailer, "get_nai_token", side_effect=AssertionError("token read")),
+            mock.patch.dict(
+                sys.modules,
+                {"segment_anything": SimpleNamespace(
+                    SamPredictor=mock.Mock(side_effect=AssertionError("SAM instantiated"))
+                )},
+            ),
+        ):
+            _, preview_mask, report = self.run_detail(
+                primary_detector=None,
+                secondary_detector=None,
+                sam_model=None,
+                detail_mask=mask,
+                mask_source="auto",
+                preview_only=True,
+                matching_mode="shared",
+                characterPrompts=None,
+            )
+        self.assertEqual(json.loads(report)[0]["mask_source"], "external_mask")
+        self.assertGreater(float(preview_mask.max()), 0)
+        self.post.assert_not_called()
+
+    def test_missing_or_invalid_mask_path_fails_before_token_or_request(self):
+        with mock.patch.object(detailer, "get_nai_token") as token:
+            with self.assertRaisesRegex(ValueError, "Connect bbox_detector"):
+                self.run_detail(
+                    primary_detector=None,
+                    secondary_detector=None,
+                    sam_model=None,
+                    matching_mode="shared",
+                    characterPrompts=None,
+                )
+            with self.assertRaisesRegex(ValueError, "must match the source image"):
+                self.run_detail(
+                    primary_detector=None,
+                    secondary_detector=None,
+                    sam_model=None,
+                    detail_mask=torch.ones((1, 8, 8)),
+                    mask_source="external_mask",
+                    matching_mode="shared",
+                    characterPrompts=None,
+                )
+        token.assert_not_called()
+        self.post.assert_not_called()
+
     def test_ambiguous_regions_are_skipped(self):
         tagger = SimpleNamespace(
             score=lambda images: [{"blonde_hair": 0.8, "black_hair": 0.8}] * len(images)
@@ -849,6 +955,13 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(cls.RETURN_TYPES[:2], ("IMAGE", "IMAGE"))
             self.assertIn("tagger", cls.INPUT_TYPES()["optional"])
             self.assertIn("preview_only", cls.INPUT_TYPES()["optional"])
+            self.assertIn("sam_model", cls.INPUT_TYPES()["optional"])
+            self.assertIn("detail_mask", cls.INPUT_TYPES()["optional"])
+            self.assertIn("mask_source", cls.INPUT_TYPES()["optional"])
+            self.assertNotIn("sam_model", cls.INPUT_TYPES()["required"])
+        self.assertIn("bbox_detector", NAIFaceDetailerNode.INPUT_TYPES()["optional"])
+        self.assertNotIn("bbox_detector", NAIFaceDetailerNode.INPUT_TYPES()["required"])
+        self.assertIn("segm_detector", NAIFaceDetailerSegmNode.INPUT_TYPES()["required"])
 
 
 class TaggerTests(unittest.TestCase):

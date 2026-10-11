@@ -92,6 +92,10 @@
       "The inpainting mask is invalid.",
       "Connect one mask matching the image, with values from 0 to 1. White marks the area to repaint."
     ],
+    "DETAIL_MASK_INPUT": [
+      "The Detailer mask source is invalid.",
+      "Connect bbox_detector with sam_model, a SEGM detector with native masks, or a same-size MASK from SAM3/another mask node. Check mask_source below."
+    ],
     "MASK_EMPTY": [
       "There is no area to repaint in the mask.",
       "Paint the area to change white, then reconnect the mask. Generation was stopped before sending."
@@ -286,6 +290,10 @@
       "인페인팅 마스크가 올바르지 않습니다.",
       "이미지에 맞는 마스크 한 장을 연결하고 값은 0~1로 설정하세요. 흰색이 수정할 영역입니다."
     ],
+    "DETAIL_MASK_INPUT": [
+      "디테일러 마스크 입력 경로가 올바르지 않습니다.",
+      "bbox_detector와 sam_model을 함께 연결하거나, 원본 마스크가 있는 SEGM 검출기 또는 SAM3·다른 마스크 노드의 동일 크기 MASK를 연결하세요. 아래 mask_source도 확인하세요."
+    ],
     "MASK_EMPTY": [
       "마스크에 수정할 영역이 없습니다.",
       "수정할 부분을 흰색으로 칠한 뒤 마스크를 연결하세요. 생성 요청 전에 중단했습니다."
@@ -479,6 +487,10 @@
     "MASK_INPUT": [
       "インペイント用マスクが無効です。",
       "画像に合ったマスクを1枚接続し、値を0～1にしてください。白い部分が修正領域です。"
+    ],
+    "DETAIL_MASK_INPUT": [
+      "ディテーラーのマスク入力経路が無効です。",
+      "bbox_detectorとsam_model、ネイティブマスクを持つSEGM検出器、またはSAM3・他のマスクノードから同じサイズのMASKのいずれかを接続し、mask_sourceを確認してください。"
     ],
     "MASK_EMPTY": [
       "マスクに修正領域がありません。",

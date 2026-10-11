@@ -436,14 +436,12 @@ def _detailer_options():
 
 
 class NAIFaceDetailerNode:
-    DESCRIPTION = "YOLO boxes plus SAM masks. detail_mode=all processes multiple regions sequentially. preview_only reports detection/matching without NAI requests. Each accepted region uses its selected original prompt; unclear matches are skipped."
+    DESCRIPTION = "Optional bbox+SAM, native SEGM masks, or a standard MASK from SAM3/another node. auto preserves bbox+SAM when connected. detail_mode=all processes multiple regions sequentially; preview_only sends no NAI request."
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
                 "image": ("IMAGE",),
-                "bbox_detector": ("BBOX_DETECTOR",),
-                "sam_model": ("SAM_MODEL",),
                 "prompt": ("STRING", {"default": "smiling face, highly detailed"}),
                 "negative_prompt": ("STRING", {"default": "lowres, bad anatomy"}),
                 "model": (MODEL_DISPLAY_LIST, {"default": MODEL_DISPLAY_LIST[0], "tooltip": MODEL_SELECTION_TOOLTIP}),
@@ -459,7 +457,11 @@ class NAIFaceDetailerNode:
                 "seed": ("INT", {"default": -1, "min": -1, "max": 0xffffffff}),
             },
             "optional": {
+                "bbox_detector": ("BBOX_DETECTOR",),
+                "sam_model": ("SAM_MODEL",),
                 "segm_detector": ("SEGM_DETECTOR",),
+                "detail_mask": ("MASK",),
+                "mask_source": (["auto", "sam", "segm", "external_mask"], {"default": "auto"}),
                 "eye_bbox_detector": ("BBOX_DETECTOR",),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **_detailer_options(),
@@ -471,27 +473,29 @@ class NAIFaceDetailerNode:
     FUNCTION = "detail"
     CATEGORY = "RS_NovelAI_API/FaceDetailer"
 
-    def detail(self, image, bbox_detector, sam_model, prompt, negative_prompt, model, strength, threshold,
+    def detail(self, image, prompt, negative_prompt, model, strength, threshold,
                sampler, steps, cfg_scale, bbox_threshold, dilation, crop_factor, scheduler, seed,
-               segm_detector=None, eye_bbox_detector=None, limit_opus_free=True, **detail_options):
+               bbox_detector=None, sam_model=None, segm_detector=None, detail_mask=None,
+               mask_source="auto", eye_bbox_detector=None, limit_opus_free=True, **detail_options):
         return _run_face_detail(
             image, bbox_detector, segm_detector, sam_model,
             prompt, negative_prompt, model, strength, threshold,
             sampler, steps, cfg_scale, bbox_threshold, dilation,
             crop_factor, scheduler, seed,
-            eye_bbox_detector=eye_bbox_detector, limit_opus_free=limit_opus_free, **detail_options,
+            eye_bbox_detector=eye_bbox_detector, limit_opus_free=limit_opus_free,
+            detail_mask=detail_mask, mask_source=mask_source,
+            primary_uses_native_mask=False, **detail_options,
         )
 
 
 class NAIFaceDetailerSegmNode:
-    DESCRIPTION = "Uses a segmentation detector's boxes to guide SAM; detector polygons are not directly pasted. detail_mode=all processes multiple regions. preview_only and the matching report show skipped regions and their reasons."
+    DESCRIPTION = "Uses native SEGM masks when SAM is absent, or preserves the previous SEGM-boxes-to-SAM path when SAM is connected. A standard MASK from SAM3/another node can also be selected."
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
                 "image": ("IMAGE",),
                 "segm_detector": ("SEGM_DETECTOR",),
-                "sam_model": ("SAM_MODEL",),
                 "prompt": ("STRING", {"default": "smiling face, highly detailed"}),
                 "negative_prompt": ("STRING", {"default": "lowres, bad anatomy"}),
                 "model": (MODEL_DISPLAY_LIST, {"default": MODEL_DISPLAY_LIST[0], "tooltip": MODEL_SELECTION_TOOLTIP}),
@@ -507,7 +511,10 @@ class NAIFaceDetailerSegmNode:
                 "seed": ("INT", {"default": -1, "min": -1, "max": 0xffffffff}),
             },
             "optional": {
+                "sam_model": ("SAM_MODEL",),
                 "bbox_detector": ("BBOX_DETECTOR",),
+                "detail_mask": ("MASK",),
+                "mask_source": (["auto", "sam", "segm", "external_mask"], {"default": "auto"}),
                 "eye_bbox_detector": ("BBOX_DETECTOR",),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **_detailer_options(),
@@ -519,15 +526,18 @@ class NAIFaceDetailerSegmNode:
     FUNCTION = "detail"
     CATEGORY = "RS_NovelAI_API/FaceDetailer"
 
-    def detail(self, image, segm_detector, sam_model, prompt, negative_prompt, model, strength, threshold,
+    def detail(self, image, segm_detector, prompt, negative_prompt, model, strength, threshold,
                sampler, steps, cfg_scale, bbox_threshold, dilation, crop_factor, scheduler, seed,
-               bbox_detector=None, eye_bbox_detector=None, limit_opus_free=True, **detail_options):
+               sam_model=None, bbox_detector=None, detail_mask=None, mask_source="auto",
+               eye_bbox_detector=None, limit_opus_free=True, **detail_options):
         return _run_face_detail(
             image, segm_detector, bbox_detector, sam_model,
             prompt, negative_prompt, model, strength, threshold,
             sampler, steps, cfg_scale, bbox_threshold, dilation,
             crop_factor, scheduler, seed,
-            eye_bbox_detector=eye_bbox_detector, limit_opus_free=limit_opus_free, **detail_options,
+            eye_bbox_detector=eye_bbox_detector, limit_opus_free=limit_opus_free,
+            detail_mask=detail_mask, mask_source=mask_source,
+            primary_uses_native_mask=True, **detail_options,
         )
 
 

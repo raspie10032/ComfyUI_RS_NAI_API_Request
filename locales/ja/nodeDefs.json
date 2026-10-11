@@ -662,7 +662,7 @@
   },
   "NAIFaceDetailerNode": {
     "display_name": "NAI 顔ディテーラー",
-    "description": "YOLOの検出領域とSAMマスクでディテールを補正します。detail_mode=allで複数の領域を順番に処理します。preview_onlyではNAIにリクエストせず、検出・マッチング結果だけを表示します。各領域には選択した元のプロンプトを使用し、対応が不確かな領域はスキップします。",
+    "description": "任意のバウンディングボックス+SAM、SEGMのネイティブマスク、またはSAM3・他ノードの標準MASKでディテールを補正します。autoは接続済みの従来SAM経路を優先します。preview_onlyはNAIへリクエストしません。",
     "inputs": {
       "image": {
         "name": "画像"
@@ -716,6 +716,20 @@
       },
       "segm_detector": {
         "name": "セグメント検出器"
+      },
+      "detail_mask": {
+        "name": "外部ディテールマスク",
+        "tooltip": "SAM3または他のマスクノードから、元画像と同じサイズのMASKを接続します。バッチ内の空でない各項目を別領域として処理します。"
+      },
+      "mask_source": {
+        "name": "マスクソース",
+        "tooltip": "autoは完成した検出器+SAM経路を優先し、なければ外部MASK、次にSEGMのネイティブマスクを使用します。",
+        "options": {
+          "auto": "自動（従来SAMを優先）",
+          "sam": "SAM",
+          "segm": "SEGMネイティブマスク",
+          "external_mask": "外部MASK（SAM3）"
+        }
       },
       "eye_bbox_detector": {
         "name": "目の検出器"
@@ -786,7 +800,7 @@
   },
   "NAIFaceDetailerSegmNode": {
     "display_name": "NAI セグメントディテーラー",
-    "description": "セグメント検出器のバウンディングボックスでSAMを誘導します。検出器のポリゴンをそのまま合成するわけではありません。detail_mode=allで複数の領域を処理します。preview_onlyとマッチングレポートで、スキップした領域と理由を確認できます。",
+    "description": "SAM未接続時はセグメント検出器のネイティブマスクを使い、SAM接続時は従来のSEGMボックス→SAM経路を維持します。SAM3・他ノードの標準MASKも選択できます。",
     "inputs": {
       "image": {
         "name": "画像"
@@ -796,6 +810,20 @@
       },
       "sam_model": {
         "name": "SAMモデル"
+      },
+      "detail_mask": {
+        "name": "外部ディテールマスク",
+        "tooltip": "SAM3または他のマスクノードから、元画像と同じサイズのMASKを接続します。バッチ内の空でない各項目を別領域として処理します。"
+      },
+      "mask_source": {
+        "name": "マスクソース",
+        "tooltip": "autoは完成した検出器+SAM経路を優先し、なければ外部MASK、次にSEGMのネイティブマスクを使用します。",
+        "options": {
+          "auto": "自動（従来SAMを優先）",
+          "sam": "SAM",
+          "segm": "SEGMネイティブマスク",
+          "external_mask": "外部MASK（SAM3）"
+        }
       },
       "prompt": {
         "name": "プロンプト"

@@ -4,6 +4,7 @@
 from .errors import user_error
 
 import json
+from types import SimpleNamespace
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -77,6 +78,122 @@ def _context_crop(image, bbox, factor):
     )
 
 
+def _mask_array(mask, *, allow_batch=False):
+    """Return a finite 0..1 numpy mask without depending on a torch import."""
+    if hasattr(mask, "detach"):
+        mask = mask.detach().cpu().numpy()
+    array = np.asarray(mask)
+    if allow_batch:
+        if array.ndim == 2:
+            array = array[None, ...]
+        if array.ndim != 3 or array.shape[0] < 1:
+            raise user_error("DETAIL_MASK_INPUT", ValueError, "detail_mask must be [H,W] or [B,H,W].")
+    else:
+        if array.ndim == 3 and array.shape[0] == 1:
+            array = array[0]
+        if array.ndim != 2:
+            raise user_error("DETAIL_MASK_INPUT", ValueError, "A detector region must contain one 2D cropped_mask.")
+    if array.size == 0 or not np.isfinite(array).all():
+        raise user_error("DETAIL_MASK_INPUT", ValueError, "Detail masks must be nonempty and finite.")
+    array = array.astype(np.float32, copy=False)
+    if array.min() < 0 or array.max() > 1:
+        raise user_error("DETAIL_MASK_INPUT", ValueError, "Detail mask values must stay between 0 and 1.")
+    return array
+
+
+def _expanded_crop(bbox, width, height, factor):
+    x, y = _center(bbox)
+    half_w = max(1.0, bbox[2] - bbox[0]) * factor / 2
+    half_h = max(1.0, bbox[3] - bbox[1]) * factor / 2
+    return _crop_box((x - half_w, y - half_h, x + half_w, y + half_h), width, height)
+
+
+def _external_mask_regions(detail_mask, width, height, crop_factor, threshold):
+    masks = _mask_array(detail_mask, allow_batch=True)
+    if masks.shape[1:] != (height, width):
+        raise user_error(
+            "DETAIL_MASK_INPUT",
+            ValueError,
+            f"detail_mask must match the source image ({width}x{height}); got {masks.shape[2]}x{masks.shape[1]}.",
+        )
+    regions = []
+    cutoff = max(float(threshold), 1e-6)
+    for batch_index, mask in enumerate(masks):
+        ys, xs = np.nonzero(mask >= cutoff)
+        if not len(xs):
+            continue
+        bbox = (int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1)
+        crop_region = _expanded_crop(bbox, width, height, crop_factor)
+        x0, y0, x1, y1 = crop_region
+        regions.append(
+            SimpleNamespace(
+                bbox=bbox,
+                crop_region=crop_region,
+                cropped_mask=mask[y0:y1, x0:x1],
+                label=f"external_mask_{batch_index + 1}",
+            )
+        )
+    return regions
+
+
+def _native_crop_mask(seg, crop_region):
+    if not hasattr(seg, "cropped_mask") or seg.cropped_mask is None:
+        raise user_error(
+            "DETAIL_MASK_INPUT", ValueError, "The selected SEGM detector did not provide cropped_mask data."
+        )
+    array = _mask_array(seg.cropped_mask)
+    x0, y0, x1, y1 = crop_region
+    expected = (y1 - y0, x1 - x0)
+    if array.shape != expected:
+        array = np.asarray(
+            Image.fromarray(array, mode="F").resize(
+                (expected[1], expected[0]), Image.Resampling.BILINEAR
+            ),
+            dtype=np.float32,
+        )
+    return np.clip(array, 0, 1)
+
+
+def _resolve_mask_source(
+    mask_source,
+    primary_detector,
+    secondary_detector,
+    primary_uses_native_mask,
+    sam_model,
+    detail_mask,
+):
+    if mask_source not in {"auto", "sam", "segm", "external_mask"}:
+        raise user_error("DETAIL_MODE", ValueError, f"Unknown mask_source: {mask_source}")
+    native_detector = primary_detector if primary_uses_native_mask else secondary_detector
+    sam_detector = primary_detector or native_detector
+    selected = mask_source
+    if selected == "auto":
+        # Preserve the old detector+SAM behavior whenever that complete path exists.
+        if sam_model is not None and sam_detector is not None:
+            selected = "sam"
+        elif detail_mask is not None:
+            selected = "external_mask"
+        elif native_detector is not None:
+            selected = "segm"
+        else:
+            raise user_error(
+                "DETAIL_MASK_INPUT",
+                ValueError,
+                "Connect bbox_detector + sam_model, a SEGM detector, or detail_mask from SAM3/another MASK node.",
+            )
+    if selected == "sam":
+        if sam_model is None or sam_detector is None:
+            raise user_error("DETAIL_MASK_INPUT", ValueError, "mask_source=sam requires a detector and sam_model.")
+        return selected, sam_detector, secondary_detector if sam_detector is primary_detector else None
+    if selected == "segm":
+        if native_detector is None:
+            raise user_error("DETAIL_MASK_INPUT", ValueError, "mask_source=segm requires a SEGM detector.")
+        return selected, native_detector, None
+    if detail_mask is None:
+        raise user_error("DETAIL_MASK_INPUT", ValueError, "mask_source=external_mask requires detail_mask.")
+    return selected, None, None
+
+
 def run_face_detail(
     image,
     primary_detector,
@@ -109,6 +226,9 @@ def run_face_detail(
     vibes=None,
     references=None,
     normalize_vibe_strengths=True,
+    detail_mask=None,
+    mask_source="auto",
+    primary_uses_native_mask=False,
 ):
     from .generators import NovelAIGenerator, mask_to_grid_boxes
 
@@ -133,7 +253,19 @@ def run_face_detail(
     validate_single_image(image)
     source = tensor_to_pil(image)
     w, h = source.size
-    detected = _detect(primary_detector, image, bbox_threshold, dilation, crop_factor)
+    selected_mask_source, region_detector, auxiliary_detector = _resolve_mask_source(
+        mask_source,
+        primary_detector,
+        secondary_detector,
+        primary_uses_native_mask,
+        sam_model,
+        detail_mask,
+    )
+    detected = (
+        _external_mask_regions(detail_mask, w, h, crop_factor, threshold)
+        if selected_mask_source == "external_mask"
+        else _detect(region_detector, image, bbox_threshold, dilation, crop_factor)
+    )
     # Keep a stable spatial numbering for all-mode and previews; first preserves detector order.
     if detail_mode == "all":
         detected.sort(key=lambda s: (_center(s.bbox)[0], _center(s.bbox)[1]))
@@ -149,6 +281,11 @@ def run_face_detail(
     if not regions:
         notice("No regions detected. Original image returned; no NovelAI request sent.")
         return image, image, json.dumps({"regions": [], "status": "no_detections"})
+    native_masks = (
+        [_native_crop_mask(seg, _crop_box(seg.crop_region, w, h)) for seg in regions]
+        if selected_mask_source != "sam"
+        else None
+    )
     # Ownership uses every detection, even when limiting the number of requests.
     active_count = min(len(regions), 1 if detail_mode == "first" else max_regions)
     matches = [
@@ -231,6 +368,7 @@ def run_face_detail(
                 "status": "planned" if eligible else "skipped",
                 "explanation": explanation,
                 "tight_crop_retried": i in retried,
+                "mask_source": selected_mask_source,
             }
         )
     if matching_mode == "wd14" or any(r["status"] == "skipped" for r in report):
@@ -250,9 +388,19 @@ def run_face_detail(
                 f"{item['status']} score={item['score']:.2f} margin={item['margin']:.2f}",
                 fill=color,
             )
+        preview_mask = np.zeros((h, w), dtype=np.uint8)
+        if native_masks is not None:
+            for index, item in enumerate(report):
+                if item["status"] != "planned":
+                    continue
+                x0, y0, x1, y1 = _crop_box(regions[index].crop_region, w, h)
+                preview_mask[y0:y1, x0:x1] = np.maximum(
+                    preview_mask[y0:y1, x0:x1],
+                    np.rint(native_masks[index] * 255).astype(np.uint8),
+                )
         return (
             pil_to_tensor(preview),
-            pil_to_tensor(Image.new("RGB", source.size)),
+            pil_to_tensor(Image.fromarray(preview_mask).convert("RGB")),
             json.dumps(report),
         )
     if not any(r["status"] == "planned" for r in report):
@@ -267,14 +415,17 @@ def run_face_detail(
                     "limit_opus_free requires a focused crop smaller than the source image."
                 )
 
+    predictor = None
+    secondaries = []
+    if selected_mask_source == "sam":
+        from segment_anything import SamPredictor
+
+        predictor = SamPredictor(sam_model)
+        secondaries = _detect(
+            auxiliary_detector, image, bbox_threshold, dilation, crop_factor
+        )
     token = get_nai_token()
     model_id = get_model_id(model)
-    secondaries = _detect(
-        secondary_detector, image, bbox_threshold, dilation, crop_factor
-    )
-    from segment_anything import SamPredictor
-
-    predictor = SamPredictor(sam_model)
     out = source.copy()
     total_mask = np.zeros((h, w), dtype=np.uint8)
     base_seed = int(np.random.randint(0, 0x7FFFFFFF)) if seed == -1 else int(seed)
@@ -297,25 +448,34 @@ def run_face_detail(
         )
         scaled = crop.resize((nw, nh), Image.Resampling.LANCZOS)
         sx, sy = nw / cw, nh / ch
-        predictor.set_image(np.array(scaled.convert("RGB")))
-        boxes = [seg.bbox] + [
-            s.bbox for s in secondaries if _owner(s.bbox, regions) == index
-        ]
-        mask_np = np.zeros((nh, nw), dtype=np.uint8)
-        for bx0, by0, bx1, by1 in boxes:
-            check_interrupted()
-            box = [
-                max(0, (bx0 - crx0) * sx),
-                max(0, (by0 - cry0) * sy),
-                min(nw, (bx1 - crx0) * sx),
-                min(nh, (by1 - cry0) * sy),
+        if selected_mask_source == "sam":
+            predictor.set_image(np.array(scaled.convert("RGB")))
+            boxes = [seg.bbox] + [
+                s.bbox for s in secondaries if _owner(s.bbox, regions) == index
             ]
-            if box[2] <= box[0] or box[3] <= box[1]:
-                continue
-            masks, _, _ = predictor.predict(
-                box=np.array([box], dtype=float), multimask_output=False
+            mask_np = np.zeros((nh, nw), dtype=np.uint8)
+            for bx0, by0, bx1, by1 in boxes:
+                check_interrupted()
+                box = [
+                    max(0, (bx0 - crx0) * sx),
+                    max(0, (by0 - cry0) * sy),
+                    min(nw, (bx1 - crx0) * sx),
+                    min(nh, (by1 - cry0) * sy),
+                ]
+                if box[2] <= box[0] or box[3] <= box[1]:
+                    continue
+                masks, _, _ = predictor.predict(
+                    box=np.array([box], dtype=float), multimask_output=False
+                )
+                mask_np = np.maximum(mask_np, (masks[0] * 255).astype(np.uint8))
+        else:
+            mask_np = np.asarray(
+                Image.fromarray(native_masks[index], mode="F").resize(
+                    (nw, nh), Image.Resampling.BILINEAR
+                ),
+                dtype=np.float32,
             )
-            mask_np = np.maximum(mask_np, (masks[0] * 255).astype(np.uint8))
+            mask_np = np.rint(np.clip(mask_np, 0, 1) * 255).astype(np.uint8)
         for eye in _detect(
             eye_bbox_detector, pil_to_tensor(scaled), bbox_threshold, dilation, 1.0, 4
         ):

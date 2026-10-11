@@ -2,9 +2,17 @@
 
 ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting text-to-image generation, img2img, inpainting, Vibe Transfer, Precise Reference, multi-character prompts, and prompt-weight conversion. Reference features require a supported model as listed below.
 
-The YOLO/SAM detailer can process multiple detected regions sequentially. An optional **local PyTorch tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads only the selected model when the loader executes, after the optional dependencies are installed.
+The Detailer can use bbox+SAM, native SEGM masks, or a standard ComfyUI `MASK` from SAM3 or another mask node, and can process multiple regions sequentially. An optional **local PyTorch tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads only the selected model when the loader executes, after the optional dependencies are installed.
 
-> Current version: **2.5.0**
+> Current version: **2.6.0**
+
+## What's New in 2.6.0
+
+- Both Detailers accept three mask backends: the existing detector-box-to-SAM path, a `SEGM_DETECTOR`'s native `cropped_mask`, or a standard `MASK` from SAM3/another mask node.
+- `sam_model` is optional. `NAI Face Detailer` also makes `bbox_detector` optional, so a same-size external MASK can define regions without loading legacy SAM. The `Detailer` node keeps its required SEGM detector for existing workflows.
+- `mask_source=auto` preserves the previous SAM behavior whenever a complete detector+SAM path is connected. Otherwise it selects `detail_mask`, then native SEGM masks. Choose `sam`, `segm`, or `external_mask` to override that rule explicitly.
+- A MASK batch creates one detail region per nonempty batch item. Disconnected shapes within one batch item stay one region and share one crop/prompt assignment; split them into a mask batch when they need separate regions or character matching.
+- Native SEGM/external masks appear in `preview_only` without token access, legacy SAM execution, or a NovelAI request. Existing Vibe Transfer, Precise Reference, Focused Inpainting checks, output positions, and bbox+SAM results remain unchanged.
 
 ## What's New in 2.5.0
 
@@ -229,7 +237,7 @@ V5 Full uses its native V5 inpainting model. Until NovelAI releases V5 Curated i
 | `limit_opus_free` | BOOLEAN (Optional) | Blocks inpainting while `True`, including V5 Curated's V4.5 fallback, because a base image can cost Anlas. Set `False` to allow the paid request. Default: `True`. |
 
 ### 5. NAI Face Detailer (`NAIFaceDetailerNode`)
-Advanced face restoration using YOLO detection and SAM segmentation before sending to NAI API.
+Advanced region restoration using bbox+SAM, native SEGM masks, or a standard ComfyUI MASK before sending focused crops to the NAI API.
 
 **Requirement**: Requires [ComfyUI-Impact-Pack](https://github.com/ltdrdata/ComfyUI-Impact-Pack) and [ComfyUI-Impact-Subpack](https://github.com/ltdrdata/ComfyUI-Impact-Subpack) for detectors. BBOX_DETECTOR types are provided by ComfyUI-Impact-Subpack.
 
@@ -238,8 +246,8 @@ Advanced face restoration using YOLO detection and SAM segmentation before sendi
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
 | `image` | IMAGE | Source image. |
-| `bbox_detector` | BBOX_DETECTOR| YOLO detector (e.g., face_yolov8m.pt). |
-| `sam_model` | SAM_MODEL | SAM model for precise segmentation. |
+| `bbox_detector` | BBOX_DETECTOR (Optional) | YOLO detector (e.g., face_yolov8m.pt). Pair with `sam_model` for the legacy path. |
+| `sam_model` | SAM_MODEL (Optional) | Legacy SAM model. In `auto`, a complete detector+SAM path preserves the previous behavior. |
 | `prompt` / `negative_prompt` | STRING | Positive / negative prompts for inpainting. |
 | `model` | LIST | NAI model selection. |
 | `strength` | FLOAT | Inpainting denoising strength (0.0–1.0). |
@@ -252,14 +260,16 @@ Advanced face restoration using YOLO detection and SAM segmentation before sendi
 | `crop_factor` | FLOAT | Zoom factor around the detected face. |
 | `scheduler` | LIST | Noise scheduler. |
 | `seed` | INT | Random seed (-1 for random). |
-| `segm_detector` | SEGM_DETECTOR (Optional) | Additional detection source. Each detection is assigned to one primary region before contributing a SAM input box. SAM still produces the final mask. |
+| `segm_detector` | SEGM_DETECTOR (Optional) | Native mask source when SAM is absent or `mask_source=segm`; with bbox+SAM in `auto`, it remains an additional SAM box source for compatibility. |
+| `detail_mask` | MASK (Optional) | Same-size standard ComfyUI mask, including SAM3 output. Each nonempty batch item becomes one region. |
+| `mask_source` | LIST (Optional) | `auto` preserves a complete SAM path, otherwise chooses external MASK then SEGM. Explicit choices are `sam`, `segm`, and `external_mask`. |
 | `eye_bbox_detector` | BBOX_DETECTOR (Optional) | Additional detector for eye area mask refinement. |
 | `limit_opus_free` | BOOLEAN (Optional) | Allows only verified Opus Focused Inpainting crops while `True`; full-frame crops stop before token access or transport. Set `False` to allow other paid edits. Default: `True`. |
 
 Face Detailer outputs the composited image, a mask visualization, and a JSON matching report. The existing first two output socket indices are unchanged. If no face is detected the original image is returned on the first two outputs. Edited results are autosaved under `NAI_autosave/face` with metadata preserved from the NAI inpaint result.
 
 ### 5b. Detailer (`NAIFaceDetailerSegmNode`)
-Same pipeline as NAI Face Detailer, but `segm_detector` is the **required** primary detector (defines the crop region) and `bbox_detector` is **optional** (additional source assigned to primary regions). SAM always produces the final mask. `eye_bbox_detector` and `limit_opus_free` behave identically to the Face Detailer node. Displayed in ComfyUI as **Detailer**.
+Same pipeline as NAI Face Detailer, but `segm_detector` remains the **required** primary detector. With no SAM model, its native `cropped_mask` is the final mask. Connecting `sam_model` with `mask_source=auto` preserves the previous behavior: SEGM boxes guide SAM and optional `bbox_detector` boxes are assigned to those regions. `detail_mask` can instead receive a same-size standard MASK from SAM3 or another node when `mask_source=external_mask`. `eye_bbox_detector` and `limit_opus_free` behave identically to the Face Detailer node. Displayed in ComfyUI as **Detailer**.
 
 ### 5c. Automatic character matching (native PyTorch)
 
@@ -328,7 +338,7 @@ Danbooru/NovelAI naming for matching; original strings are preserved for request
 | `match_min_score` | Minimum strongest discriminating tag score, default 0.25. This is a heuristic score, not a calibrated identity probability. |
 | `match_min_margin` | Minimum lead over the next character, default 0.08. |
 | `max_regions` | Maximum regions considered for API requests, default 16. Unprocessed regions still retain their mask ownership. |
-| `preview_only` | Show numbered detections and automatic matches, without reading the API token, running SAM, or making NAI requests. WD inference/download can still occur. |
+| `preview_only` | Show numbered detections and automatic matches without reading the API token or making NAI requests. Native SEGM/external masks are shown in `mask_visualization`; the legacy SAM path still previews boxes without running SAM. WD inference/download can still occur. |
 
 Matching ignores shared attributes and common scene/quality tags, reduces the
 weight of eye color, and uses the strongest distinct evidence without penalizing
