@@ -1,0 +1,733 @@
+{
+  "RSWDTaggerLoader": {
+    "display_name": "NAI タガーローダー",
+    "description": "タガーモデルを選択します。実行時に選択したモデルだけをダウンロードし、ノードに転送量と進捗を表示します。取得済みのファイルはキャッシュを再利用します。推論はローカルで行い、スコアは元のキャラクタープロンプトの選択にのみ使用します。生成プロンプトにタグを追加しません。",
+    "inputs": {
+      "device": {
+        "name": "実行デバイス",
+        "tooltip": "autoはComfyUIが選択した実行デバイスを使用し、cpuはCPUで実行します。",
+        "options": {
+          "auto": "自動",
+          "cpu": "CPU"
+        }
+      },
+      "batch_size": {
+        "name": "バッチサイズ"
+      },
+      "model_name": {
+        "name": "タガーモデル",
+        "tooltip": "実行時に選択したモデルだけをダウンロードし、ノードに進捗を表示します。取得済みのファイルはキャッシュを再利用します。モデルによって追加パッケージや多くのメモリが必要です。インストール方法はREADMEを参照してください。バッチサイズ1から始めてください。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "タガー"
+      }
+    }
+  },
+  "NAIVibeTransfer": {
+    "display_name": "NAI Vibe Transfer（雰囲気参照）",
+    "description": "参照画像のスタイルや構図を反映します。V3/V4/V4.5のみ対応します。V4/V4.5のVibeはインペイントに使用できず、VibeとPrecise Referenceは併用できません。複数の画像を使う場合は、このノードを連結してください。",
+    "inputs": {
+      "image": {
+        "name": "画像"
+      },
+      "strength": {
+        "name": "参照強度"
+      },
+      "information_extracted": {
+        "name": "情報抽出量",
+        "tooltip": "V4/V4.5では画像と設定の組み合わせを初めてエンコードするときにAnlasを消費し、以降はローカルキャッシュを再利用します。この値を変更すると再エンコードが必要です。"
+      },
+      "vibes": {
+        "name": "Vibe参照"
+      },
+      "enabled": {
+        "name": "有効"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "Vibe参照"
+      }
+    }
+  },
+  "NAIPreciseReference": {
+    "display_name": "NAI Precise Reference（精密参照）",
+    "description": "V4.5用のキャラクター・スタイル参照です。インペイントにも対応します。有効な参照ごとに、生成時に追加のAnlasを消費します。複数のキャラクター参照は特徴が混ざり、個別のキャラクタースロットには対応しません。Vibeとは併用できません。",
+    "inputs": {
+      "image": {
+        "name": "画像"
+      },
+      "reference_type": {
+        "name": "参照タイプ",
+        "options": {
+          "character": "キャラクター",
+          "style": "スタイル",
+          "character&style": "キャラクター + スタイル"
+        }
+      },
+      "strength": {
+        "name": "参照強度"
+      },
+      "fidelity": {
+        "name": "参照忠実度"
+      },
+      "references": {
+        "name": "精密参照"
+      },
+      "enabled": {
+        "name": "有効"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "精密参照"
+      }
+    }
+  },
+  "NovelAIGenerator": {
+    "display_name": "NAI 画像生成",
+    "description": "画像を1枚生成します。Opus無料枠の制限やMediumの固定設定による変更は実行時に通知します。V3/Furryではキャラクタープロンプトを使用できません。自動保存した画像にはNovelAIのメタデータが保持されます。",
+    "inputs": {
+      "prompt": {
+        "name": "プロンプト"
+      },
+      "negative_prompt": {
+        "name": "ネガティブプロンプト"
+      },
+      "model": {
+        "name": "生成モデル",
+        "tooltip": "V5 Full Medium Effortは14ステップ、Euler Ancestral、CFGリスケール0、Heavy UCに固定されます。ユーザー指定およびキャラクターのネガティブプロンプトは無視されます。プロンプトガイダンスは調整できます。通常のimg2img・インペイントにはlimit_opus_free=Falseが必要で、Anlasを消費する場合があります。"
+      },
+      "width": {
+        "name": "幅"
+      },
+      "height": {
+        "name": "高さ"
+      },
+      "sampler": {
+        "name": "サンプラー"
+      },
+      "steps": {
+        "name": "ステップ数"
+      },
+      "cfg_scale": {
+        "name": "プロンプトガイダンス (CFG)"
+      },
+      "seed": {
+        "name": "シード",
+        "tooltip": "-1でランダムなシードを使用します。"
+      },
+      "scheduler": {
+        "name": "スケジューラー"
+      },
+      "cfg_rescale": {
+        "name": "CFGリスケール"
+      },
+      "prefer_brownian": {
+        "name": "ブラウン運動ノイズを優先"
+      },
+      "variety_boost": {
+        "name": "多様性の強化"
+      },
+      "characterPrompts": {
+        "name": "キャラクタープロンプト"
+      },
+      "limit_opus_free": {
+        "name": "Anlas消費制限（Opus無料条件）",
+        "tooltip": "有効にするとOpusの無料条件を確認し、Anlasを消費する可能性があるリクエストをブロックします。通常のimg2img・インペイント、Vibe・Precise参照はブロックされます。ディテーラーでは無料条件を満たすFocused Inpainting領域のみ許可します。無効にすると有料リクエストを許可します。"
+      },
+      "vibes": {
+        "name": "Vibe参照"
+      },
+      "references": {
+        "name": "精密参照"
+      },
+      "normalize_vibe_strengths": {
+        "name": "Vibe強度の正規化",
+        "tooltip": "V4/V4.5 Vibeの強度の絶対値の合計が1.0を超える場合、強度を比例して下げます。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "画像"
+      }
+    }
+  },
+  "CharacterPromptSelect": {
+    "display_name": "NAI キャラクタープロンプト設定",
+    "description": "V4/V4.5/V5で使う元のキャラクタープロンプトを最大5件設定します。X/Yは0～1の座標です。旧形式の0～10の座標は10で割って入力してください。座標は位置の目安であり、領域を厳密に指定するマスクではありません。",
+    "inputs": {
+      "character1": {
+        "name": "キャラクター1 プロンプト"
+      },
+      "character1_uc": {
+        "name": "キャラクター1 ネガティブ"
+      },
+      "character1_x": {
+        "name": "キャラクター1 X座標"
+      },
+      "character1_y": {
+        "name": "キャラクター1 Y座標"
+      },
+      "character2_enable": {
+        "name": "キャラクター2 有効"
+      },
+      "character2": {
+        "name": "キャラクター2 プロンプト"
+      },
+      "character2_uc": {
+        "name": "キャラクター2 ネガティブ"
+      },
+      "character2_x": {
+        "name": "キャラクター2 X座標"
+      },
+      "character2_y": {
+        "name": "キャラクター2 Y座標"
+      },
+      "character3_enable": {
+        "name": "キャラクター3 有効"
+      },
+      "character3": {
+        "name": "キャラクター3 プロンプト"
+      },
+      "character3_uc": {
+        "name": "キャラクター3 ネガティブ"
+      },
+      "character3_x": {
+        "name": "キャラクター3 X座標"
+      },
+      "character3_y": {
+        "name": "キャラクター3 Y座標"
+      },
+      "character4_enable": {
+        "name": "キャラクター4 有効"
+      },
+      "character4": {
+        "name": "キャラクター4 プロンプト"
+      },
+      "character4_uc": {
+        "name": "キャラクター4 ネガティブ"
+      },
+      "character4_x": {
+        "name": "キャラクター4 X座標"
+      },
+      "character4_y": {
+        "name": "キャラクター4 Y座標"
+      },
+      "character5_enable": {
+        "name": "キャラクター5 有効"
+      },
+      "character5": {
+        "name": "キャラクター5 プロンプト"
+      },
+      "character5_uc": {
+        "name": "キャラクター5 ネガティブ"
+      },
+      "character5_x": {
+        "name": "キャラクター5 X座標"
+      },
+      "character5_y": {
+        "name": "キャラクター5 Y座標"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "キャラクタープロンプト"
+      }
+    }
+  },
+  "NAIImg2ImgNode": {
+    "display_name": "NAI 画像変換 (Img2Img)",
+    "description": "画像を1枚入力してください。バッチは事前に1枚ずつに分けてください。通常のimg2imgにはlimit_opus_free=Falseが必要で、Anlasを消費する場合があります。元画像は指定した幅と高さにリサイズされます。",
+    "inputs": {
+      "image": {
+        "name": "画像"
+      },
+      "prompt": {
+        "name": "プロンプト"
+      },
+      "negative_prompt": {
+        "name": "ネガティブプロンプト"
+      },
+      "model": {
+        "name": "生成モデル",
+        "tooltip": "V5 Full Medium Effortは14ステップ、Euler Ancestral、CFGリスケール0、Heavy UCに固定されます。ユーザー指定およびキャラクターのネガティブプロンプトは無視されます。プロンプトガイダンスは調整できます。通常のimg2img・インペイントにはlimit_opus_free=Falseが必要で、Anlasを消費する場合があります。"
+      },
+      "width": {
+        "name": "幅"
+      },
+      "height": {
+        "name": "高さ"
+      },
+      "sampler": {
+        "name": "サンプラー"
+      },
+      "steps": {
+        "name": "ステップ数"
+      },
+      "cfg_scale": {
+        "name": "プロンプトガイダンス (CFG)"
+      },
+      "strength": {
+        "name": "変換強度"
+      },
+      "seed": {
+        "name": "シード",
+        "tooltip": "-1でランダムなシードを使用します。"
+      },
+      "scheduler": {
+        "name": "スケジューラー"
+      },
+      "cfg_rescale": {
+        "name": "CFGリスケール"
+      },
+      "prefer_brownian": {
+        "name": "ブラウン運動ノイズを優先"
+      },
+      "noise": {
+        "name": "追加ノイズ"
+      },
+      "variety_boost": {
+        "name": "多様性の強化"
+      },
+      "characterPrompts": {
+        "name": "キャラクタープロンプト"
+      },
+      "limit_opus_free": {
+        "name": "Anlas消費制限（Opus無料条件）",
+        "tooltip": "有効にするとOpusの無料条件を確認し、Anlasを消費する可能性があるリクエストをブロックします。通常のimg2img・インペイント、Vibe・Precise参照はブロックされます。ディテーラーでは無料条件を満たすFocused Inpainting領域のみ許可します。無効にすると有料リクエストを許可します。"
+      },
+      "vibes": {
+        "name": "Vibe参照"
+      },
+      "references": {
+        "name": "精密参照"
+      },
+      "normalize_vibe_strengths": {
+        "name": "Vibe強度の正規化",
+        "tooltip": "V4/V4.5 Vibeの強度の絶対値の合計が1.0を超える場合、強度を比例して下げます。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "画像"
+      }
+    }
+  },
+  "NAIInpaintNode": {
+    "display_name": "NAI インペイント",
+    "description": "画像1枚と空でないマスクが必要です。白い部分を描き直し、黒い部分を保持します。画像とマスクは指定した幅と高さにリサイズされます。limit_opus_free=Falseが必要で、Anlasを消費する場合があります。V5 CuratedではV4.5 Curatedのインペイントを使用します。",
+    "inputs": {
+      "image": {
+        "name": "画像"
+      },
+      "mask": {
+        "name": "マスク",
+        "tooltip": "白い部分を編集し、黒い部分を保持します。空でないマスクを1枚接続してください。"
+      },
+      "prompt": {
+        "name": "プロンプト"
+      },
+      "negative_prompt": {
+        "name": "ネガティブプロンプト"
+      },
+      "model": {
+        "name": "生成モデル",
+        "tooltip": "V5 Full Medium Effortは14ステップ、Euler Ancestral、CFGリスケール0、Heavy UCに固定されます。ユーザー指定およびキャラクターのネガティブプロンプトは無視されます。プロンプトガイダンスは調整できます。通常のimg2img・インペイントにはlimit_opus_free=Falseが必要で、Anlasを消費する場合があります。"
+      },
+      "width": {
+        "name": "幅"
+      },
+      "height": {
+        "name": "高さ"
+      },
+      "sampler": {
+        "name": "サンプラー"
+      },
+      "steps": {
+        "name": "ステップ数"
+      },
+      "cfg_scale": {
+        "name": "プロンプトガイダンス (CFG)"
+      },
+      "strength": {
+        "name": "変換強度"
+      },
+      "seed": {
+        "name": "シード",
+        "tooltip": "-1でランダムなシードを使用します。"
+      },
+      "scheduler": {
+        "name": "スケジューラー"
+      },
+      "cfg_rescale": {
+        "name": "CFGリスケール"
+      },
+      "prefer_brownian": {
+        "name": "ブラウン運動ノイズを優先"
+      },
+      "noise": {
+        "name": "追加ノイズ"
+      },
+      "variety_boost": {
+        "name": "多様性の強化"
+      },
+      "characterPrompts": {
+        "name": "キャラクタープロンプト"
+      },
+      "limit_opus_free": {
+        "name": "Anlas消費制限（Opus無料条件）",
+        "tooltip": "有効にするとOpusの無料条件を確認し、Anlasを消費する可能性があるリクエストをブロックします。通常のimg2img・インペイント、Vibe・Precise参照はブロックされます。ディテーラーでは無料条件を満たすFocused Inpainting領域のみ許可します。無効にすると有料リクエストを許可します。"
+      },
+      "vibes": {
+        "name": "Vibe参照"
+      },
+      "references": {
+        "name": "精密参照"
+      },
+      "normalize_vibe_strengths": {
+        "name": "Vibe強度の正規化",
+        "tooltip": "V4/V4.5 Vibeの強度の絶対値の合計が1.0を超える場合、強度を比例して下げます。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "画像"
+      }
+    }
+  },
+  "NAIFaceDetailerNode": {
+    "display_name": "NAI 顔ディテーラー",
+    "description": "YOLOの検出領域とSAMマスクでディテールを補正します。detail_mode=allで複数の領域を順番に処理します。preview_onlyではNAIにリクエストせず、検出・マッチング結果だけを表示します。各領域には選択した元のプロンプトを使用し、対応が不確かな領域はスキップします。",
+    "inputs": {
+      "image": {
+        "name": "画像"
+      },
+      "bbox_detector": {
+        "name": "バウンディングボックス検出器"
+      },
+      "sam_model": {
+        "name": "SAMモデル"
+      },
+      "prompt": {
+        "name": "プロンプト"
+      },
+      "negative_prompt": {
+        "name": "ネガティブプロンプト"
+      },
+      "model": {
+        "name": "生成モデル",
+        "tooltip": "V5 Full Medium Effortは14ステップ、Euler Ancestral、CFGリスケール0、Heavy UCに固定されます。ユーザー指定およびキャラクターのネガティブプロンプトは無視されます。プロンプトガイダンスは調整できます。通常のimg2img・インペイントにはlimit_opus_free=Falseが必要で、Anlasを消費する場合があります。"
+      },
+      "strength": {
+        "name": "変換強度"
+      },
+      "threshold": {
+        "name": "マスクグリッドのしきい値"
+      },
+      "sampler": {
+        "name": "サンプラー"
+      },
+      "steps": {
+        "name": "ステップ数"
+      },
+      "cfg_scale": {
+        "name": "プロンプトガイダンス (CFG)"
+      },
+      "bbox_threshold": {
+        "name": "検出信頼度のしきい値"
+      },
+      "dilation": {
+        "name": "検出領域の拡張"
+      },
+      "crop_factor": {
+        "name": "クロップ倍率"
+      },
+      "scheduler": {
+        "name": "スケジューラー"
+      },
+      "seed": {
+        "name": "シード",
+        "tooltip": "-1でランダムなシードを使用します。"
+      },
+      "segm_detector": {
+        "name": "セグメント検出器"
+      },
+      "eye_bbox_detector": {
+        "name": "目の検出器"
+      },
+      "limit_opus_free": {
+        "name": "Anlas消費制限（Opus無料条件）",
+        "tooltip": "有効にするとOpusの無料条件を確認し、Anlasを消費する可能性があるリクエストをブロックします。通常のimg2img・インペイント、Vibe・Precise参照はブロックされます。ディテーラーでは無料条件を満たすFocused Inpainting領域のみ許可します。無効にすると有料リクエストを許可します。"
+      },
+      "detail_mode": {
+        "name": "処理領域",
+        "options": {
+          "first": "最初の領域",
+          "all": "すべての領域"
+        }
+      },
+      "matching_mode": {
+        "name": "キャラクターの対応付け方法",
+        "tooltip": "sharedは共通プロンプトを使用します。wd14は選択したタガーで元のキャラクタープロンプトを選びます。タガーの結果を生成プロンプトに追加しません。",
+        "options": {
+          "shared": "共通プロンプト",
+          "wd14": "タガーで自動対応付け"
+        }
+      },
+      "characterPrompts": {
+        "name": "キャラクタープロンプト"
+      },
+      "tagger": {
+        "name": "タガー"
+      },
+      "match_min_score": {
+        "name": "マッチングの最低スコア"
+      },
+      "match_min_margin": {
+        "name": "候補間の最小スコア差"
+      },
+      "match_crop_factor": {
+        "name": "マッチング用クロップ倍率"
+      },
+      "max_regions": {
+        "name": "最大処理領域数"
+      },
+      "preview_only": {
+        "name": "プレビューのみ実行",
+        "tooltip": "検出・マッチングとレポートのみ実行します。NovelAIへの生成リクエストは送信しません。"
+      },
+      "vibes": {
+        "name": "Vibe参照"
+      },
+      "references": {
+        "name": "精密参照"
+      },
+      "normalize_vibe_strengths": {
+        "name": "Vibe強度の正規化",
+        "tooltip": "V4/V4.5 Vibeの強度の絶対値の合計が1.0を超える場合、強度を比例して下げます。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "画像"
+      },
+      "1": {
+        "name": "マスクプレビュー"
+      },
+      "2": {
+        "name": "マッチングレポート"
+      }
+    }
+  },
+  "NAIFaceDetailerSegmNode": {
+    "display_name": "NAI セグメントディテーラー",
+    "description": "セグメント検出器のバウンディングボックスでSAMを誘導します。検出器のポリゴンをそのまま合成するわけではありません。detail_mode=allで複数の領域を処理します。preview_onlyとマッチングレポートで、スキップした領域と理由を確認できます。",
+    "inputs": {
+      "image": {
+        "name": "画像"
+      },
+      "segm_detector": {
+        "name": "セグメント検出器"
+      },
+      "sam_model": {
+        "name": "SAMモデル"
+      },
+      "prompt": {
+        "name": "プロンプト"
+      },
+      "negative_prompt": {
+        "name": "ネガティブプロンプト"
+      },
+      "model": {
+        "name": "生成モデル",
+        "tooltip": "V5 Full Medium Effortは14ステップ、Euler Ancestral、CFGリスケール0、Heavy UCに固定されます。ユーザー指定およびキャラクターのネガティブプロンプトは無視されます。プロンプトガイダンスは調整できます。通常のimg2img・インペイントにはlimit_opus_free=Falseが必要で、Anlasを消費する場合があります。"
+      },
+      "strength": {
+        "name": "変換強度"
+      },
+      "threshold": {
+        "name": "マスクグリッドのしきい値"
+      },
+      "sampler": {
+        "name": "サンプラー"
+      },
+      "steps": {
+        "name": "ステップ数"
+      },
+      "cfg_scale": {
+        "name": "プロンプトガイダンス (CFG)"
+      },
+      "bbox_threshold": {
+        "name": "検出信頼度のしきい値"
+      },
+      "dilation": {
+        "name": "検出領域の拡張"
+      },
+      "crop_factor": {
+        "name": "クロップ倍率"
+      },
+      "scheduler": {
+        "name": "スケジューラー"
+      },
+      "seed": {
+        "name": "シード",
+        "tooltip": "-1でランダムなシードを使用します。"
+      },
+      "bbox_detector": {
+        "name": "バウンディングボックス検出器"
+      },
+      "eye_bbox_detector": {
+        "name": "目の検出器"
+      },
+      "limit_opus_free": {
+        "name": "Anlas消費制限（Opus無料条件）",
+        "tooltip": "有効にするとOpusの無料条件を確認し、Anlasを消費する可能性があるリクエストをブロックします。通常のimg2img・インペイント、Vibe・Precise参照はブロックされます。ディテーラーでは無料条件を満たすFocused Inpainting領域のみ許可します。無効にすると有料リクエストを許可します。"
+      },
+      "detail_mode": {
+        "name": "処理領域",
+        "options": {
+          "first": "最初の領域",
+          "all": "すべての領域"
+        }
+      },
+      "matching_mode": {
+        "name": "キャラクターの対応付け方法",
+        "tooltip": "sharedは共通プロンプトを使用します。wd14は選択したタガーで元のキャラクタープロンプトを選びます。タガーの結果を生成プロンプトに追加しません。",
+        "options": {
+          "shared": "共通プロンプト",
+          "wd14": "タガーで自動対応付け"
+        }
+      },
+      "characterPrompts": {
+        "name": "キャラクタープロンプト"
+      },
+      "tagger": {
+        "name": "タガー"
+      },
+      "match_min_score": {
+        "name": "マッチングの最低スコア"
+      },
+      "match_min_margin": {
+        "name": "候補間の最小スコア差"
+      },
+      "match_crop_factor": {
+        "name": "マッチング用クロップ倍率"
+      },
+      "max_regions": {
+        "name": "最大処理領域数"
+      },
+      "preview_only": {
+        "name": "プレビューのみ実行",
+        "tooltip": "検出・マッチングとレポートのみ実行します。NovelAIへの生成リクエストは送信しません。"
+      },
+      "vibes": {
+        "name": "Vibe参照"
+      },
+      "references": {
+        "name": "精密参照"
+      },
+      "normalize_vibe_strengths": {
+        "name": "Vibe強度の正規化",
+        "tooltip": "V4/V4.5 Vibeの強度の絶対値の合計が1.0を超える場合、強度を比例して下げます。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "画像"
+      },
+      "1": {
+        "name": "マスクプレビュー"
+      },
+      "2": {
+        "name": "マッチングレポート"
+      }
+    }
+  },
+  "ComfyUIToNovelAIV4": {
+    "display_name": "プロンプト変換: ComfyUI → NovelAI V4",
+    "description": "ComfyUIの重みをV4の数値重み構文に変換します。互換性を保つため、不正な重みグループは省略し、実行時に通知します。括弧を文字として使う場合はエスケープしてください。",
+    "inputs": {
+      "comfyui_prompt": {
+        "name": "ComfyUIプロンプト"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "NovelAI V4プロンプト"
+      }
+    }
+  },
+  "NovelAIV4ToComfyUI": {
+    "display_name": "プロンプト変換: NovelAI V4 → ComfyUI",
+    "description": "カンマ区切りのV4重み構文をComfyUIの重みに変換します。閉じる::の後に続くテキストはカンマで区切ってください。未対応の末尾テキストがある場合は実行時に通知します。",
+    "inputs": {
+      "novelai_prompt": {
+        "name": "NovelAI V4プロンプト"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "ComfyUIプロンプト"
+      }
+    }
+  },
+  "NovelAIV4ToOldNAI": {
+    "display_name": "プロンプト変換: NovelAI V4 → 旧NAI",
+    "description": "V4の重みを旧NAIの1.05/0.95倍の括弧で近似します。0や負の重みは表現できないため、置き換え時に通知します。",
+    "inputs": {
+      "novelai_v4_prompt": {
+        "name": "NovelAI V4プロンプト"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "旧NAIプロンプト"
+      }
+    }
+  },
+  "OldNAIToNovelAIV4": {
+    "display_name": "プロンプト変換: 旧NAI → NovelAI V4",
+    "description": "旧NAIの括弧をV4の重み構文に変換します。従来どおり小数点以下2桁に丸めます。対応する開き括弧がない閉じ括弧は、前のタグに重みを適用します。",
+    "inputs": {
+      "novelai_old_prompt": {
+        "name": "旧NAIプロンプト"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "NovelAI V4プロンプト"
+      }
+    }
+  },
+  "ComfyUIToOldNAI": {
+    "display_name": "プロンプト変換: ComfyUI → 旧NAI",
+    "description": "ComfyUIの重みを旧NAIの1.05/0.95倍の括弧で近似します。不正なグループや、表現できない0・負の重みについては実行時に通知します。",
+    "inputs": {
+      "comfyui_prompt": {
+        "name": "ComfyUIプロンプト"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "旧NAIプロンプト"
+      }
+    }
+  },
+  "OldNAIToComfyUI": {
+    "display_name": "プロンプト変換: 旧NAI → ComfyUI",
+    "description": "旧NAIの括弧をComfyUIの重みに変換し、従来どおり小数点以下2桁に丸めます。対応する開き括弧がない閉じ括弧は、前のタグに影響します。",
+    "inputs": {
+      "novelai_old_prompt": {
+        "name": "旧NAIプロンプト"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "ComfyUIプロンプト"
+      }
+    }
+  }
+}

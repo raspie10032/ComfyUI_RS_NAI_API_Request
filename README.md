@@ -4,7 +4,17 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The YOLO/SAM detailer can process multiple detected regions sequentially. An optional **local PyTorch tagger (WD or PixAI)** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads only the selected model when the loader executes, after the optional dependencies are installed.
 
-> Current version: **2.4.3**
+> Current version: **2.4.4**
+
+## What's New in 2.4.4
+
+- Added Korean and Japanese translations for all 15 nodes through [ComfyUI's native locale files](https://docs.comfy.org/custom-nodes/i18n): names, descriptions, input labels, tooltips, named outputs, and reference/detailer options. Socket type names and the display of option values follow ComfyUI's own locale handling.
+- Choose **한국어** or **日本語** in **ComfyUI Settings → Comfy → Locale → Language**. After updating the extension, restart ComfyUI and refresh the browser to load the new translations.
+- Node IDs, saved input values, model names, sampler identifiers, and generation prompts remain unchanged. Other languages continue to use the existing English node definitions. Runtime notices, download status messages, and matching reports currently remain in English.
+
+**한국어:** ComfyUI 설정에서 언어를 **한국어**로 선택하면 노드 이름·설명·입출력 항목·툴팁이 한국어로 표시됩니다. 업데이트 후에는 ComfyUI를 재시작하고 브라우저를 새로고침하세요.
+
+**日本語:** ComfyUIの設定で言語を**日本語**にすると、ノード名・説明・入出力ラベル・ツールチップが日本語で表示されます。更新後はComfyUIを再起動し、ブラウザーを再読み込みしてください。
 
 ## What's New in 2.4.3
 
