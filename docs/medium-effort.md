@@ -17,7 +17,7 @@ Select **NAI Diffusion V5 Full — Medium Effort** in the existing model input. 
 
 The fixed negative prompt gains an `nsfw` prefix unless the base positive prompt contains `nsfw`, matching the official client. Selecting Medium does not change the stored settings used by other models.
 
-`limit_opus_free=True` verifies an active Opus subscription and available V5 usage before each request attempt. It blocks image inputs, inpainting, and references before processing images. To intentionally allow image-input requests that may cost Anlas, set it to `False`. The preflight checks run within this Python process and do not constitute a server-side spending cap or billing guarantee.
+`limit_opus_free=True` verifies an active Opus subscription and available V5 usage before each request attempt. It blocks general img2img, general inpainting, and reference requests before token access or paid encoding. Starting with 2.4.1, `main` also includes the Focused Inpainting exception previously installed on Linux: it is limited to internally produced detail crops, its nested strength must exactly match the validated crop settings, and unknown fields fail closed. To intentionally allow image-input requests that may cost Anlas, set it to `False`. The preflight checks run within this Python process and do not constitute a server-side spending cap or billing guarantee.
 
 ## Validation
 
@@ -33,8 +33,8 @@ Validation on 2026-10-11:
 
 | Check | Result |
 | --- | --- |
-| Main candidate offline suite | 56 tests passed |
-| Separate Linux integration with Vibe/Precise and Focused Inpainting | 78 tests passed |
+| Earlier Medium-only 2.3.1 candidate offline suite | 56 tests passed |
+| Unified 2.4.1 package with Vibe/Precise and Focused Inpainting | 78 tests passed; runtime source matches the tested Linux installation |
 | Resident ComfyUI Medium text generation, 512×512 | Passed; decoded RGB PNG; no Anlas deducted |
 | Returned PNG settings | 14 steps, `k_euler_ancestral`, CFG Rescale 0, selected guidance retained |
 | Resident ComfyUI strict img2img / general inpainting | Both stopped with the expected guard error |
@@ -44,7 +44,7 @@ Validation on 2026-10-11:
 | Inpainting mask | Central 256×256 region changed; every pixel outside the mask preserved |
 | Windows native runtime | Not run from this Linux host |
 
-These live checks exercised the separately installed Linux integration, retaining Vibe/Precise and Focused Inpainting. The two image-input jobs were explicitly authorized with a combined 10 Anlas budget, submitted once each, and checked against ComfyUI history, decoded output images, raw NovelAI PNG metadata, and the account balance before and after each job. Both succeeded without an observed Anlas deduction under that account and those settings. This does not establish that image-input requests are always free; the strict guards remain enabled by default.
+These live checks exercised the Linux integration whose runtime source is now included in `main` 2.4.1, retaining Vibe/Precise and Focused Inpainting. The two image-input jobs were explicitly authorized with a combined 10 Anlas budget, submitted once each, and checked against ComfyUI history, decoded output images, raw NovelAI PNG metadata, and the account balance before and after each job. Both succeeded without an observed Anlas deduction under that account and those settings. This does not establish that image-input requests are always free; the strict guards remain enabled by default.
 
 The inpainting response confirmed `img2img.strength=0.5` and `color_correct=true`. Pixel comparison against the input found 59,508 changed pixels inside the central 256×256 mask and zero changed pixels outside it. Both returned images were inspected visually. Custom negative prompts were absent from returned settings.
 

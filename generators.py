@@ -28,6 +28,10 @@ from .nai_api import (
     zip_to_png_bytes,
 )
 from .wd_tagger import WDTaggerLoader
+from .references import (
+    NAIPreciseReference, NAIVibeTransfer, reference_inputs, reference_parameters,
+    validate_references,
+)
 
 # Constants
 BOX_SIZE = 32
@@ -155,6 +159,7 @@ class NovelAIGenerator:
                 "variety_boost": ("BOOLEAN", {"default": True}),
                 "characterPrompts": ("LIST",),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
+                **reference_inputs(),
             }
         }
 
@@ -164,9 +169,15 @@ class NovelAIGenerator:
 
     def generate(self, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, seed,
                  scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, variety_boost=True, characterPrompts=None,
-                 limit_opus_free=True):
+                 limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True):
+        if limit_opus_free and (vibes or references):
+            raise RuntimeError(
+                "limit_opus_free blocks Vibe and Precise Reference because they can spend Anlas. "
+                "Set it to False to allow paid requests."
+            )
         token = get_nai_token()
         model_id = get_model_id(model)
+        validate_references(model_id, vibes, references, inpainting=False)
 
         if seed == -1:
             seed = np.random.randint(0, 0x7fffffff)
@@ -178,6 +189,10 @@ class NovelAIGenerator:
             scheduler=scheduler, cfg_rescale=cfg_rescale, prefer_brownian=prefer_brownian,
             variety_boost=variety_boost, model_id=model_id
         )
+        parameters.update(reference_parameters(
+            model_id, token, vibes, references, normalize_vibe_strengths,
+            inpainting=False,
+        ))
         apply_v4_parameters(parameters, model_id, prompt, negative_prompt, characterPrompts)
         payload = build_nai_payload(prompt, model_id, "generate", parameters)
 
@@ -218,6 +233,7 @@ class NAIImg2ImgNode:
                 "variety_boost": ("BOOLEAN", {"default": True}),
                 "characterPrompts": ("LIST",),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
+                **reference_inputs(),
             }
         }
 
@@ -227,11 +243,12 @@ class NAIImg2ImgNode:
 
     def generate(self, image, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, strength, seed,
                  scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None,
-                 limit_opus_free=True):
+                 limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True):
         if limit_opus_free:
             raise RuntimeError("limit_opus_free blocks image-to-image because it can spend Anlas. Set it to False to allow paid requests.")
         token = get_nai_token()
         model_id = get_model_id(model)
+        validate_references(model_id, vibes, references, inpainting=False)
 
         width, height, steps = apply_opus_free_limits(width, height, steps, limit_opus_free)
 
@@ -250,6 +267,10 @@ class NAIImg2ImgNode:
             "noise": noise,
             "image": pil_to_base64(pil_img),
         })
+        parameters.update(reference_parameters(
+            model_id, token, vibes, references, normalize_vibe_strengths,
+            inpainting=False,
+        ))
         apply_v4_parameters(parameters, model_id, prompt, negative_prompt, characterPrompts)
         payload = build_nai_payload(prompt, model_id, "img2img", parameters)
 
@@ -291,6 +312,7 @@ class NAIInpaintNode:
                 "variety_boost": ("BOOLEAN", {"default": True}),
                 "characterPrompts": ("LIST",),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
+                **reference_inputs(),
             }
         }
 
@@ -299,11 +321,13 @@ class NAIInpaintNode:
     CATEGORY = "RS_NovelAI_API/Generation"
 
     def generate(self, image, mask, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, strength, seed,
-                 scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None, limit_opus_free=True):
+                 scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None,
+                 limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True):
         if limit_opus_free:
             raise RuntimeError("limit_opus_free blocks inpainting because it can spend Anlas. Set it to False to allow paid requests.")
         token = get_nai_token()
         model_id = get_model_id(model)
+        validate_references(model_id, vibes, references, inpainting=True)
 
         # Snap width/height to 64
         width = (width // 64) * 64
@@ -335,6 +359,10 @@ class NAIInpaintNode:
             "inpaintImg2ImgStrength": strength,
             "noise": noise,
         })
+        parameters.update(reference_parameters(
+            model_id, token, vibes, references, normalize_vibe_strengths,
+            inpainting=True,
+        ))
         apply_v4_parameters(parameters, model_id, prompt, negative_prompt, characterPrompts)
         payload = build_nai_payload(prompt, model_id, "infill", parameters, inpainting=True)
 
@@ -366,6 +394,7 @@ def _detailer_options():
         "match_crop_factor": ("FLOAT", {"default": 2.0, "min": 1.0, "max": 5.0, "step": 0.1}),
         "max_regions": ("INT", {"default": 16, "min": 1, "max": 64}),
         "preview_only": ("BOOLEAN", {"default": False}),
+        **reference_inputs(),
     }
 
 
@@ -466,6 +495,8 @@ class NAIFaceDetailerSegmNode:
 
 NODE_CLASS_MAPPINGS = {
     "RSWDTaggerLoader": WDTaggerLoader,
+    "NAIVibeTransfer": NAIVibeTransfer,
+    "NAIPreciseReference": NAIPreciseReference,
     "NovelAIGenerator": NovelAIGenerator,
     "CharacterPromptSelect": CharacterPromptSelect,
     "NAIImg2ImgNode": NAIImg2ImgNode,
@@ -476,6 +507,8 @@ NODE_CLASS_MAPPINGS = {
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "RSWDTaggerLoader": "NAI WD Tagger Loader (PyTorch)",
+    "NAIVibeTransfer": "NAI Vibe Transfer",
+    "NAIPreciseReference": "NAI Precise Reference",
     "NovelAIGenerator": "NAI Image Generator",
     "CharacterPromptSelect": "NAI Character Prompt Select",
     "NAIImg2ImgNode": "NAI Img2Img",

@@ -160,6 +160,24 @@ class RequestTests(unittest.TestCase):
             "parameters": {"width": 832, "height": 1216, "steps": 28, "n_samples": 1},
         }
 
+    def focused_inpaint_payload(self):
+        return {
+            "action": "infill",
+            "model": "nai-diffusion-5-full-inpainting",
+            "parameters": {
+                "width": 1024,
+                "height": 768,
+                "steps": 28,
+                "n_samples": 1,
+                "image": "encoded-image",
+                "mask": "encoded-mask",
+                "add_original_image": True,
+                "inpaintImg2ImgStrength": 0.55,
+                "img2img": {"strength": 0.55, "color_correct": True},
+                "noise": 0,
+            },
+        }
+
     def test_v5_subscription_check_and_post_share_the_request_lock(self):
         calls = []
 
@@ -255,6 +273,77 @@ class RequestTests(unittest.TestCase):
                     nai_api.post_nai("test", payload, limit_opus_free=True)
         get.assert_not_called()
         post.assert_not_called()
+
+    def test_focused_inpaint_opt_in_checks_subscription_and_posts(self):
+        with (
+            mock.patch.object(
+                nai_api._session,
+                "get",
+                return_value=self.subscription(
+                    usage={"percent": 2, "isNegative": False}
+                ),
+            ) as get,
+            mock.patch.object(
+                nai_api._session, "post", return_value=self.response()
+            ) as post,
+        ):
+            result = nai_api.post_nai(
+                "test",
+                self.focused_inpaint_payload(),
+                limit_opus_free=True,
+                allow_opus_focused_inpaint=True,
+            )
+        self.assertEqual(result, b"png")
+        get.assert_called_once()
+        post.assert_called_once()
+
+    def test_focused_inpaint_opt_in_rejects_unsafe_payloads(self):
+        valid = self.focused_inpaint_payload()
+        cases = [
+            {**valid, "action": "img2img"},
+            {**valid, "model": "unknown-inpainting"},
+            {**valid, "parameters": {**valid["parameters"], "width": 1088}},
+            {**valid, "parameters": {**valid["parameters"], "steps": 29}},
+            {**valid, "parameters": {**valid["parameters"], "n_samples": 2}},
+            {**valid, "parameters": {**valid["parameters"], "mask": ""}},
+            {**valid, "parameters": {**valid["parameters"], "add_original_image": False}},
+            {
+                **valid,
+                "parameters": {
+                    **valid["parameters"],
+                    "reference_image_multiple": ["encoded"],
+                },
+            },
+        ]
+        with (
+            mock.patch.object(nai_api._session, "get") as get,
+            mock.patch.object(nai_api._session, "post") as post,
+        ):
+            for payload in cases:
+                with self.subTest(payload=payload), self.assertRaises(RuntimeError):
+                    nai_api.post_nai(
+                        "test",
+                        payload,
+                        limit_opus_free=True,
+                        allow_opus_focused_inpaint=True,
+                    )
+        get.assert_not_called()
+        post.assert_not_called()
+
+    def test_focused_nested_strength_rejects_mutations_before_http(self):
+        for nested in (None, {}, {"strength": 0.5, "color_correct": True},
+                       {"strength": 0.55, "color_correct": False},
+                       {"strength": True, "color_correct": True},
+                       {"strength": 0.55, "color_correct": True, "reference_image": "x"}):
+            payload = self.focused_inpaint_payload()
+            payload["parameters"]["img2img"] = nested
+            with self.subTest(nested=nested), mock.patch.object(nai_api._session, "get") as get, \
+                    mock.patch.object(nai_api._session, "post") as post:
+                with self.assertRaises(RuntimeError):
+                    nai_api.post_nai("test", payload, limit_opus_free=True,
+                                     allow_opus_focused_inpaint=True)
+                get.assert_not_called()
+                post.assert_not_called()
 
     def test_unverifiable_opus_or_v5_usage_stops_before_post(self):
         states = [
@@ -573,6 +662,44 @@ class PipelineTests(unittest.TestCase):
         self.assertLess(tight.width, context.width)
         self.post.assert_not_called()
 
+    def test_precise_reference_is_shared_without_rewriting_region_prompts(self):
+        from ComfyUI_RS_NAI_API_Request.references import NAIPreciseReference
+
+        refs = NAIPreciseReference().build(self.image, reference_type="style")[0]
+        self.run_detail(model="NAI Diffusion V4.5 Full", references=refs)
+        self.assertEqual(len(self.payloads), 2)
+        for payload in self.payloads:
+            self.assertEqual(payload["parameters"]["director_reference_images"], [refs[0].image])
+        self.assertIn("alice", self.payloads[0]["input"])
+        self.assertNotIn("alice", self.payloads[1]["input"])
+
+    def test_reference_preview_does_not_prepare_or_send_reference_requests(self):
+        from ComfyUI_RS_NAI_API_Request.references import NAIPreciseReference
+
+        refs = NAIPreciseReference().build(self.image)[0]
+        with mock.patch.object(detailer, "reference_parameters") as prepare:
+            self.run_detail(model="NAI Diffusion V4.5 Full", references=refs, preview_only=True)
+            prepare.assert_not_called()
+        self.post.assert_not_called()
+
+    def test_strict_mode_blocks_detailer_reference_before_token_or_preparation(self):
+        from ComfyUI_RS_NAI_API_Request.references import NAIPreciseReference
+
+        refs = NAIPreciseReference().build(self.image)[0]
+        with (
+            mock.patch.object(detailer, "get_nai_token") as token,
+            mock.patch.object(detailer, "reference_parameters") as prepare,
+            self.assertRaisesRegex(RuntimeError, "spend Anlas"),
+        ):
+            self.run_detail(
+                model="NAI Diffusion V4.5 Full",
+                references=refs,
+                limit_opus_free=True,
+            )
+        token.assert_not_called()
+        prepare.assert_not_called()
+        self.post.assert_not_called()
+
     def test_first_mode_preserves_original_detector_selection(self):
         _, _, report = self.run_detail(
             detail_mode="first", matching_mode="shared", characterPrompts=None
@@ -622,12 +749,6 @@ class PipelineTests(unittest.TestCase):
         # One primary + its own secondary per region, not all secondary boxes.
         self.assertEqual(predict.call_count, 4)
 
-    def test_no_manual_matching_option_exposed(self):
-        for cls in (NAIFaceDetailerNode, NAIFaceDetailerSegmNode):
-            options = cls.INPUT_TYPES()["optional"]
-            self.assertNotIn("manual_mapping", options)
-            self.assertNotIn("manual", options["matching_mode"][0])
-
     def test_medium_detailer_sends_fixed_settings_and_inpainting_strength(self):
         self.run_detail(model="NAI Diffusion V5 Full — Medium Effort", strength=0.4)
         self.assertEqual(len(self.payloads), 2)
@@ -637,11 +758,43 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(params["steps"], 14)
             self.assertEqual(params["sampler"], "k_euler_ancestral")
             self.assertEqual(params["img2img"], {"strength": 0.4, "color_correct": True})
+            nai_api.validate_opus_free_request(payload, allow_opus_focused_inpaint=True)
 
-    def test_strict_mode_blocks_paid_nodes_before_any_request(self):
-        with self.assertRaisesRegex(RuntimeError, "spend Anlas"):
-            self.run_detail(limit_opus_free=True)
+
+    def test_no_manual_matching_option_exposed(self):
+        for cls in (NAIFaceDetailerNode, NAIFaceDetailerSegmNode):
+            options = cls.INPUT_TYPES()["optional"]
+            self.assertNotIn("manual_mapping", options)
+            self.assertNotIn("manual", options["matching_mode"][0])
+
+    def test_strict_mode_allows_only_focused_detailer_crops(self):
+        self.run_detail(
+            limit_opus_free=True,
+            detail_mode="first",
+            matching_mode="shared",
+            characterPrompts=None,
+        )
+        self.post.assert_called_once()
+        self.assertTrue(self.post.call_args.kwargs["limit_opus_free"])
+        self.assertTrue(
+            self.post.call_args.kwargs["allow_opus_focused_inpaint"]
+        )
+
+        self.post.reset_mock()
+        self.detector.detect.return_value = (
+            (64, 128),
+            [SimpleNamespace(bbox=(20, 20, 44, 44), crop_region=(0, 0, 128, 64))],
+        )
+        with self.assertRaisesRegex(RuntimeError, "focused crop"):
+            self.run_detail(
+                limit_opus_free=True,
+                detail_mode="first",
+                matching_mode="shared",
+                characterPrompts=None,
+            )
         self.post.assert_not_called()
+
+    def test_strict_mode_still_blocks_generic_paid_nodes(self):
         with mock.patch("ComfyUI_RS_NAI_API_Request.generators.get_nai_token") as token:
             with self.assertRaisesRegex(RuntimeError, "spend Anlas"):
                 NAIImg2ImgNode().generate(None, "p", "n", "NAI Diffusion V5 Full", 832, 1216, "k_euler", 28, 5, 0.5, 1)
