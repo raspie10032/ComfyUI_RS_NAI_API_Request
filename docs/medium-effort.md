@@ -38,10 +38,17 @@ Validation on 2026-10-11:
 | Resident ComfyUI Medium text generation, 512×512 | Passed; decoded RGB PNG; no Anlas deducted |
 | Returned PNG settings | 14 steps, `k_euler_ancestral`, CFG Rescale 0, selected guidance retained |
 | Resident ComfyUI strict img2img / general inpainting | Both stopped with the expected guard error |
-| Paid Medium img2img / inpainting | Pending budget approval and live execution |
+| Medium img2img, 512×512, strength 0.5, strict mode off | Passed in 3.47 s; RGB PNG; 0 Anlas deducted |
+| Medium inpainting, 512×512, strength 0.5, strict mode off | Passed in 3.93 s; RGB PNG; 0 Anlas deducted |
+| Returned image-input metadata | `Img2ImgRequest` / `NativeInfillingRequest`; 14 steps, Euler Ancestral, CFG Rescale 0; strength 0.5 |
+| Inpainting mask | Central 256×256 region changed; every pixel outside the mask preserved |
 | Windows native runtime | Not run from this Linux host |
 
-These live checks exercised the separately installed Linux integration. The source and mocked checks do not establish live image-input API behavior. Paid image-input acceptance remains incomplete until both paths have been executed and their images and billing deltas inspected.
+These live checks exercised the separately installed Linux integration, retaining Vibe/Precise and Focused Inpainting. The two image-input jobs were explicitly authorized with a combined 10 Anlas budget, submitted once each, and checked against ComfyUI history, decoded output images, raw NovelAI PNG metadata, and the account balance before and after each job. Both succeeded without an observed Anlas deduction under that account and those settings. This does not establish that image-input requests are always free; the strict guards remain enabled by default.
+
+The inpainting response confirmed `img2img.strength=0.5` and `color_correct=true`. Pixel comparison against the input found 59,508 changed pixels inside the central 256×256 mask and zero changed pixels outside it. Both returned images were inspected visually. Custom negative prompts were absent from returned settings.
+
+HTTP 402, malformed image archives, retries, and transport errors are covered by the mocked suite; deliberately causing chargeable live failures was not part of acceptance. Native Windows execution was not available on this Linux host. Its installed source is checked against the merged repository, while live runtime evidence comes from Linux.
 
 ## Protocol references
 
