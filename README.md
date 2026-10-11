@@ -4,7 +4,15 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The YOLO/SAM detailer can process multiple detected regions sequentially. An optional **PyTorch WD tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads its model automatically on first use after the optional dependencies are installed.
 
-> Current version: **2.3.0**
+> Current version: **2.3.1**
+
+## What's New in 2.3.1
+
+- Fixed inpainting strength for V4/V4.5/V5, including Medium Effort and both face detailers. Partial strength now reaches the API as `img2img.strength` with color correction, matching the NovelAI web client. A strength of 1 uses full inpainting without that option.
+- Added a model tooltip explaining Medium's fixed settings and when image input can spend Anlas, without changing saved workflow input positions.
+- Expanded tests across generation, img2img, inpainting, multi-region detailing, output decoding/autosave, and Medium's checks before network requests.
+
+See [Medium Effort compatibility and validation](docs/medium-effort.md) for the supported settings and verification scope.
 
 ## What's New in 2.3.0
 

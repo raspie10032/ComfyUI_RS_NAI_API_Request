@@ -33,6 +33,13 @@ MODEL_DISPLAY_LIST = [
     "NAI Diffusion Furry V3"
 ]
 
+MODEL_SELECTION_TOOLTIP = (
+    "V5 Full Medium Effort always uses 14 steps, Euler Ancestral, zero CFG Rescale, "
+    "and fixed Heavy Undesired Content. Custom base/character negative prompts "
+    "are ignored. Prompt Guidance remains adjustable. Image-to-image and "
+    "inpainting require limit_opus_free=False and can spend Anlas."
+)
+
 MODEL_ID_MAP = {
     "NAI Diffusion V5 Curated": "nai-diffusion-5-curated",
     "NAI Diffusion V5 Full": "nai-diffusion-5-full",
@@ -377,6 +384,16 @@ def build_nai_payload(prompt, model_id, action, parameters, inpainting=False):
         INPAINT_MODEL_ID_OVERRIDES.get(model_id, f"{model_id}-inpainting")
         if inpainting else model_id
     )
+    if inpainting and model_id.startswith(("nai-diffusion-4", "nai-diffusion-5")):
+        # The UI strength field alone is not the API's inpainting control.
+        # Match the official client: partial denoising uses nested img2img;
+        # full-strength infill omits it. Do not mutate the caller's parameters.
+        parameters = dict(parameters)
+        strength = parameters.get("inpaintImg2ImgStrength", 1.0)
+        if strength != 1.0:
+            parameters["img2img"] = {"strength": strength, "color_correct": True}
+        else:
+            parameters.pop("img2img", None)
     return {
         "input": prompt,
         "model": payload_model,

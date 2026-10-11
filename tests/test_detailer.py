@@ -628,6 +628,16 @@ class PipelineTests(unittest.TestCase):
             self.assertNotIn("manual_mapping", options)
             self.assertNotIn("manual", options["matching_mode"][0])
 
+    def test_medium_detailer_sends_fixed_settings_and_inpainting_strength(self):
+        self.run_detail(model="NAI Diffusion V5 Full — Medium Effort", strength=0.4)
+        self.assertEqual(len(self.payloads), 2)
+        for payload in self.payloads:
+            self.assertEqual(payload["model"], "nai-diffusion-5-full-medium-inpainting")
+            params = payload["parameters"]
+            self.assertEqual(params["steps"], 14)
+            self.assertEqual(params["sampler"], "k_euler_ancestral")
+            self.assertEqual(params["img2img"], {"strength": 0.4, "color_correct": True})
+
     def test_strict_mode_blocks_paid_nodes_before_any_request(self):
         with self.assertRaisesRegex(RuntimeError, "spend Anlas"):
             self.run_detail(limit_opus_free=True)
