@@ -86,15 +86,18 @@ def _mask_array(mask, *, allow_batch=False):
     if allow_batch:
         if array.ndim == 2:
             array = array[None, ...]
-        if array.ndim != 3 or array.shape[0] < 1:
+        if array.ndim != 3:
             raise user_error("DETAIL_MASK_INPUT", ValueError, "detail_mask must be [H,W] or [B,H,W].")
     else:
         if array.ndim == 3 and array.shape[0] == 1:
             array = array[0]
         if array.ndim != 2:
             raise user_error("DETAIL_MASK_INPUT", ValueError, "A detector region must contain one 2D cropped_mask.")
-    if array.size == 0 or not np.isfinite(array).all():
-        raise user_error("DETAIL_MASK_INPUT", ValueError, "Detail masks must be nonempty and finite.")
+    if min(array.shape[-2:]) < 1 or not np.isfinite(array).all():
+        raise user_error("DETAIL_MASK_INPUT", ValueError, "Detail masks need positive spatial dimensions and finite values.")
+    # SAM3 individual_masks=True returns [0,H,W] when no objects are detected.
+    if allow_batch and array.shape[0] == 0:
+        return array.astype(np.float32, copy=False)
     array = array.astype(np.float32, copy=False)
     if array.min() < 0 or array.max() > 1:
         raise user_error("DETAIL_MASK_INPUT", ValueError, "Detail mask values must stay between 0 and 1.")
@@ -152,6 +155,81 @@ def _native_crop_mask(seg, crop_region):
             dtype=np.float32,
         )
     return np.clip(array, 0, 1)
+
+
+def _native_owned_mask(index, regions, native_masks, width, height, threshold):
+    """Keep instance membership; distance resolves only pixels in two masks."""
+    x0, y0, x1, y1 = _crop_box(regions[index].crop_region, width, height)
+    cutoff = max(float(threshold), 1e-6)
+    owns = native_masks[index] >= cutoff
+    own_x, own_y = _center(regions[index].bbox)
+    for other, seg in enumerate(regions):
+        check_interrupted()
+        if other == index:
+            continue
+        ox0, oy0, ox1, oy1 = _crop_box(seg.crop_region, width, height)
+        left, top, right, bottom = max(x0, ox0), max(y0, oy0), min(x1, ox1), min(y1, oy1)
+        if left >= right or top >= bottom:
+            continue
+        member = native_masks[other][top - oy0:bottom - oy0, left - ox0:right - ox0] >= cutoff
+        yy, xx = np.ogrid[top:bottom, left:right]
+        cx, cy = _center(seg.bbox)
+        own_distance = (xx - own_x) ** 2 + (yy - own_y) ** 2
+        distance = (xx - cx) ** 2 + (yy - cy) ** 2
+        wins = own_distance < distance if other < index else own_distance <= distance
+        owns[top - y0:bottom - y0, left - x0:right - x0] &= ~member | wins
+    return owns
+
+
+def _cover_mask_cells(owns, width, height):
+    """Cover every source pixel in whole API 8px cells, including thin shapes.
+
+    Query source rectangles intersecting each cell, so downscaling or sampling
+    at cell centers cannot discard a one-pixel strand or a tiny disconnected part.
+    """
+    h, w = owns.shape
+    xs = np.arange(width // 8 + 1, dtype=np.float64) * (8 * w / width)
+    ys = np.arange(height // 8 + 1, dtype=np.float64) * (8 * h / height)
+    left, right = np.floor(xs[:-1]).astype(int), np.minimum(w, np.ceil(xs[1:]).astype(int))
+    top, bottom = np.floor(ys[:-1]).astype(int), np.minimum(h, np.ceil(ys[1:]).astype(int))
+    integral = np.pad(owns.astype(np.int64).cumsum(0).cumsum(1), ((1, 0), (1, 0)))
+    counts = (integral[bottom[:, None], right] - integral[top[:, None], right]
+              - integral[bottom[:, None], left] + integral[top[:, None], left])
+    return np.repeat(np.repeat(counts > 0, 8, axis=0), 8, axis=1)
+
+
+def _native_mask_plan(index, regions, native_masks, source, threshold, steps,
+                      limit_opus_free, eye_bbox_detector, bbox_threshold, dilation):
+    """Shared preview/execution plan. API context may grow; paste stays in the mask."""
+    from .generators import mask_to_grid_boxes
+
+    check_interrupted()
+    x0, y0, x1, y1 = _crop_box(regions[index].crop_region, *source.size)
+    cw, ch = x1 - x0, y1 - y0
+    scale = 1024 / max(cw, ch)
+    nw, nh, request_steps = apply_opus_free_limits(
+        max(64, round(cw * scale) // 64 * 64),
+        max(64, round(ch * scale) // 64 * 64), steps, limit_opus_free,
+    )
+    owns = _native_owned_mask(index, regions, native_masks, *source.size, threshold)
+    local_array = owns.astype(np.uint8) * 255
+    raw = np.array(Image.fromarray(local_array).resize((nw, nh), Image.Resampling.NEAREST))
+    # Eye detections can enlarge API context, but cannot paint outside the
+    # supplied instance mask or take pixels assigned to another instance.
+    if eye_bbox_detector is not None and owns.any():
+        scaled = source.crop((x0, y0, x1, y1)).resize((nw, nh), Image.Resampling.LANCZOS)
+        sx, sy = nw / cw, nh / ch
+        for eye in _detect(eye_bbox_detector, pil_to_tensor(scaled), bbox_threshold, dilation, 1.0, 4):
+            ex0, ey0, ex1, ey1 = eye.bbox
+            if _owner((ex0 / sx + x0, ey0 / sy + y0, ex1 / sx + x0, ey1 / sy + y0), regions) != index:
+                continue
+            ex0, ey0, ex1, ey1 = _crop_box(eye.crop_region, nw, nh)
+            raw[ey0:ey1, ex0:ex1] = 255
+    grid = np.array(mask_to_grid_boxes(raw, nw, nh, threshold))
+    # Keep the established 32px boxes/8px stride and cover thin members that
+    # the box average drops. Do not partition these cells by unrelated centers.
+    grid[_cover_mask_cells(owns, nw, nh)] = 255
+    return Image.fromarray(grid), local_array, nw, nh, request_steps
 
 
 def _resolve_mask_source(
@@ -280,7 +358,7 @@ def run_face_detail(
             regions.append(seg)
     if not regions:
         notice("No regions detected. Original image returned; no NovelAI request sent.")
-        return image, image, json.dumps({"regions": [], "status": "no_detections"})
+        return image, pil_to_tensor(Image.new("RGB", source.size)), json.dumps({"regions": [], "status": "no_detections"})
     native_masks = (
         [_native_crop_mask(seg, _crop_box(seg.crop_region, w, h)) for seg in regions]
         if selected_mask_source != "sam"
@@ -371,6 +449,20 @@ def run_face_detail(
                 "mask_source": selected_mask_source,
             }
         )
+    native_plans = {}
+    if native_masks is not None:
+        for index, item in enumerate(report):
+            if item["status"] != "planned":
+                continue
+            plan = _native_mask_plan(
+                index, regions, native_masks, source, threshold, steps,
+                limit_opus_free, eye_bbox_detector, bbox_threshold, dilation,
+            )
+            native_plans[index] = plan
+            item["mask_pixels"] = int(np.count_nonzero(plan[1]))
+            if not item["mask_pixels"]:
+                item["status"] = "empty_mask"
+                item["explanation"] = "No editable pixels after mask threshold and overlap ownership."
     if matching_mode == "wd14" or any(r["status"] == "skipped" for r in report):
         notice("\n".join(
             f"Region {r['region']} -> character {r['character'] or '?'}: {r['explanation']}"
@@ -396,7 +488,7 @@ def run_face_detail(
                 x0, y0, x1, y1 = _crop_box(regions[index].crop_region, w, h)
                 preview_mask[y0:y1, x0:x1] = np.maximum(
                     preview_mask[y0:y1, x0:x1],
-                    np.rint(native_masks[index] * 255).astype(np.uint8),
+                    native_plans[index][1],
                 )
         return (
             pil_to_tensor(preview),
@@ -447,8 +539,11 @@ def run_face_detail(
             limit_opus_free,
         )
         scaled = crop.resize((nw, nh), Image.Resampling.LANCZOS)
-        sx, sy = nw / cw, nh / ch
-        if selected_mask_source == "sam":
+        if native_masks is not None:
+            request_mask, local_array, nw, nh, request_steps = native_plans[index]
+            local_mask = Image.fromarray(local_array)
+        else:
+            sx, sy = nw / cw, nh / ch
             predictor.set_image(np.array(scaled.convert("RGB")))
             boxes = [seg.bbox] + [
                 s.bbox for s in secondaries if _owner(s.bbox, regions) == index
@@ -468,71 +563,63 @@ def run_face_detail(
                     box=np.array([box], dtype=float), multimask_output=False
                 )
                 mask_np = np.maximum(mask_np, (masks[0] * 255).astype(np.uint8))
-        else:
-            mask_np = np.asarray(
-                Image.fromarray(native_masks[index], mode="F").resize(
-                    (nw, nh), Image.Resampling.BILINEAR
-                ),
-                dtype=np.float32,
-            )
-            mask_np = np.rint(np.clip(mask_np, 0, 1) * 255).astype(np.uint8)
-        for eye in _detect(
-            eye_bbox_detector, pil_to_tensor(scaled), bbox_threshold, dilation, 1.0, 4
-        ):
-            ex0, ey0, ex1, ey1 = eye.bbox
-            original_box = (
-                ex0 / sx + crx0,
-                ey0 / sy + cry0,
-                ex1 / sx + crx0,
-                ey1 / sy + cry0,
-            )
-            if _owner(original_box, regions) != index:
+            for eye in _detect(
+                eye_bbox_detector, pil_to_tensor(scaled), bbox_threshold, dilation, 1.0, 4
+            ):
+                ex0, ey0, ex1, ey1 = eye.bbox
+                original_box = (
+                    ex0 / sx + crx0,
+                    ey0 / sy + cry0,
+                    ex1 / sx + crx0,
+                    ey1 / sy + cry0,
+                )
+                if _owner(original_box, regions) != index:
+                    continue
+                ex0, ey0, ex1, ey1 = _crop_box(eye.crop_region, nw, nh)
+                if ex1 > ex0 and ey1 > ey0:
+                    mask_np[ey0:ey1, ex0:ex1] = 255
+            if not mask_np.any():
+                report[index]["status"] = "empty_mask"
                 continue
-            ex0, ey0, ex1, ey1 = _crop_box(eye.crop_region, nw, nh)
-            if ex1 > ex0 and ey1 > ey0:
-                mask_np[ey0:ey1, ex0:ex1] = 255
-        if not mask_np.any():
-            report[index]["status"] = "empty_mask"
-            continue
-        grid_mask = mask_to_grid_boxes(mask_np, nw, nh, threshold)
-        # Preserve the original 32px boxes / 8px stride at API resolution.
-        # A downscale/upscale round trip breaks that grid and produces corrupt
-        # infill edges on the live API. Clip ownership in whole 8px cells only.
-        centers = [_center(s.bbox) for s in regions]
-        own_x, own_y = centers[index]
-        gy, gx = np.ogrid[: nh // 8, : nw // 8]
-        gx = crx0 + (gx + 0.5) * 8 / sx
-        gy = cry0 + (gy + 0.5) * 8 / sy
-        own_cells = np.ones((nh // 8, nw // 8), dtype=bool)
-        cell_distance = (gx - own_x) ** 2 + (gy - own_y) ** 2
-        for other, (cx, cy) in enumerate(centers):
-            if other != index:
-                distance = (gx - cx) ** 2 + (gy - cy) ** 2
-                own_cells &= (
-                    cell_distance < distance
-                    if other < index
-                    else cell_distance <= distance
-                )
-        owned_pixels = np.repeat(np.repeat(own_cells, 8, axis=0), 8, axis=1)
-        request_mask = Image.fromarray(
-            np.where(owned_pixels, np.array(grid_mask), 0).astype(np.uint8)
-        )
-        local_mask = request_mask.resize((cw, ch), Image.Resampling.NEAREST)
-        # Disjoint ownership at original resolution prevents overlapping crops from
-        # overwriting another character. Build in crop space to bound memory.
-        yy, xx = np.ogrid[cry0:cry1, crx0:crx1]
-        own_distance = (xx - own_x) ** 2 + (yy - own_y) ** 2
-        owns = np.ones((ch, cw), dtype=bool)
-        for other, (cx, cy) in enumerate(centers):
-            if other != index:
-                distance = (xx - cx) ** 2 + (yy - cy) ** 2
-                owns &= (
-                    own_distance < distance
-                    if other < index
-                    else own_distance <= distance
-                )
-        local_array = np.where(owns, np.array(local_mask), 0).astype(np.uint8)
-        local_mask = Image.fromarray(local_array)
+            grid_mask = mask_to_grid_boxes(mask_np, nw, nh, threshold)
+            # Preserve the original 32px boxes / 8px stride at API resolution.
+            # A downscale/upscale round trip breaks that grid and produces corrupt
+            # infill edges on the live API. Clip ownership in whole 8px cells only.
+            centers = [_center(s.bbox) for s in regions]
+            own_x, own_y = centers[index]
+            gy, gx = np.ogrid[: nh // 8, : nw // 8]
+            gx = crx0 + (gx + 0.5) * 8 / sx
+            gy = cry0 + (gy + 0.5) * 8 / sy
+            own_cells = np.ones((nh // 8, nw // 8), dtype=bool)
+            cell_distance = (gx - own_x) ** 2 + (gy - own_y) ** 2
+            for other, (cx, cy) in enumerate(centers):
+                if other != index:
+                    distance = (gx - cx) ** 2 + (gy - cy) ** 2
+                    own_cells &= (
+                        cell_distance < distance
+                        if other < index
+                        else cell_distance <= distance
+                    )
+            owned_pixels = np.repeat(np.repeat(own_cells, 8, axis=0), 8, axis=1)
+            request_mask = Image.fromarray(
+                np.where(owned_pixels, np.array(grid_mask), 0).astype(np.uint8)
+            )
+            local_mask = request_mask.resize((cw, ch), Image.Resampling.NEAREST)
+            # Disjoint ownership at original resolution prevents overlapping crops from
+            # overwriting another character. Build in crop space to bound memory.
+            yy, xx = np.ogrid[cry0:cry1, crx0:crx1]
+            own_distance = (xx - own_x) ** 2 + (yy - own_y) ** 2
+            owns = np.ones((ch, cw), dtype=bool)
+            for other, (cx, cy) in enumerate(centers):
+                if other != index:
+                    distance = (xx - cx) ** 2 + (yy - cy) ** 2
+                    owns &= (
+                        own_distance < distance
+                        if other < index
+                        else own_distance <= distance
+                    )
+            local_array = np.where(owns, np.array(local_mask), 0).astype(np.uint8)
+            local_mask = Image.fromarray(local_array)
         if not local_array.any():
             report[index]["status"] = "empty_mask"
             continue

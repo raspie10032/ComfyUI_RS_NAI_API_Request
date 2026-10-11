@@ -430,7 +430,7 @@ def _detailer_options():
         "match_min_margin": ("FLOAT", {"default": 0.08, "min": 0.01, "max": 1.0, "step": 0.01}),
         "match_crop_factor": ("FLOAT", {"default": 2.0, "min": 1.0, "max": 5.0, "step": 0.1}),
         "max_regions": ("INT", {"default": 16, "min": 1, "max": 64}),
-        "preview_only": ("BOOLEAN", {"default": False}),
+        "preview_only": ("BOOLEAN", {"default": False, "tooltip": "No NAI requests. Native SEGM/external MASK shows the final composite mask after threshold, overlap ownership and skips; legacy bbox+SAM previews detections only."}),
         **reference_inputs(),
     }
 
@@ -461,10 +461,10 @@ class NAIFaceDetailerNode:
                 "sam_model": ("SAM_MODEL",),
                 "segm_detector": ("SEGM_DETECTOR",),
                 "detail_mask": ("MASK",),
-                "mask_source": (["auto", "sam", "segm", "external_mask"], {"default": "auto"}),
                 "eye_bbox_detector": ("BBOX_DETECTOR",),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **_detailer_options(),
+                "mask_source": (["auto", "sam", "segm", "external_mask"], {"default": "auto"}),
             }
         }
 
@@ -514,10 +514,10 @@ class NAIFaceDetailerSegmNode:
                 "sam_model": ("SAM_MODEL",),
                 "bbox_detector": ("BBOX_DETECTOR",),
                 "detail_mask": ("MASK",),
-                "mask_source": (["auto", "sam", "segm", "external_mask"], {"default": "auto"}),
                 "eye_bbox_detector": ("BBOX_DETECTOR",),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **_detailer_options(),
+                "mask_source": (["auto", "sam", "segm", "external_mask"], {"default": "auto"}),
             }
         }
 
