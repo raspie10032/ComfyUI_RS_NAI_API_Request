@@ -5,6 +5,9 @@ import logging
 from contextvars import ContextVar
 from functools import wraps
 
+from .errors import explain_exception
+from .runtime_control import is_interruption
+
 _messages = ContextVar("rs_nai_messages", default=None)
 
 
@@ -34,6 +37,11 @@ def node_notices(cls):
         marker = _messages.set(messages)
         try:
             result = function(self, *args, **kwargs)
+        except Exception as exc:
+            # ComfyUI must still recognize cancellation and OOM by their type.
+            if not is_interruption(exc):
+                explain_exception(exc)
+            raise
         finally:
             _messages.reset(marker)
         if unique_id is None:

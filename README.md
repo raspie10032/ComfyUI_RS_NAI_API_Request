@@ -4,7 +4,18 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The YOLO/SAM detailer can process multiple detected regions sequentially. An optional **local PyTorch tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads only the selected model when the loader executes, after the optional dependencies are installed.
 
-> Current version: **2.4.5**
+> Current version: **2.4.6**
+
+## What's New in 2.4.6
+
+- Execution errors now explain **what failed and what to do next**, in English, Korean, or Japanese according to ComfyUI's language setting. The explanation appears in the error dialog and directly on the failed node. Refresh the browser after updating.
+- Distinct messages cover API authentication/status codes, timeouts and connection failures, strict Anlas protection, model/character/reference combinations, image/mask inputs, tagger dependencies/downloads, memory, and file access. Unknown failures retain their actual error type and details without guessing the cause.
+- Stable error codes, HTTP status, request stage, and original traceback remain available for troubleshooting. Common token patterns are masked. Explanations do not change request/retry rules or billing protection, and cancellation remains cancellation.
+- Error widgets clear when the node executes again and are excluded from saved workflow inputs. See [error messages and troubleshooting](docs/error-messages.md) for examples and scope.
+
+**한국어:** 오류창과 실패한 노드에 원인·해결 방법을 표시합니다. 아래 상세 정보에는 오류 코드, HTTP 상태, 실패 단계와 원래 오류가 남습니다. ComfyUI 언어 설정을 따라가며 알 수 없는 원인은 단정하지 않습니다.
+
+**日本語:** エラーダイアログと失敗したノードに原因と対処方法を表示します。エラーコード、HTTP ステータス、失敗した段階、元のエラーは詳細情報に残ります。ComfyUI の言語設定に従い、不明な原因を推測して断定しません。
 
 ## What's New in 2.4.5
 
@@ -17,7 +28,7 @@ The YOLO/SAM detailer can process multiple detected regions sequentially. An opt
 
 - Added Korean and Japanese translations for all 15 nodes through [ComfyUI's native locale files](https://docs.comfy.org/custom-nodes/i18n): names, descriptions, input labels, tooltips, named outputs, and reference/detailer options. Socket type names and the display of option values follow ComfyUI's own locale handling.
 - Choose **한국어** or **日本語** in **ComfyUI Settings → Comfy → Locale → Language**. After updating the extension, restart ComfyUI and refresh the browser to load the new translations.
-- Node IDs, saved input values, model names, sampler identifiers, and generation prompts remain unchanged. Other languages continue to use the existing English node definitions. Runtime notices, download status messages, and matching reports currently remain in English.
+- Node IDs, saved input values, model names, sampler identifiers, and generation prompts remain unchanged. Other languages continue to use the existing English node definitions. Runtime notices, download status messages, and matching reports remain in English; execution error explanations are localized as of 2.4.6.
 
 **한국어:** ComfyUI 설정에서 언어를 **한국어**로 선택하면 노드 이름·설명·입출력 항목·툴팁이 한국어로 표시됩니다. 업데이트 후에는 ComfyUI를 재시작하고 브라우저를 새로고침하세요.
 

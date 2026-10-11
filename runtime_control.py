@@ -4,6 +4,14 @@
 import time
 
 
+def is_interruption(error):
+    try:
+        from comfy.model_management import InterruptProcessingException
+    except ImportError:
+        return False
+    return isinstance(error, InterruptProcessingException)
+
+
 def check_interrupted():
     try:
         from comfy.model_management import throw_exception_if_processing_interrupted

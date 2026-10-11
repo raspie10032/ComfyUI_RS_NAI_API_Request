@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (c) 2025 raspie10032
 
+from .errors import user_error
+
 from datetime import datetime
 from pathlib import Path
 import math
@@ -124,7 +126,7 @@ class CharacterPromptSelect:
 
     def build_character_prompt(self, character_count=5, **kwargs):
         if isinstance(character_count, bool) or not isinstance(character_count, int) or not 1 <= character_count <= MAX_CHARACTER_SLOTS:
-            raise ValueError("character_count must be an integer from 1 to 22.")
+            raise user_error("CHARACTER_INPUT", ValueError, "character_count must be an integer from 1 to 22.")
         character_prompts = []
         for i in range(1, character_count + 1):
             enable = kwargs.get(f"character{i}_enable", i == 1 or i >= 6)
@@ -134,7 +136,7 @@ class CharacterPromptSelect:
                 x_val = kwargs.get(f"character{i}_x", 0)
                 y_val = kwargs.get(f"character{i}_y", 0)
                 if not all(math.isfinite(float(v)) for v in (x_val, y_val)):
-                    raise ValueError("Character coordinates must be finite values from 0 to 1.")
+                    raise user_error("CHARACTER_INPUT", ValueError, "Character coordinates must be finite values from 0 to 1.")
                 if not all(0 <= float(v) <= 1 for v in (x_val, y_val)):
                     notice(f"Character {i}: coordinates outside 0–1 were clamped. For an old 0–10 workflow, divide saved coordinates by 10 (3 becomes 0.3); check the original values before running generation.")
                 x = round(max(0.0, min(1.0, float(x_val))), 1)
@@ -200,7 +202,7 @@ class NovelAIGenerator:
                  scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, variety_boost=True, characterPrompts=None,
                  limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True):
         if limit_opus_free and (vibes or references):
-            raise RuntimeError(
+            raise user_error("PAID_BLOCKED", RuntimeError,
                 "limit_opus_free blocks Vibe and Precise Reference because they can spend Anlas. "
                 "Set it to False to allow paid requests."
             )
@@ -276,7 +278,7 @@ class NAIImg2ImgNode:
                  scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None,
                  limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True):
         if limit_opus_free:
-            raise RuntimeError("limit_opus_free blocks image-to-image because it can spend Anlas. Set it to False to allow paid requests.")
+            raise user_error("PAID_BLOCKED", RuntimeError, "limit_opus_free blocks image-to-image because it can spend Anlas. Set it to False to allow paid requests.")
         model_id = get_model_id(model)
         validate_character_prompts(model_id, characterPrompts)
         validate_references(model_id, vibes, references, inpainting=False)
@@ -358,7 +360,7 @@ class NAIInpaintNode:
                  scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None,
                  limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True):
         if limit_opus_free:
-            raise RuntimeError("limit_opus_free blocks inpainting because it can spend Anlas. Set it to False to allow paid requests.")
+            raise user_error("PAID_BLOCKED", RuntimeError, "limit_opus_free blocks inpainting because it can spend Anlas. Set it to False to allow paid requests.")
         model_id = get_model_id(model)
         validate_character_prompts(model_id, characterPrompts, inpainting=True)
         validate_references(model_id, vibes, references, inpainting=True)
