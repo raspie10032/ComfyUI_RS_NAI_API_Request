@@ -302,10 +302,21 @@ def post_nai(
 
 def zip_to_png_bytes(zip_bytes):
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zipped:
-        return zipped.read(zipped.infolist()[0])
+        images = [item for item in zipped.infolist()
+                  if not item.is_dir() and item.filename.lower().endswith(".png")]
+        if len(images) != 1:
+            raise ValueError("NovelAI response must contain exactly one PNG image; no image was saved.")
+        return zipped.read(images[0])
 
 def get_model_id(model):
-    return MODEL_ID_MAP.get(model, "nai-diffusion-5-curated")
+    if model not in MODEL_ID_MAP:
+        raise ValueError("Unknown NovelAI model. Select a model from the current node list.")
+    return MODEL_ID_MAP[model]
+
+
+def validate_character_prompts(model_id, character_prompts):
+    if character_prompts and not model_id.startswith(("nai-diffusion-4", "nai-diffusion-5")):
+        raise ValueError("characterPrompts requires V4/V4.5/V5. Disconnect it for V3/Furry; these models cannot apply character slots.")
 
 
 def default_skip_cfg_above_sigma(model_id):
@@ -317,6 +328,7 @@ def default_skip_cfg_above_sigma(model_id):
 
 
 def apply_opus_free_limits(width, height, steps, limit_opus_free):
+    original = (width, height, steps)
     if not limit_opus_free:
         return width, height, steps
 
@@ -335,6 +347,9 @@ def apply_opus_free_limits(width, height, steps, limit_opus_free):
             else:
                 height = max(64, height - 64)
 
+    if original != (width, height, steps):
+        from .diagnostics import notice
+        notice(f"Opus limit adjusted {original[0]}x{original[1]}, {original[2]} steps to {width}x{height}, {steps} steps.")
     return width, height, steps
 
 
@@ -407,11 +422,14 @@ def build_common_parameters(width, height, seed, sampler, steps, cfg_scale, nega
 
 def apply_v4_parameters(parameters, model_id, prompt, negative_prompt, character_prompts=None,
                         use_coords=None, use_order=True):
+    validate_character_prompts(model_id, character_prompts)
     if not model_id.startswith(("nai-diffusion-4", "nai-diffusion-5")):
         return parameters
 
     medium_effort = model_id == V5_FULL_MEDIUM_MODEL_ID
     if medium_effort:
+        from .diagnostics import notice
+        notice("Medium Effort sends 14 steps, Euler Ancestral, CFG Rescale 0 and fixed Heavy UC. Base and character negative prompts are ignored.")
         negative_prompt = MEDIUM_EFFORT_UNDESIRED_CONTENT
         if "nsfw" not in prompt.lower():
             negative_prompt = f"nsfw, {negative_prompt}"
@@ -442,6 +460,9 @@ def build_nai_payload(prompt, model_id, action, parameters, inpainting=False):
         INPAINT_MODEL_ID_OVERRIDES.get(model_id, f"{model_id}-inpainting")
         if inpainting else model_id
     )
+    if inpainting and payload_model != f"{model_id}-inpainting":
+        from .diagnostics import notice
+        notice(f"Inpainting uses {payload_model} for the selected model.")
     if inpainting and model_id.startswith(("nai-diffusion-4", "nai-diffusion-5")):
         # The UI strength field alone is not the API's inpainting control.
         # Match the official client: partial denoising uses nested img2img;

@@ -4,7 +4,19 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The YOLO/SAM detailer can process multiple detected regions sequentially. An optional **PyTorch WD tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads its model automatically on first use after the optional dependencies are installed.
 
-> Current version: **2.4.1**
+> Current version: **2.4.2**
+
+## What's New in 2.4.2
+
+- Reviewed every published Comfy.ICU node page against the current implementation. The [page-by-page audit](docs/node-page-audit.md) distinguishes fixes from outdated external descriptions.
+- WD Tagger Loader checks optional dependencies as soon as it executes. Missing/broken imports include the actual ComfyUI Python installation command. Model weights still load on the first match, with cache/download, load and inference stages logged.
+- Execution notices appear on the node for malformed/downgraded prompt weights, obsolete coordinates, Opus dimension/step changes, Medium fixed settings and detailer skips. Notices are read-only and are not saved as workflow inputs; existing input order/defaults and output sockets are preserved.
+- V3/Furry generation rejects connected character slots before reading the token or preparing references. Unknown models no longer silently select a different model. Detailers can still match a character and use its original text in a V3 base prompt.
+- Img2img, inpaint and detailers reject image batches instead of silently using the first image. Inpaint validates a single nonempty mask and warns about differing source/mask dimensions.
+- Autosave names are unique even within the same timestamp. ZIP responses select the sole PNG regardless of metadata/directory order, and reject missing or multiple images.
+- Detailer reports explain score/margin skips and request limits, including the latest tighter-crop result. API masks and disjoint compositing are unchanged.
+
+Reload the ComfyUI browser page after updating to load the notice widget. It appears after execution when there is something to report. For old 0–10 coordinate workflows, update the original saved values to 0–1; ambiguous values are not automatically migrated.
 
 ## What's New in 2.4.1
 
@@ -72,15 +84,16 @@ See [Vibe Transfer and Precise Reference](#vibe-transfer-and-precise-reference) 
 2. Clone this repository:
    ```bash
    git clone https://github.com/raspie10032/ComfyUI_RS_NAI_API_Request.git
+   cd ComfyUI_RS_NAI_API_Request
    ```
 3. Install dependencies:
    ```bash
-   pip install -r requirements.txt
+   python -m pip install -r requirements.txt
    ```
 
 ## Configuration (API Token)
 
-To use these nodes, you must provide your **NovelAI API Token**.
+Generation requires your **NovelAI API Token**. Converters, character/reference builders, and WD matching/preview run without a NovelAI token. WD model files may be downloaded from HuggingFace on first use.
 
 1. Create a `.env` file in the root of this custom node directory (`ComfyUI_RS_NAI_API_Request/.env`).
 2. Add your token to the file using the canonical variable name:

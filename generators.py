@@ -3,6 +3,8 @@
 
 from datetime import datetime
 from pathlib import Path
+import math
+import uuid
 
 import numpy as np
 from PIL import Image
@@ -12,7 +14,10 @@ from .image_utils import (
     pil_to_tensor,
     png_bytes_to_pil,
     tensor_to_pil,
+    validate_single_image,
+    mask_to_pil,
 )
+from .diagnostics import notice
 from .nai_api import (
     MODEL_DISPLAY_LIST,
     MODEL_SELECTION_TOOLTIP,
@@ -26,6 +31,7 @@ from .nai_api import (
     get_nai_token,
     post_nai,
     zip_to_png_bytes,
+    validate_character_prompts,
 )
 from .wd_tagger import WDTaggerLoader
 from .references import (
@@ -62,6 +68,7 @@ class CharacterPrompt:
         self.center = {"x": x, "y": y}
 
 class CharacterPromptSelect:
+    DESCRIPTION = "Up to five original character prompts for V4/V4.5/V5. X/Y are normalized 0–1 coordinates; migrate old 0–10 values by dividing by ten. Positions guide the model; they are not hard masks."
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -109,12 +116,17 @@ class CharacterPromptSelect:
                 uc = kwargs.get(f"character{i}_uc", "")
                 x_val = kwargs.get(f"character{i}_x", 0)
                 y_val = kwargs.get(f"character{i}_y", 0)
+                if not all(math.isfinite(float(v)) for v in (x_val, y_val)):
+                    raise ValueError("Character coordinates must be finite values from 0 to 1.")
+                if not all(0 <= float(v) <= 1 for v in (x_val, y_val)):
+                    notice(f"Character {i}: coordinates outside 0–1 were clamped. For an old 0–10 workflow, divide saved coordinates by 10 (3 becomes 0.3); check the original values before running generation.")
                 x = round(max(0.0, min(1.0, float(x_val))), 1)
                 y = round(max(0.0, min(1.0, float(y_val))), 1)
                 character_prompts.append(CharacterPrompt(prompt, uc, x, y))
         return (character_prompts,)
 
 class NovelAIGenerator:
+    DESCRIPTION = "Generates one image. Opus limits and fixed Medium settings appear as execution notices. V3/Furry cannot use characterPrompts. Autosaves retain NovelAI metadata."
     def __init__(self):
         self.output_dir = self._get_output_directory()
 
@@ -135,7 +147,7 @@ class NovelAIGenerator:
         if subfolder:
             autosave_folder = autosave_folder / subfolder
         autosave_folder.mkdir(parents=True, exist_ok=True)
-        filename = f'{prefix}_{datetime.now().strftime("%y%m%d_%H%M%S")}'
+        filename = f'{prefix}_{datetime.now().strftime("%y%m%d_%H%M%S_%f")}_{uuid.uuid4().hex[:8]}'
         return autosave_folder, filename
 
     @classmethod
@@ -175,9 +187,10 @@ class NovelAIGenerator:
                 "limit_opus_free blocks Vibe and Precise Reference because they can spend Anlas. "
                 "Set it to False to allow paid requests."
             )
-        token = get_nai_token()
         model_id = get_model_id(model)
+        validate_character_prompts(model_id, characterPrompts)
         validate_references(model_id, vibes, references, inpainting=False)
+        token = get_nai_token()
 
         if seed == -1:
             seed = np.random.randint(0, 0x7fffffff)
@@ -209,6 +222,7 @@ class NovelAIGenerator:
         return (pil_to_tensor(pil_img),)
 
 class NAIImg2ImgNode:
+    DESCRIPTION = "Requires one image; split batches before use. General img2img requires limit_opus_free=False and may spend Anlas. Width/height resize the source to the requested size."
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -246,9 +260,11 @@ class NAIImg2ImgNode:
                  limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True):
         if limit_opus_free:
             raise RuntimeError("limit_opus_free blocks image-to-image because it can spend Anlas. Set it to False to allow paid requests.")
-        token = get_nai_token()
         model_id = get_model_id(model)
+        validate_character_prompts(model_id, characterPrompts)
         validate_references(model_id, vibes, references, inpainting=False)
+        validate_single_image(image)
+        token = get_nai_token()
 
         width, height, steps = apply_opus_free_limits(width, height, steps, limit_opus_free)
 
@@ -287,6 +303,7 @@ class NAIImg2ImgNode:
         return (pil_to_tensor(result_pil),)
 
 class NAIInpaintNode:
+    DESCRIPTION = "Requires one image and one nonempty mask; white repaints and black preserves. Width/height resize image and mask. Requires limit_opus_free=False and may spend Anlas. V5 Curated falls back to V4.5 Curated inpainting."
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -325,9 +342,12 @@ class NAIInpaintNode:
                  limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True):
         if limit_opus_free:
             raise RuntimeError("limit_opus_free blocks inpainting because it can spend Anlas. Set it to False to allow paid requests.")
-        token = get_nai_token()
         model_id = get_model_id(model)
+        validate_character_prompts(model_id, characterPrompts)
         validate_references(model_id, vibes, references, inpainting=True)
+        validate_single_image(image)
+        pil_mask = mask_to_pil(mask)
+        token = get_nai_token()
 
         # Snap width/height to 64
         width = (width // 64) * 64
@@ -337,12 +357,10 @@ class NAIInpaintNode:
 
         pil_img = tensor_to_pil(image).resize((width, height), Image.LANCZOS)
 
-        # Mask preprocessing
-        if len(mask.shape) == 3:
-            mask_np = (mask[0].cpu().numpy() * 255).astype(np.uint8)
-        else:
-            mask_np = (mask.cpu().numpy() * 255).astype(np.uint8)
-        pil_mask = Image.fromarray(mask_np, mode="L").resize((width, height), Image.NEAREST)
+        # Keep source/mask aligned using the same requested dimensions.
+        if pil_mask.size != (image.shape[2], image.shape[1]):
+            notice("Mask dimensions differ from the source image; both are resized to the requested output dimensions. Check mask alignment.")
+        pil_mask = pil_mask.resize((width, height), Image.NEAREST)
 
         if seed == -1:
             seed = np.random.randint(0, 0x7fffffff)
@@ -399,6 +417,7 @@ def _detailer_options():
 
 
 class NAIFaceDetailerNode:
+    DESCRIPTION = "YOLO boxes plus SAM masks. detail_mode=all processes multiple regions sequentially. preview_only reports detection/matching without NAI requests. Each accepted region uses its selected original prompt; unclear matches are skipped."
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -446,6 +465,7 @@ class NAIFaceDetailerNode:
 
 
 class NAIFaceDetailerSegmNode:
+    DESCRIPTION = "Uses a segmentation detector's boxes to guide SAM; detector polygons are not directly pasted. detail_mode=all processes multiple regions. preview_only and the matching report show skipped regions and their reasons."
     @classmethod
     def INPUT_TYPES(cls):
         return {

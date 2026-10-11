@@ -3,6 +3,7 @@
 
 import re
 import math
+from .diagnostics import notice
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -140,7 +141,7 @@ def _eval_comfy_segment(segment):
             if parsed is None:
                 level_weight, child_text = _DEFAULT_WEIGHT, inner
             elif not (_WEIGHT_MIN <= parsed <= _WEIGHT_MAX):
-                print(f"Warning: Weight '{parsed}' is outside the -5 to 5 range. Using default value 1.1 for: {body.strip()}")
+                notice(f"Weight {parsed} is outside -5 to 5; using 1.1 for: {body.strip()[:160]}")
                 level_weight, child_text = _DEFAULT_WEIGHT, body
             else:
                 level_weight, child_text = parsed, body
@@ -155,6 +156,8 @@ def _eval_comfy_segment(segment):
         # should have been "\(tag:o\)"). artist: is already guarded, so any
         # remaining colon is a malformed group -> drop it entirely.
         if not inner_text or (":" in inner_text and not has_valid_explicit_weight):
+            if inner_text:
+                notice(f"Dropped malformed weight group: {segment[:160]}. Escape literal parentheses as \\( and \\).")
             return None
         return (inner_text, level_weight * inner_weight)
 
@@ -218,6 +221,8 @@ def parse_naiv4(text):
                 chunk = chunk[open_match.end():]
 
         if "::" in chunk:
+            if chunk.split("::", 1)[1].strip():
+                notice("Text after a V4 closing :: in the same comma segment is not supported and was dropped: " + chunk[:160] + ". Add a comma after the closing ::.")
             content = chunk.split("::", 1)[0].strip()
             weight = current_weight if scope_active else 1.0
             if content:
@@ -335,7 +340,7 @@ def _oldnai_encoding(weight, text):
     Power math and the negative/zero fallback are unchanged.
     """
     if weight <= 0:
-        print(f"Warning: Old NAI format cannot represent negative or zero weights. Applying the default decrease weight of 0.95 > '[{text}]' instead.")
+        notice(f"Old NAI cannot represent weight {weight}; using [text] (0.95) for: {text[:160]}. Use V4 syntax to preserve zero/negative weights.")
         return ("neg", "[", "]")
     if weight < 1:
         n = _closest_power(weight, 0.95)
@@ -366,11 +371,12 @@ def to_oldnai(tags):
 
 
 # ---------------------------------------------------------------------------
-# Node classes (ComfyUI contract unchanged)
+# Node classes (existing inputs and output sockets unchanged)
 # ---------------------------------------------------------------------------
 
 
 class ComfyUIToNovelAIV4Converter:
+    DESCRIPTION = "Converts ComfyUI weights to V4 numeric scopes. Malformed weight groups are omitted for compatibility, with an execution notice. Escape literal parentheses."
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {"comfyui_prompt": ("STRING", {"multiline": True, "default": "qw, a, (b c:1.05), d, e\\(f: g h\\), black bikini top, (negative example:-1.5), shorts under bikini bottom, (i j:1.2)"})}}
@@ -385,6 +391,7 @@ class ComfyUIToNovelAIV4Converter:
 
 
 class NovelAIV4ToComfyUIConverter:
+    DESCRIPTION = "Converts comma-delimited V4 scopes to ComfyUI weights. Separate text after a closing :: with a comma; unsupported trailing text produces a notice."
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {"novelai_prompt": ("STRING", {"multiline": True, "default": "qw, a, 1.05::b c::, d, e(f: g h), black bikini top, -1.5::negative example::, shorts under bikini bottom, 1.2::i j::"})}}
@@ -399,6 +406,7 @@ class NovelAIV4ToComfyUIConverter:
 
 
 class NovelAIV4ToOldNAIConverter:
+    DESCRIPTION = "Old NAI approximates weights using 1.05/0.95 brackets. Zero and negative weights cannot be represented and produce a notice when replaced."
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {"novelai_v4_prompt": ("STRING", {"multiline": True, "default": "1.05::tag1::, 0.9::tag3::, 1.2::tag4::, 1.1::misty, golden hour::, -1.5::negative tag::, 0::zero weight tag::"})}}
@@ -413,6 +421,7 @@ class NovelAIV4ToOldNAIConverter:
 
 
 class OldNAIToNovelAIV4Converter:
+    DESCRIPTION = "Converts legacy braces to V4 scopes. Preserves historical two-decimal rounding and backward weighting from unmatched closing brackets."
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {"novelai_old_prompt": ("STRING", {"multiline": True, "default": "{tag1}, [tag2], {{tag3}}, [[tag4]], tag5, {{{important tag}}}, {{misty, golden hour}}"})}}
@@ -427,6 +436,7 @@ class OldNAIToNovelAIV4Converter:
 
 
 class ComfyUIToOldNAIConverter:
+    DESCRIPTION = "Converts weights to approximate legacy 1.05/0.95 brackets. Malformed groups and unrepresentable zero/negative weights produce execution notices."
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {"comfyui_prompt": ("STRING", {"multiline": True, "default": "qw, a, (b c:1.05), d, e\\(f: g h\\), black bikini top, denim shorts, shorts under bikini bottom, (i j:1.2)"})}}
@@ -441,6 +451,7 @@ class ComfyUIToOldNAIConverter:
 
 
 class OldNAIToComfyUIConverter:
+    DESCRIPTION = "Converts legacy brackets to ComfyUI weights with historical two-decimal rounding. Unmatched closing brackets affect preceding tags."
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {"novelai_old_prompt": ("STRING", {"multiline": True, "default": "{tag1}, [tag2], {{tag3}}, [[tag4]], tag5, {{{important tag}}}, {{misty, golden hour}}"})}}

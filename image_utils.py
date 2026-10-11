@@ -29,9 +29,27 @@ def pil_to_tensor(img):
 
 
 def tensor_to_pil(tensor, batch_index=0):
-    img_np = tensor[batch_index].cpu().numpy()
+    img_np = tensor[batch_index].detach().cpu().numpy()
     img_np = (img_np * 255.0).clip(0, 255).astype(np.uint8)
     return Image.fromarray(img_np)
+
+
+def validate_single_image(image):
+    if not isinstance(image, torch.Tensor) or image.ndim != 4 or image.shape[0] != 1 or image.shape[-1] not in (3, 4):
+        raise ValueError("This node requires one RGB/RGBA image. Split image batches before connecting; no images were sent.")
+    if min(image.shape[1:3]) < 1 or not torch.isfinite(image).all():
+        raise ValueError("Image must have nonzero dimensions and finite pixels.")
+
+
+def mask_to_pil(mask):
+    if not isinstance(mask, torch.Tensor) or mask.ndim not in (2, 3) or (mask.ndim == 3 and mask.shape[0] != 1):
+        raise ValueError("Inpaint requires one mask (H,W or 1,H,W); split mask batches before connecting.")
+    if min(mask.shape[-2:]) < 1 or not torch.isfinite(mask).all() or (mask < 0).any() or (mask > 1).any():
+        raise ValueError("Mask must have nonzero dimensions and finite values from 0 to 1.")
+    array = (mask.detach().cpu().numpy().reshape(mask.shape[-2:]) * 255).astype(np.uint8)
+    if not array.any():
+        raise ValueError("Inpaint mask is empty. Paint the area to change white; no request was sent.")
+    return Image.fromarray(array)
 
 
 def build_pnginfo_from_image(source_image):
