@@ -1,0 +1,3 @@
+# Optional: only needed when selecting PixAI Tagger v1.0.
+-r requirements-tagger.txt
+transformers>=5,<6

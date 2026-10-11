@@ -1,4 +1,4 @@
-"""Optional real-weight CPU smoke; no live YOLO, SAM or NovelAI requests.
+"""Optional real-weight tagger smoke; no live YOLO, SAM or NovelAI requests.
 
 Run from package root:
     python tests/smoke_wd_tagger.py --cache-dir /path/to/cache --output /path/to/result.json
@@ -24,11 +24,14 @@ def main():
     from ComfyUI_RS_NAI_API_Request.detailer import run_face_detail
     from ComfyUI_RS_NAI_API_Request.generators import CharacterPrompt
     from ComfyUI_RS_NAI_API_Request.image_utils import pil_to_tensor
-    from ComfyUI_RS_NAI_API_Request.wd_tagger import MODEL_REVISION, WDTagger
+    from ComfyUI_RS_NAI_API_Request.wd_tagger import DEFAULT_MODEL, MODELS, WDTagger
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cache-dir", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--model-name", choices=list(MODELS), default=DEFAULT_MODEL)
+    parser.add_argument("--device", choices=["auto", "cpu"], default="cpu")
+    parser.add_argument("--batch-size", type=int, default=1)
     args = parser.parse_args()
     image = Image.open(ROOT / "workflow_example/example.png").convert("RGB")
     boxes = [(3580, 405, 3750, 560), (3650, 695, 3860, 860)]
@@ -72,22 +75,23 @@ def main():
         detail_mode="all",
         matching_mode="wd14",
         characterPrompts=characters,
-        tagger=WDTagger(args.cache_dir, "cpu", 4),
+        tagger=WDTagger(args.cache_dir, args.device, args.batch_size, args.model_name),
         preview_only=True,
     )
     result = {
-        "model_revision": MODEL_REVISION,
+        "model_name": args.model_name,
+        "model_revision": MODELS[args.model_name][1],
+        "device": args.device,
         "source": "repository screenshot with supplied face-box fixtures",
-        "validation": "real WD/PyTorch and automatic matching; no live YOLO/SAM/NAI",
+        "validation": "real tagger/PyTorch and automatic matching; no live YOLO/SAM/NAI",
         "seconds_including_cached_load": time.monotonic() - start,
         "regions": json.loads(report),
     }
     Path(args.output).write_text(json.dumps(result, indent=2), encoding="utf-8")
     assert [r["character"] for r in result["regions"]] == [2, 1], result
-    assert result["regions"][1]["reason"] == "tag_match_tight", result
-    print(
-        "PASS: two character slots selected automatically, including tighter-crop retry."
-    )
+    if args.model_name == DEFAULT_MODEL:
+        assert result["regions"][1]["reason"] == "tag_match_tight", result
+    print("PASS: two character slots selected automatically.")
 
 
 if __name__ == "__main__":

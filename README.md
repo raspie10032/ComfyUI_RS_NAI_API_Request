@@ -2,14 +2,21 @@
 
 ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting text-to-image generation, img2img, inpainting, Vibe Transfer, Precise Reference, multi-character prompts, and prompt-weight conversion. Reference features require a supported model as listed below.
 
-The YOLO/SAM detailer can process multiple detected regions sequentially. An optional **PyTorch WD tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads its model automatically on first use after the optional dependencies are installed.
+The YOLO/SAM detailer can process multiple detected regions sequentially. An optional **local PyTorch tagger (WD or PixAI)** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads only the selected model when the loader executes, after the optional dependencies are installed.
 
-> Current version: **2.4.2**
+> Current version: **2.4.3**
+
+## What's New in 2.4.3
+
+- Choose **WD ViT v3**, **WD EVA02 Large v3**, or **PixAI Tagger v1.0** in the existing `NAI WD Tagger Loader (PyTorch)` node's `model_name` menu. Existing workflows keep WD ViT v3 as their default.
+- Only the selected model downloads when the loader executes. Each model has its own pinned HuggingFace cache; switching models replaces the loader's active model.
+- Download progress appears directly on the loader node: current filename, percentage and received/total MiB, followed by loading and ready states. Cached files are reused.
+- PixAI uses its official RGB processor and model code. Its general/character scores feed the existing matcher; style, copyright, meta and rating predictions are excluded. Install `requirements-tagger-pixai.txt` and start with `batch_size=1` for this larger model.
 
 ## What's New in 2.4.2
 
 - Reviewed every published Comfy.ICU node page against the current implementation. The [page-by-page audit](docs/node-page-audit.md) distinguishes fixes from outdated external descriptions.
-- WD Tagger Loader checks optional dependencies as soon as it executes. Missing/broken imports include the actual ComfyUI Python installation command. Model weights still load on the first match, with cache/download, load and inference stages logged.
+- WD Tagger Loader checks optional dependencies as soon as it executes. Missing/broken imports include the actual ComfyUI Python installation command. Version 2.4.2 loaded weights on the first match; 2.4.3 prepares them in the loader with visible download progress.
 - Execution notices appear on the node for malformed/downgraded prompt weights, obsolete coordinates, Opus dimension/step changes, Medium fixed settings and detailer skips. Notices are read-only and are not saved as workflow inputs; existing input order/defaults and output sockets are preserved.
 - V3/Furry generation rejects connected character slots before reading the token or preparing references. Unknown models no longer silently select a different model. Detailers can still match a character and use its original text in a V3 base prompt.
 - Img2img, inpaint and detailers reject image batches instead of silently using the first image. Inpaint validates a single nonempty mask and warns about differing source/mask dimensions.
@@ -221,18 +228,45 @@ Same pipeline as NAI Face Detailer, but `segm_detector` is the **required** prim
 Both Detailer nodes accept the original `CharacterPromptSelect` output through
 `characterPrompts`. Connect `NAI WD Tagger Loader (PyTorch)` to `tagger`, select
 `detail_mode=all` and `matching_mode=wd14` to process several characters.
+The `wd14` mode and `RS_WD_TAGGER` socket also accept PixAI, preserving existing workflows.
 
 Install the optional dependencies **using the Python environment that runs
 ComfyUI**: `python -m pip install -r requirements-tagger.txt`. Reuse its existing
-PyTorch/torchvision installation. No ONNX package is used. Ordinary generation
+PyTorch/torchvision installation. **For PixAI**, use
+`python -m pip install -r requirements-tagger-pixai.txt` instead; it also installs
+the WD dependencies plus Transformers. The loader checks the dependencies for
+the selected model before returning a handle. No ONNX package is used. Ordinary generation
 and shared-prompt detailing do not import timm or download a tagger.
 
-The loader provides `device=auto` (ComfyUI's selected device) or `cpu`, and a batch
-size. On the first WD match it downloads WD ViT Tagger v3's safetensors weights,
-config and tag vocabulary from the same pinned revision into
-`ComfyUI/models/rs_wd_tagger`. It caches the CPU model and offloads GPU weights
-back to CPU after tagging. Initial download/model load and CPU inference take
-additional time. The loader does not make a NovelAI request.
+The loader provides `device=auto` (ComfyUI's selected device) or `cpu`, a batch
+size, and `model_name`:
+
+| Selection | Official model | Input | Weight download |
+| --- | --- | --- | --- |
+| **WD ViT v3** (default) | [SmilingWolf/wd-vit-tagger-v3](https://huggingface.co/SmilingWolf/wd-vit-tagger-v3) | 448 × 448, BGR | About 377 MB |
+| **WD EVA02 Large v3** | [SmilingWolf/wd-eva02-large-tagger-v3](https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3) | 448 × 448, BGR | About 1.26 GB |
+| **PixAI Tagger v1.0** | [pixai-labs/pixai-tagger-v1.0](https://huggingface.co/pixai-labs/pixai-tagger-v1.0) | 1008 × 1008, RGB | About 1.95 GB |
+
+Select a model and execute a workflow using this loader (matching or
+`preview_only`) to download it. The loader shows a per-file progress bar, filename,
+percentage and received/total MiB, then a loading and ready status. Installing
+the node alone does not download weights. Files are cached
+under `ComfyUI/models/rs_wd_tagger`, separated by model and pinned revision.
+Already downloaded models are reused. PixAI also downloads its official custom
+architecture/processor code, pinned to a reviewed revision and verified by SHA-256
+before loading. The model licenses and source links are recorded in
+[the model notes](docs/tagger-models.md).
+
+Inference runs locally; image crops are not sent to HuggingFace or PixAI. Models
+are kept on CPU between calls and offloaded from GPU after tagging, including
+failed inference. PixAI needs more memory and compute: start with `batch_size=1`.
+Initial downloads/model loading and CPU inference take additional time. Tagger
+selection, downloads and local inference do not use NovelAI or Anlas.
+
+Models produce different score distributions. The Detailer's existing
+`match_min_score` and `match_min_margin` still control acceptance; category
+thresholds from captioning examples are not applied before matching. Preview
+matches on your own images when switching models. Ambiguous matches remain skipped.
 
 **Tagger scores are used only to select a character. They never become positive
 or negative prompt text.** Each request combines the Detailer's user-supplied

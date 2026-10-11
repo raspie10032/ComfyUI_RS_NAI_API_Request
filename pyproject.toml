@@ -1,7 +1,7 @@
 [project]
 name = "comfyui_rs_nai_api_request"
 description = "Generate NovelAI image and convert weight local to NAI or reverse ."
-version = "2.4.2"
+version = "2.4.3"
 license = { file = "LICENSE" }
 dependencies = [
     "python-dotenv>=0.21.0",
@@ -13,7 +13,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-tagger = ["timm>=1.0.3,<2", "huggingface-hub>=0.23", "safetensors>=0.4"]
+tagger = ["timm>=1.0.3,<2", "huggingface-hub>=1.1,<2", "safetensors>=0.4"]
+tagger-pixai = ["timm>=1.0.3,<2", "huggingface-hub>=1.1,<2", "safetensors>=0.4", "transformers>=5,<6"]
 
 [project.urls]
 Repository = "https://github.com/raspie10032/ComfyUI_RS_NAI_API_Request"
