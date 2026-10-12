@@ -6,6 +6,23 @@ The Detailer can use bbox+SAM, native SEGM masks, or a standard ComfyUI `MASK` f
 
 > Current version: **2.6.1**
 
+## Four-character walkthrough / 캐릭터 4명 실전 가이드
+
+**[한국어 캡처 가이드와 예제 다운로드](examples/four-character-v5-wd/README.md)** · [아카라이브 게시글](https://arca.live/b/aiart/185683009)
+
+A tested V5 Full workflow: **generate four characters at 1216×832 → crop to 1152×768 → 1.5× img2img at 1728×1152 → match and detail four faces with WD ViT v3**. Includes real ComfyUI screenshots, output images, setup instructions, and troubleshooting.
+
+| Start here | Workflow PNG | Workflow JSON |
+|---|---|---|
+| Check character matching first / 매칭 먼저 확인 | [Preview PNG](examples/four-character-v5-wd/NAI_4characters_V5_WD_preview.png?raw=true) | [Preview JSON](examples/four-character-v5-wd/NAI_4characters_V5_WD_preview.json?raw=true) |
+| Run through face correction / 얼굴 보정까지 실행 | [Full PNG](examples/four-character-v5-wd/NAI_4characters_V5_WD.png?raw=true) | [Full JSON](examples/four-character-v5-wd/NAI_4characters_V5_WD.json?raw=true) |
+
+Save the **original file** (GitHub: **Download raw file**) and drag it into ComfyUI. Both PNGs contain ComfyUI workflow metadata. The preview workflow also runs upstream generation/img2img and can spend Anlas; the full workflow proceeds through correction without pausing for preview approval. See the guide for dependencies and cost settings.
+
+**한국어:** PNG 원본을 저장해서 ComfyUI에 끌어다 놓으면 됩니다. 매칭 확인용도 앞 단계의 생성·img2img 비용이 들 수 있으니 가이드의 준비 항목과 비용 설정을 먼저 확인하세요.
+
+[![Four-character workflow in ComfyUI](examples/four-character-v5-wd/screenshots/01-workflow-overview.png)](examples/four-character-v5-wd/README.md)
+
 ## What's New in 2.6.1
 
 - Updated the package description used by Comfy Registry to reflect current generation, character matching, mask, reference, asset, and prompt conversion features. This release updates metadata only; node behavior and dependencies are unchanged.

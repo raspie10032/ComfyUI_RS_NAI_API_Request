@@ -1,0 +1,374 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ComfyUI NAI 캐릭터 4명 생성과 얼굴 보정 가이드</title>
+<style>
+:root{color-scheme:dark;--bg:#10151e;--panel:#192330;--line:#314051;--fg:#eaf0f7;--dim:#a5b6c8;--accent:#8edfd1}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.85 system-ui,'Noto Sans CJK KR',sans-serif}header{border-bottom:1px solid var(--line);padding:42px max(24px,calc((100vw - 1120px)/2));background:linear-gradient(135deg,#17332e,#182338 68%)}header small{font-weight:700;color:var(--accent);letter-spacing:.08em}header h1{font-size:clamp(28px,4vw,42px);line-height:1.4;margin:14px 0}header p{color:#c4d5e1;max-width:860px}.badges{display:flex;gap:10px;flex-wrap:wrap}.badges span{border:1px solid #496679;padding:4px 12px;border-radius:24px;font-size:14px}nav{position:sticky;top:0;background:#111923f5;border-bottom:1px solid var(--line);padding:12px 20px;z-index:2;backdrop-filter:blur(10px);overflow-x:auto;white-space:nowrap;text-align:center}nav a{display:inline-block;margin:0 12px;font-size:14px}main{max-width:1168px;margin:auto;padding:30px 24px 70px}a{color:#95dfd2;text-underline-offset:4px}a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #8edfd1;outline-offset:5px}h2{font-size:27px;margin:60px 0 20px;padding-top:18px;border-top:1px solid var(--line);scroll-margin-top:70px}h2 span{font-size:16px;color:var(--accent);margin-right:8px}h3{font-size:21px}strong{color:#fff}p{margin:18px 0}li{margin:8px 0}code{background:#233140;padding:2px 5px;border-radius:5px;overflow-wrap:anywhere;font-size:.88em}.table-scroll{overflow-x:auto;margin:24px 0}table{width:100%;border-collapse:collapse;background:var(--panel)}th{text-align:left;background:#243343;color:#d4e5ec}th,td{padding:11px 16px;border-bottom:1px solid var(--line);min-width:135px}td:first-child{font-weight:600}img{display:block;width:100%;height:auto;border:1px solid #3a4e62;border-radius:9px;margin:24px 0;cursor:zoom-in}main>p:has(img){margin:32px 0}.downloads{display:flex;gap:12px;flex-wrap:wrap;padding:20px;background:#1b2b36;border:1px solid #3f6570;border-radius:12px;margin:0 0 30px}.downloads a{padding:8px 14px;border-radius:7px;background:#2b4b53;font-weight:600;text-decoration:none}.downloads a:first-child{background:#315f58;color:white}.comparison{padding:20px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.comparison h3{margin-top:0}.compare-image{position:relative;isolation:isolate;line-height:0}.compare-image img{margin:0;border:0;border-radius:0;cursor:default}.compare-image .before{position:absolute;inset:0;clip-path:inset(0 calc(100% - var(--split)) 0 0)}.compare-line{position:absolute;left:var(--split);top:0;bottom:0;width:2px;background:white;transform:translateX(-1px);pointer-events:none}.compare-label{position:absolute;top:10px;background:#10151edc;padding:7px 12px;font-size:14px;line-height:1.5;border-radius:4px}.before-label{left:10px}.after-label{right:10px}.slider-label{display:flex;justify-content:space-between;margin-top:16px}input[type=range]{display:block;width:100%;height:32px;accent-color:var(--accent)}.muted,footer{color:var(--dim);font-size:14px}footer{border-top:1px solid var(--line);padding-top:20px;margin-top:40px}dialog{max-width:98vw;max-height:96vh;padding:8px;background:#10151e;border:1px solid var(--line)}dialog::backdrop{background:#000c}dialog img{width:auto;max-width:94vw;max-height:86vh;object-fit:contain;margin:0;border:0;cursor:zoom-out}dialog button{display:block;margin:0 0 8px auto;background:#25384a;color:white;border:0;padding:10px 18px;cursor:pointer}@media(max-width:640px){header{padding:30px 20px}main{padding:22px 18px 48px}nav{text-align:left}nav a{margin:0 9px}table{font-size:14px}th,td{padding:10px;min-width:125px}h2{font-size:23px}h3{font-size:19px}.comparison{padding:12px}.badges span{font-size:12px}.downloads{padding:12px}.downloads a{font-size:14px}}
+.compare-controls{display:flex;gap:8px;flex-wrap:wrap}.compare-controls button{border:1px solid #496679;border-radius:6px;padding:8px 14px;background:#263c49;color:var(--fg);cursor:pointer}
+</style></head><body>
+<header><small>COMFYUI × NOVELAI · 실제 캡처로 따라 하기</small><h1>캐릭터 4명 생성부터<br>확대와 얼굴 보정까지</h1><p>예제 파일을 불러오고, 얼굴별 캐릭터가 맞는지 확인하고, 완성 이미지를 저장합니다. 처음 사용하는 분을 위해 필요한 설정과 막혔을 때 확인할 항목을 함께 정리했습니다.</p><div class="badges"><span>NAI 노드 2.6.0 · V5 Full</span><span>최종 1728 × 1152</span><span>실제 4명 매칭·보정 확인</span></div></header>
+<nav aria-label="가이드 목차"><a href="#step-0">실행 순서</a><a href="#step-1">준비</a><a href="#step-2">캐릭터</a><a href="#step-3">크롭·확대</a><a href="#step-4">WD 매칭</a><a href="#step-5">전후 비교</a><a href="#step-6">문제 해결</a><a href="#step-7">공유</a></nav>
+<main><div class="downloads"><a download href="NAI_4characters_V5_WD_preview.json">처음 실행 · 매칭 확인용 JSON</a><a download href="NAI_4characters_V5_WD.json">보정까지 · 전체 JSON</a><a download href="NAI_4characters_V5_WD_preview.png">매칭 확인용 PNG</a><a download href="NAI_4characters_V5_WD.png">전체 실행용 PNG</a><a download href="README.md">가이드 원문</a></div><p>캐릭터 네 명을 한 장에 생성하고, 원하는 비율로 자른 뒤 1.5배로 확대하고, 각 얼굴을 원래 캐릭터 프롬프트로 보정하는 가이드입니다. 첨부 워크플로는 연결과 설정이 끝난 상태라서 처음부터 노드를 만들 필요가 없습니다.</p>
+<p>실제 실행 기준은 <strong>NAI 노드 2.6.0 · V5 Full · WD ViT v3</strong>입니다. 캡처에 있는 노드 이름은 알아보기 쉽도록 바꾼 제목입니다. 직접 노드를 추가할 때는 아래의 원래 이름으로 검색하면 됩니다.</p>
+<p><strong>기본 생성 1216×832 → 중앙 크롭 1152×768 → img2img 1728×1152 → 얼굴 4명 보정</strong></p>
+<h2>워크플로 다운로드</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>먼저 받을 파일</th>
+<th>용도</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="NAI_4characters_V5_WD_preview.png?raw=true">매칭 확인용 PNG</a> · <a href="NAI_4characters_V5_WD_preview.json?raw=true">JSON</a></td>
+<td>기본 생성·확대 후 얼굴별 캐릭터 매칭 확인</td>
+</tr>
+<tr>
+<td><a href="NAI_4characters_V5_WD.png?raw=true">전체 실행용 PNG</a> · <a href="NAI_4characters_V5_WD.json?raw=true">JSON</a></td>
+<td>실제 얼굴 보정·저장까지 실행</td>
+</tr>
+</tbody></table></div>
+<p><strong>PNG에는 ComfyUI <code>workflow</code> 메타데이터가 들어 있습니다.</strong> 링크에서 원본 파일을 저장한 뒤 ComfyUI에 끌어다 놓으세요. GitHub 파일 화면이 열리면 <strong>Download raw file</strong>로 받습니다. 화면을 캡처하거나 이미지 서비스의 축소본을 받으면 워크플로가 빠질 수 있습니다. JSON도 같은 방법으로 원본을 저장하면 됩니다.</p>
+<p><a href="https://arca.live/b/aiart/185683009">아카라이브 게시글</a>에서도 캡처와 설명을 볼 수 있습니다. GitHub에서는 이 문서를 읽으면 됩니다. 이미지 확대·보정 전후 비교가 있는 HTML 가이드는 저장소의 <strong>Code → Download ZIP</strong>으로 전체를 받은 뒤 이 폴더의 <code>index.html</code>을 열어 사용하세요. GitHub의 HTML 파일 화면에서는 가이드가 실행되지 않습니다.</p>
+<h2 id="step-0"><span>00</span> 먼저 실행 순서부터</h2>
+<ol>
+<li>아래 준비 항목을 설치하고 <code>NAI_4characters_V5_WD_preview.json</code>을 ComfyUI에 끌어다 놓습니다.</li>
+<li>처음에는 예제 프롬프트와 시드를 그대로 두고 실행합니다. 처음 받는 WD 모델은 다운로드가 끝날 때까지 기다립니다.</li>
+<li><strong>⑤ WD 매칭 미리보기</strong>와 보고서에서 얼굴 네 개가 올바른 캐릭터 번호에 연결됐는지 확인합니다.</li>
+<li>맞으면 <code>NAI_4characters_V5_WD.json</code>을 불러와 실행합니다. 이 파일은 얼굴 보정까지 진행합니다.</li>
+<li>결과를 확인한 뒤, 캐릭터 프롬프트와 장면을 자기 취향으로 바꿔 봅니다.</li>
+</ol>
+<p><strong>이 예제에는 유료 img2img 단계가 있습니다.</strong> 매칭 확인용 파일도 기본 생성과 img2img를 거칩니다. 2026-10-12 시험에서는 전체 18 Anlas가 차감됐지만, 이것이 고정 가격은 아닙니다. 처음부터 연속 실행을 여러 번 넣지 말고 한 번씩 결과를 확인하세요.</p>
+<p>전체 파일의 미리보기와 실제 보정은 함께 실행됩니다. <strong>미리보기 화면을 보고 자동으로 멈춰 주는 구조가 아니므로</strong>, 첫 확인에는 위의 매칭 확인용 파일을 사용하세요.</p>
+<h2 id="step-1"><span>01</span> 준비하고 불러오기</h2>
+<ul>
+<li>ComfyUI와 <code>ComfyUI_RS_NAI_API_Request</code> 2.6.0 이상을 준비합니다.</li>
+<li>Manager에서 <code>ComfyUI-Impact-Pack</code>, <code>ComfyUI-Impact-Subpack</code>을 설치합니다.</li>
+<li>얼굴 검출 모델 <code>face_yolov8m.pt</code>를 <code>ComfyUI/models/ultralytics/bbox/</code>에, SAM 모델 <code>sam_vit_b_01ec64.pth</code>를 <code>ComfyUI/models/sams/</code>에 준비합니다. 모델 관리 화면에서 파일명을 검색해 설치할 수 있습니다.</li>
+<li>NAI 노드 폴더의 <code>.env</code>에 본인의 <code>NAI_ACCESS_TOKEN</code>을 설정하고 ComfyUI를 재시작합니다. 공유 파일에는 토큰이 없습니다.</li>
+<li>WD 모델은 <code>WD ViT v3</code>로 설정되어 있습니다. 처음 실행할 때 필요한 파일을 다운로드하며 로더 노드에 진행도가 표시됩니다.</li>
+</ul>
+<p>노드 설치와 토큰 설정은 <a href="https://github.com/raspie10032/ComfyUI_RS_NAI_API_Request#configuration-api-token">NAI 노드 README</a>를 참고하세요. 태거의 추가 Python 패키지가 빠져 있다면 노드에 표시되는 설치 명령을 <strong>ComfyUI가 사용하는 Python 환경</strong>에서 실행하고 재시작합니다.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>파일</th>
+<th>용도</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>NAI_4characters_V5_WD_preview.json</code></td>
+<td>기본 생성·확대 후 얼굴 매칭까지만 확인</td>
+</tr>
+<tr>
+<td><code>NAI_4characters_V5_WD.json</code></td>
+<td>얼굴 보정과 저장까지 모두 실행</td>
+</tr>
+<tr>
+<td><code>NAI_4characters_V5_WD.png</code></td>
+<td>전체 JSON과 같은 워크플로가 들어 있는 PNG</td>
+</tr>
+<tr>
+<td><code>NAI_4characters_V5_WD_preview.png</code></td>
+<td>매칭 확인용 JSON과 같은 워크플로가 들어 있는 PNG</td>
+</tr>
+</tbody></table></div>
+<p><strong>처음에는 매칭 확인용 PNG 또는 JSON을 ComfyUI 화면에 끌어다 놓으세요.</strong> 아카라이브에 다시 공유할 때는 이미지 업로드의 <strong>Exif 데이터 유지</strong>를 켜고 원본 PNG를 올리세요. 받는 사람도 이미지를 눌러 원본 PNG를 저장해야 합니다. 워크플로는 PNG의 <code>workflow</code> 텍스트 메타데이터에 들어 있으며, 게시판의 Exif 유지 옵션으로 이 정보까지 보존합니다.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>캡처에서 보이는 제목</th>
+<th>직접 추가할 때 찾을 노드</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>① 캐릭터 프롬프트</td>
+<td><code>NAI Character Prompt Select</code></td>
+</tr>
+<tr>
+<td>② 기본 생성</td>
+<td><code>NAI Image Generator</code></td>
+</tr>
+<tr>
+<td>③ 중앙 크롭</td>
+<td><code>ImageCrop</code></td>
+</tr>
+<tr>
+<td>④ 1.5배 img2img</td>
+<td><code>NAI Img2Img</code></td>
+</tr>
+<tr>
+<td>얼굴 검출</td>
+<td><code>UltralyticsDetectorProvider</code></td>
+</tr>
+<tr>
+<td>얼굴 마스크</td>
+<td><code>SAMLoader</code></td>
+</tr>
+<tr>
+<td>캐릭터 판별</td>
+<td><code>NAI WD Tagger Loader (PyTorch)</code> / 한국어: NAI 태거 로더</td>
+</tr>
+<tr>
+<td>⑤ WD 매칭 미리보기 / ⑥ 얼굴 보정</td>
+<td><code>NAI Face Detailer</code></td>
+</tr>
+</tbody></table></div>
+<p>이 예제는 <strong>얼굴 검출기 + SAM ViT-B</strong>를 사용합니다. SAM3나 SEGM 모델을 추가로 받을 필요는 없습니다.</p>
+<p><img src="screenshots/01-workflow-overview.png" alt="전체 연결"></p>
+<h2 id="step-2"><span>02</span> 캐릭터 4명 입력</h2>
+<p>캐릭터 프롬프트 노드 한 개를 기본 생성, img2img, 두 디테일러에 함께 연결했습니다. <strong><code>character_count=4</code>, 캐릭터 2~4 사용=True</strong>입니다.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>캐릭터</th>
+<th>구분할 특징</th>
+<th>X / Y</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>금발, 긴 머리, 초록 눈</td>
+<td>0.2 / 0.5</td>
+</tr>
+<tr>
+<td>2</td>
+<td>파란 머리, 짧은 머리, 노란 눈</td>
+<td>0.4 / 0.5</td>
+</tr>
+<tr>
+<td>3</td>
+<td>빨간 머리, 긴 머리, 파란 눈</td>
+<td>0.6 / 0.5</td>
+</tr>
+<tr>
+<td>4</td>
+<td>검정 머리, 짧은 머리, 보라 눈</td>
+<td>0.8 / 0.5</td>
+</tr>
+</tbody></table></div>
+<p>예제의 인물은 모두 성인입니다. 좌표는 기본 생성의 배치 힌트이고, WD 매칭은 잘라낸 얼굴의 태그 점수와 원래 캐릭터 프롬프트를 비교합니다. 서로 다른 머리색처럼 구분되는 특징을 적어 주세요. 태거가 추론한 태그를 생성 프롬프트에 덧붙이지 않습니다.</p>
+<p><strong>전체 프롬프트에는 장면과 구도</strong>, <strong>캐릭터 슬롯에는 인물별 특징</strong>을 적으면 관리하기 편합니다. 네 사람의 외형을 공통 프롬프트 한 칸에 전부 몰아넣지 마세요. 예제에 저장된 캐릭터 프롬프트는 다음과 같습니다.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>슬롯</th>
+<th>프롬프트</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><code>1girl, adult, blonde hair, long hair, green eyes, white shirt</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>1girl, adult, blue hair, short hair, yellow eyes, white shirt</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>1girl, adult, red hair, long hair, blue eyes, white shirt</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>1girl, adult, black hair, short hair, purple eyes, white shirt</code></td>
+</tr>
+</tbody></table></div>
+<p>네 사람을 나란히 놓는 구도는 공통 프롬프트의 <code>four women standing side by side in a single row</code>, 얼굴이 잘리지 않게 하는 지시는 <code>heads fully in frame, generous margins, all faces visible</code>에 들어 있습니다. 예제의 전체 프롬프트는 JSON에 저장되어 있습니다. 장면을 바꿀 때는 <strong>기본 생성과 img2img 두 노드의 공통 프롬프트</strong>를 함께 확인하세요. 캐릭터 슬롯은 한 노드로 공유합니다.</p>
+<p><img src="screenshots/02-character-prompts.png" alt="캐릭터 설정"></p>
+<h2 id="step-3"><span>03</span> 크롭과 1.5배 img2img</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>단계</th>
+<th>설정</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>기본 생성</td>
+<td>V5 Full / 1216×832 / 28 steps / CFG 5</td>
+</tr>
+<tr>
+<td>중앙 크롭</td>
+<td>1152×768 / X=32 / Y=32</td>
+</tr>
+<tr>
+<td>img2img</td>
+<td>1728×1152 / strength=0.30 / noise=0 / 28 steps / CFG 5</td>
+</tr>
+</tbody></table></div>
+<p>가로와 세로를 각각 1.5배로 늘립니다. 단순 리사이즈가 아니라 NAI img2img로 다시 생성합니다. <code>strength</code>가 높아지면 원래 구도와 인물도 더 많이 바뀔 수 있습니다.</p>
+<p>크롭은 좌우에서 32픽셀씩, 위아래에서 32픽셀씩 잘라 <strong>3:2 비율</strong>을 만드는 단계입니다. 캐릭터가 가장자리에 붙어 있으면 머리나 팔도 잘릴 수 있으니 크롭 결과를 먼저 보세요. 이후 <code>1152 × 1.5 = 1728</code>, <code>768 × 1.5 = 1152</code>로 설정합니다. 가로세로는 각각 1.5배, 전체 픽셀 수는 2.25배가 됩니다.</p>
+<p><strong>img2img 노드의 <code>limit_opus_free=False</code>는 유료 요청을 허용하는 설정입니다.</strong> 이 예제를 실행하면 Anlas가 들 수 있습니다. 기본 생성과 디테일러의 보호 옵션은 True입니다. 디테일러는 조건에 맞는 작은 Focused Inpainting 크롭을 사용하며, 계정이나 설정이 조건에 맞지 않으면 차단될 수 있습니다. 보호가 막았을 때 무조건 끄지 말고 오류 안내를 확인하세요.</p>
+<p><img src="screenshots/03-generation-crop-img2img.png" alt="생성 크롭 확대"></p>
+<h2 id="step-4"><span>04</span> WD로 얼굴과 캐릭터 연결</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>설정</th>
+<th>값 / 의미</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>얼굴 검출</td>
+<td><code>bbox/face_yolov8m.pt</code></td>
+</tr>
+<tr>
+<td>마스크</td>
+<td><code>sam_vit_b_01ec64.pth</code>, <code>mask_source=sam</code></td>
+</tr>
+<tr>
+<td>WD 모델</td>
+<td><code>WD ViT v3</code></td>
+</tr>
+<tr>
+<td><code>batch_size</code></td>
+<td><code>4</code> — 얼굴 이미지를 한 번에 분석할 묶음 크기</td>
+</tr>
+<tr>
+<td><code>detail_mode</code></td>
+<td><code>all</code> — 첫 얼굴에 그치지 않고 여러 영역 처리</td>
+</tr>
+<tr>
+<td><code>matching_mode</code></td>
+<td><code>wd14</code> — 태거 점수로 원래 캐릭터 선택</td>
+</tr>
+<tr>
+<td><code>max_regions</code></td>
+<td><code>4</code> — 처리할 영역 수의 상한</td>
+</tr>
+<tr>
+<td>매칭 기준</td>
+<td>최소 점수 <code>0.25</code>, 1·2위 점수 차이 <code>0.08</code></td>
+</tr>
+<tr>
+<td>보정 강도</td>
+<td><code>strength=0.35</code></td>
+</tr>
+</tbody></table></div>
+<p>얼굴 검출기가 위치를 찾고, SAM이 마스크를 만들고, WD가 캐릭터를 고릅니다. <code>max_regions=4</code>가 얼굴 네 개를 반드시 검출하도록 강제하는 것은 아닙니다. WD가 자신 있게 고르지 못한 얼굴은 수정하지 않고 건너뜁니다.</p>
+<p><strong><code>batch_size=4</code>는 인식 캐릭터 수가 아닙니다.</strong> 얼굴 크롭을 네 장씩 묶어서 태거에 넣는 설정입니다. 메모리가 부족하면 1로 낮춰도 얼굴 네 명을 순서대로 분석합니다. 캐릭터 후보 수는 <code>character_count</code>, 보정할 검출 영역의 상한은 <code>max_regions</code>가 담당합니다.</p>
+<p>캐릭터 번호는 <strong>작성한 슬롯 번호</strong>입니다. 얼굴 영역 번호가 1이라고 무조건 캐릭터 1로 처리하는 것이 아니며, 각 얼굴에서 얻은 점수로 슬롯을 고릅니다. 네 슬롯을 하나씩 강제로 배정하는 방식도 아니므로, 네 명이 전부 서로 다르게 매칭됐는지 직접 확인하세요.</p>
+<p><img src="screenshots/04-wd-detailer-settings.png" alt="WD와 디테일러 설정"></p>
+<p><strong>처음에는 <code>NAI_4characters_V5_WD_preview.json</code>을 실행해 보세요.</strong> 얼굴 보정 노드와 그 출력을 제외한 워크플로입니다. 초록 상자와 보고서에서 캐릭터 번호를 확인한 다음 전체 JSON을 불러와 실행합니다. 전체 JSON은 보정 노드도 활성화되어 있어 실행 버튼 한 번으로 최종 보정까지 진행합니다. 미리보기 결과가 실제 보정을 자동 승인하거나 차단하는 연결은 아닙니다.</p>
+<p>미리보기 디테일러 자체는 NAI 요청을 보내지 않지만, 앞의 기본 생성·img2img가 아직 실행되지 않았거나 캐시가 없으면 실행됩니다. <strong>미리보기 파일 전체가 무료라는 뜻은 아닙니다.</strong> 같은 ComfyUI 세션에서 입력·시드가 그대로이고 캐시가 남아 있으면 전체 워크플로로 전환할 때 앞 단계를 재사용할 수 있습니다.</p>
+<p>설정을 고쳤다면 전체 워크플로의 <strong>⑤ 미리보기와 ⑥ 실제 보정 양쪽에 같은 값</strong>을 적용하세요. 두 노드는 별도 노드라 설정이 자동 동기화되지 않습니다. 매칭 확인용 파일에서 고친 값을 전체 파일이 자동으로 가져오는 것도 아닙니다.</p>
+<p>보고서에서는 다음 항목만 먼저 보면 됩니다.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>항목</th>
+<th>읽는 방법</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>region</code> / <code>character</code></td>
+<td>얼굴 영역 번호 / 선택된 캐릭터 슬롯 번호</td>
+</tr>
+<tr>
+<td><code>score</code> / <code>margin</code></td>
+<td>매칭 점수 / 다음 후보와의 차이. 정답 확률을 뜻하지 않습니다.</td>
+</tr>
+<tr>
+<td><code>status: planned</code></td>
+<td>미리보기에서 이 캐릭터로 처리할 계획</td>
+</tr>
+<tr>
+<td><code>status: edited</code></td>
+<td>실제 보정 완료</td>
+</tr>
+<tr>
+<td><code>status: skipped</code></td>
+<td>보정 건너뜀. <code>reason</code>, <code>explanation</code>에서 이유 확인</td>
+</tr>
+</tbody></table></div>
+<p>이 예제의 SAM 미리보기는 <strong>얼굴 검출과 캐릭터 매칭 확인용</strong>입니다. 실제 SAM 수정 마스크는 최종 실행의 <code>06-used-mask.png</code>로 확인합니다.</p>
+<p><img src="04-wd-preview.png" alt="실제 WD 결과"></p>
+<h2 id="step-5"><span>05</span> 저장되는 결과</h2><section class="comparison" aria-label="실제 얼굴 보정 전후 비교">
+<h3>얼굴 보정 전후를 같은 위치에서 비교하기</h3>
+<p>왼쪽은 img2img 결과, 오른쪽은 WD 매칭 후 얼굴 보정 결과입니다. 슬라이더를 움직여 경계를 옮겨 보세요. 두 이미지 모두 실제 실행 결과입니다.</p>
+<div class="compare-image" style="--split:50%">
+<img src="05-final.png" alt="얼굴 보정 후 실제 결과" width="1728" height="1152">
+<img class="before" src="03-img2img.png" alt="얼굴 보정 전 img2img 결과" width="1728" height="1152">
+<span class="compare-label before-label">보정 전</span><span class="compare-label after-label">보정 후</span><span class="compare-line"></span></div>
+<label class="slider-label" for="comparison-split">보정 전 이미지 표시 비율 <output id="split-value">50%</output></label>
+<input id="comparison-split" type="range" min="0" max="100" value="50" aria-label="보정 전 이미지 표시 비율">
+<div class="compare-controls"><button type="button" data-split="100">보정 전만</button><button type="button" data-split="50">반반 비교</button><button type="button" data-split="0">보정 후만</button></div>
+<p class="muted">확대해서 보기: <a href="03-img2img.png">보정 전 원본</a> · <a href="05-final.png">보정 후 원본</a></p></section>
+<p><code>ComfyUI/output/RS_NAI_4characters/</code> 아래에 기본 생성, 크롭, img2img, WD 미리보기, 최종 결과, 실제 수정 마스크가 저장됩니다. 이 예제 폴더에도 시험 결과 6장이 들어 있습니다.</p>
+<p><img src="screenshots/05-result-nodes.png" alt="실제 결과 노드"></p>
+<p>이번 시험에서 얼굴 4개가 캐릭터 1·2·3·4에 각각 연결되어 모두 보정됐습니다. 최종 이미지 크기는 <strong>1728×1152</strong>, 마스크 밖에서 바뀐 픽셀은 <strong>0개</strong>였습니다. 다른 그림에서도 4명 매칭을 보장하는 결과는 아닙니다. 얼굴 겹침이나 비슷한 외형은 매칭을 어렵게 할 수 있습니다.</p>
+<p><img src="05-final.png" alt="최종 결과"></p>
+<p>시드 제어는 <code>fixed</code>로 저장했습니다. 새 그림을 만들려면 기본 생성 노드의 시드를 바꾸세요. 동일한 설정이어도 서버 모델 변경 등으로 결과가 완전히 같지 않을 수 있습니다.</p>
+<p>시험 날짜: 2026-10-12, 한국 시간. 구도 조정용 기본 생성 1회까지 포함한 관측 차감은 <strong>18 Anlas</strong>였습니다. img2img에서 18, 나머지 단계에서 0이었으며 계정·조건에 따라 비용은 달라집니다.</p>
+<h2 id="step-6"><span>06</span> 막히면 여기부터 확인</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>증상</th>
+<th>먼저 확인할 것</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>빨간 노드나 알 수 없는 노드가 나옴</td>
+<td>NAI 노드, Impact Pack, Impact Subpack 설치 여부를 확인하고 ComfyUI를 재시작합니다.</td>
+</tr>
+<tr>
+<td>얼굴 검출 모델이나 SAM 모델이 목록에 없음</td>
+<td>파일명과 위의 모델 폴더 위치를 확인합니다. 설치 후 재시작해서 다시 선택합니다.</td>
+</tr>
+<tr>
+<td>태거 다운로드가 오래 걸림</td>
+<td>로더에 표시되는 진행도를 확인합니다. 추가 패키지나 다운로드 오류가 나오면 노드의 구체적인 안내를 따릅니다.</td>
+</tr>
+<tr>
+<td>태거에서 메모리 부족 오류가 남</td>
+<td><code>batch_size</code>를 1로 낮춥니다. 필요하면 태거의 실행 장치를 <code>cpu</code>로 바꿉니다. CPU 추론은 더 느릴 수 있습니다.</td>
+</tr>
+<tr>
+<td>얼굴이 세 개만 검출됨</td>
+<td>img2img 결과에서 가려진 얼굴·작은 얼굴·잘린 머리가 있는지 봅니다. <code>max_regions</code>를 늘려도 없는 검출이 생기지는 않습니다.</td>
+</tr>
+<tr>
+<td>얼굴은 네 개인데 캐릭터가 섞임</td>
+<td>머리색 등 슬롯별 구분 특징과 <code>characterPrompts</code> 연결을 확인합니다. 매칭 크롭에 옆 사람까지 들어오는지도 봅니다.</td>
+</tr>
+<tr>
+<td><code>skipped</code>가 표시됨</td>
+<td>보고서의 사유를 먼저 읽습니다. 점수 기준부터 낮추면 잘못된 캐릭터로 보정할 수 있습니다.</td>
+</tr>
+<tr>
+<td>미리보기와 실제 보정의 매칭이 다름</td>
+<td>두 디테일러의 이미지·캐릭터·태거 연결과 매칭 설정이 같은지 확인합니다.</td>
+</tr>
+<tr>
+<td>보정 후 얼굴이 너무 바뀜</td>
+<td>실제 보정 노드의 <code>strength</code>를 낮춰 봅니다. 공통 보정 프롬프트에 다른 인물 특징을 넣지 않았는지도 확인합니다.</td>
+</tr>
+<tr>
+<td>Anlas 보호 오류로 멈춤</td>
+<td>어떤 단계가 차단됐는지 읽습니다. 예제는 img2img만 보호를 해제한 상태이며 다른 노드는 보호가 켜져 있습니다.</td>
+</tr>
+<tr>
+<td>PNG를 놓았는데 워크플로가 안 열림</td>
+<td>게시판이나 이미지 서비스가 메타데이터를 지웠을 수 있습니다. 동봉한 JSON을 사용합니다.</td>
+</tr>
+</tbody></table></div>
+<p>이미 만든 확대 이미지로 <strong>매칭만 다시 확인</strong>하려면, <code>Load Image</code>에 저장된 <code>03-img2img</code> 결과를 넣고 <strong>미리보기 디테일러의 image 입력에만 연결한 별도 워크플로</strong>를 사용하세요. 캐릭터 슬롯·검출기·태거는 유지하고, 실행 대상 출력은 미리보기 쪽만 남겨야 합니다. 기본 생성이나 실제 보정에 연결된 저장 노드를 그대로 두면 그쪽도 실행될 수 있습니다.</p>
+<h2 id="step-7"><span>07</span> 공유할 때 챙길 파일</h2>
+<p>워크플로 PNG·JSON과 실제 결과, 이 가이드를 함께 공유하면 됩니다. <strong>저장소 ZIP을 풀고 <code>examples/four-character-v5-wd/index.html</code>을 열면</strong> 설치 없이 캡처를 확대해서 읽을 수 있습니다. HTML 파일 하나만 따로 옮기면 이미지가 빠지므로 <code>four-character-v5-wd</code> 폴더째 보관하세요.</p>
+<ul>
+<li><strong>본문용:</strong> <code>README.md</code> — 게시판 편집기에 옮기고 아래 캡처를 해당 위치에 첨부합니다.</li>
+<li><strong>캡처 5장:</strong> <code>screenshots/01</code> 전체 연결 → <code>02</code> 캐릭터 → <code>03</code> 크롭·확대 → <code>04</code> WD 설정 → <code>05</code> 결과 순서입니다.</li>
+<li><strong>핵심 결과:</strong> <code>04-wd-preview.png</code>와 <code>05-final.png</code> — 매칭 확인과 최종 결과를 보여줍니다.</li>
+<li><strong>첨부파일:</strong> 전체 실행용·매칭 확인용 PNG 두 장과 같은 구성의 JSON 두 개. PNG 업로드 시 메타데이터를 유지하세요.</li>
+</ul>
+<p>공유 파일에 토큰이나 <code>.env</code>를 포함하지 마세요. 첨부 모델 가중치는 없으며, 각 사용자가 자기 환경에 모델을 준비하는 구성입니다.</p>
+<footer>기준 실행일 2026-10-12 · 캡처와 결과 이미지는 클릭하거나 키보드로 선택해 확대할 수 있습니다. <a href="검증요약.txt">실행·비용 검증 요약</a></footer></main>
+<dialog id="zoom" aria-label="이미지 확대"><button type="button">닫기 · ESC</button><img alt="확대 보기"></dialog>
+<script>
+const zoom=document.querySelector('#zoom');let sourceImage;
+document.querySelectorAll('main img').forEach(img=>{if(img.closest('.compare-image'))return;img.tabIndex=0;img.setAttribute('role','button');img.setAttribute('aria-label',img.alt+' 확대');const open=()=>{sourceImage=img;zoom.querySelector('img').src=img.src;zoom.querySelector('img').alt=img.alt;zoom.showModal()};img.addEventListener('click',open);img.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();open()}})});
+zoom.addEventListener('click',()=>zoom.close());zoom.addEventListener('close',()=>sourceImage?.focus({preventScroll:true}));
+const splitInput=document.querySelector('#comparison-split');
+function setSplit(value){splitInput.value=value;document.querySelector('.compare-image').style.setProperty('--split',value+'%');document.querySelector('#split-value').textContent=value+'%'}
+splitInput.addEventListener('input',event=>setSplit(event.target.value));
+document.querySelectorAll('[data-split]').forEach(button=>button.addEventListener('click',()=>setSplit(button.dataset.split)));
+</script></body></html>
