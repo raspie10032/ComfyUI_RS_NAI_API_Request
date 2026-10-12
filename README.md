@@ -4,7 +4,11 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The Detailer can use bbox+SAM, native SEGM masks, or a standard ComfyUI `MASK` from SAM3 or another mask node, and can process multiple regions sequentially. An optional **local PyTorch tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads only the selected model when the loader executes, after the optional dependencies are installed.
 
-> Current version: **2.6.0**
+> Current version: **2.6.1**
+
+## What's New in 2.6.1
+
+- Updated the package description used by Comfy Registry to reflect current generation, character matching, mask, reference, asset, and prompt conversion features. This release updates metadata only; node behavior and dependencies are unchanged.
 
 ## What's New in 2.6.0
 
