@@ -6,9 +6,9 @@ The Detailer can use bbox+SAM, native SEGM masks, or a standard ComfyUI `MASK` f
 
 > Current version: **2.6.1**
 
-## Four-character walkthrough / 캐릭터 4명 실전 가이드
+## Four-character walkthrough / 캐릭터 4명 실전 가이드 / 4人の実践ガイド
 
-**[한국어 캡처 가이드와 예제 다운로드](examples/four-character-v5-wd/README.md)** · [아카라이브 게시글](https://arca.live/b/aiart/185683009)
+**[English guide](examples/four-character-v5-wd/README.en.md) · [한국어 가이드](examples/four-character-v5-wd/README.md) · [日本語ガイド](examples/four-character-v5-wd/README.ja.md)** · [아카라이브 게시글 / Korean community post](https://arca.live/b/aiart/185683009)
 
 A tested V5 Full workflow: **generate four characters at 1216×832 → crop to 1152×768 → 1.5× img2img at 1728×1152 → match and detail four faces with WD ViT v3**. Includes real ComfyUI screenshots, output images, setup instructions, and troubleshooting.
 
@@ -20,6 +20,10 @@ A tested V5 Full workflow: **generate four characters at 1216×832 → crop to 1
 Save the **original file** (GitHub: **Download raw file**) and drag it into ComfyUI. Both PNGs contain ComfyUI workflow metadata. The preview workflow also runs upstream generation/img2img and can spend Anlas; the full workflow proceeds through correction without pausing for preview approval. See the guide for dependencies and cost settings.
 
 **한국어:** PNG 원본을 저장해서 ComfyUI에 끌어다 놓으면 됩니다. 매칭 확인용도 앞 단계의 생성·img2img 비용이 들 수 있으니 가이드의 준비 항목과 비용 설정을 먼저 확인하세요.
+
+**日本語:** PNGの元ファイルを保存してComfyUIにドラッグ＆ドロップしてください。マッチング確認用も前段の生成・img2imgでAnlasを消費する場合があるため、先にガイドの準備と料金設定を確認してください。
+
+For the offline HTML guide with image zoom and before/after comparison, download and extract the repository ZIP, then open `index.en.html` (English), `index.html` (한국어), or `index.ja.html` (日本語) in `examples/four-character-v5-wd/`. Screenshots and shared workflows use Korean custom node titles; both translations include a node-name reference table.
 
 [![Four-character workflow in ComfyUI](examples/four-character-v5-wd/screenshots/01-workflow-overview.png)](examples/four-character-v5-wd/README.md)
 
@@ -552,7 +556,7 @@ Copyright (c) 2025 raspie10032
 
 ## Workflow Examples
 
-Start with the [four-character V5 + WD walkthrough](examples/four-character-v5-wd/README.md) for current workflow PNGs, JSON files, and real ComfyUI screenshots. See the [reference inset guide](docs/reference-inset.md) for inset examples and [Vibe Transfer and Precise Reference](#vibe-transfer-and-precise-reference) for reference API graphs.
+Start with the four-character V5 + WD walkthrough — [English](examples/four-character-v5-wd/README.en.md), [한국어](examples/four-character-v5-wd/README.md), [日本語](examples/four-character-v5-wd/README.ja.md) — for current workflow PNGs, JSON files, and real ComfyUI screenshots. See the [reference inset guide](docs/reference-inset.md) for inset examples and [Vibe Transfer and Precise Reference](#vibe-transfer-and-precise-reference) for reference API graphs.
 
 Project-provided examples in `examples/` and `workflow_example/` are distributed under GPL-3.0-only unless otherwise noted.
 

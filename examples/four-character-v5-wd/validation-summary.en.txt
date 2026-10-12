@@ -1,0 +1,22 @@
+2026-10-12 (Korea Standard Time) / ComfyUI_RS_NAI_API_Request 2.6.0 / V5 Full
+
+Initial generation 1216×832 → center crop 1152×768 → img2img 1728×1152 → correct four faces
+
+Models used: face YOLOv8m + SAM ViT-B + WD ViT v3.
+WD matches: blonde=1, blue=2, red=3, black=4. All four matched and were corrected.
+Final image: 1728×1152.
+Changed pixels outside the actual edit mask: 0.
+
+The shared JSON and PNG were loaded into ComfyUI and checked against the settings and connections of the 17 executed nodes.
+The matching-preview JSON was checked as 13 executable nodes with the correction branch removed.
+The PNGs are actual screenshots with workflow metadata. If a hosting service strips metadata, use the JSON.
+
+Actual generation requests, including one composition adjustment: 2 initial generations + 1 img2img + 4 face corrections.
+Observed total deduction: 18 Anlas. This was the result for the tested account and settings; costs can differ.
+img2img allows paid requests with limit_opus_free=False.
+The matching-preview JSON can also execute upstream generation and img2img.
+
+These results demonstrate four distinct matches in this sample. They do not guarantee matching accuracy for other images with overlapping or similar-looking characters.
+
+Open index.en.html to follow the guide with screenshots. The screenshots and shared workflow titles are in Korean; the guide includes a node-name reference table.
+This is a translation of the existing recorded verification, not an additional generation test.

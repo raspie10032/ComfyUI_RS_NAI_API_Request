@@ -1,0 +1,373 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ComfyUI NAI: generate four characters and refine their faces</title>
+<style>
+:root{color-scheme:dark;--bg:#10151e;--panel:#192330;--line:#314051;--fg:#eaf0f7;--dim:#a5b6c8;--accent:#8edfd1}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.85 system-ui,'Noto Sans CJK KR',sans-serif}header{border-bottom:1px solid var(--line);padding:42px max(24px,calc((100vw - 1120px)/2));background:linear-gradient(135deg,#17332e,#182338 68%)}header small{font-weight:700;color:var(--accent);letter-spacing:.08em}header h1{font-size:clamp(28px,4vw,42px);line-height:1.4;margin:14px 0}header p{color:#c4d5e1;max-width:860px}.badges{display:flex;gap:10px;flex-wrap:wrap}.badges span{border:1px solid #496679;padding:4px 12px;border-radius:24px;font-size:14px}nav{position:sticky;top:0;background:#111923f5;border-bottom:1px solid var(--line);padding:12px 20px;z-index:2;backdrop-filter:blur(10px);overflow-x:auto;white-space:nowrap;text-align:center}nav a{display:inline-block;margin:0 12px;font-size:14px}main{max-width:1168px;margin:auto;padding:30px 24px 70px}a{color:#95dfd2;text-underline-offset:4px}a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #8edfd1;outline-offset:5px}h2{font-size:27px;margin:60px 0 20px;padding-top:18px;border-top:1px solid var(--line);scroll-margin-top:70px}h2 span{font-size:16px;color:var(--accent);margin-right:8px}h3{font-size:21px}strong{color:#fff}p{margin:18px 0}li{margin:8px 0}code{background:#233140;padding:2px 5px;border-radius:5px;overflow-wrap:anywhere;font-size:.88em}.table-scroll{overflow-x:auto;margin:24px 0}table{width:100%;border-collapse:collapse;background:var(--panel)}th{text-align:left;background:#243343;color:#d4e5ec}th,td{padding:11px 16px;border-bottom:1px solid var(--line);min-width:135px}td:first-child{font-weight:600}img{display:block;width:100%;height:auto;border:1px solid #3a4e62;border-radius:9px;margin:24px 0;cursor:zoom-in}main>p:has(img){margin:32px 0}.downloads{display:flex;gap:12px;flex-wrap:wrap;padding:20px;background:#1b2b36;border:1px solid #3f6570;border-radius:12px;margin:0 0 30px}.downloads a{padding:8px 14px;border-radius:7px;background:#2b4b53;font-weight:600;text-decoration:none}.downloads a:first-child{background:#315f58;color:white}.comparison{padding:20px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.comparison h3{margin-top:0}.compare-image{position:relative;isolation:isolate;line-height:0}.compare-image img{margin:0;border:0;border-radius:0;cursor:default}.compare-image .before{position:absolute;inset:0;clip-path:inset(0 calc(100% - var(--split)) 0 0)}.compare-line{position:absolute;left:var(--split);top:0;bottom:0;width:2px;background:white;transform:translateX(-1px);pointer-events:none}.compare-label{position:absolute;top:10px;background:#10151edc;padding:7px 12px;font-size:14px;line-height:1.5;border-radius:4px}.before-label{left:10px}.after-label{right:10px}.slider-label{display:flex;justify-content:space-between;margin-top:16px}input[type=range]{display:block;width:100%;height:32px;accent-color:var(--accent)}.muted,footer{color:var(--dim);font-size:14px}footer{border-top:1px solid var(--line);padding-top:20px;margin-top:40px}dialog{max-width:98vw;max-height:96vh;padding:8px;background:#10151e;border:1px solid var(--line)}dialog::backdrop{background:#000c}dialog img{width:auto;max-width:94vw;max-height:86vh;object-fit:contain;margin:0;border:0;cursor:zoom-out}dialog button{display:block;margin:0 0 8px auto;background:#25384a;color:white;border:0;padding:10px 18px;cursor:pointer}@media(max-width:640px){header{padding:30px 20px}main{padding:22px 18px 48px}nav{text-align:left}nav a{margin:0 9px}table{font-size:14px}th,td{padding:10px;min-width:125px}h2{font-size:23px}h3{font-size:19px}.comparison{padding:12px}.badges span{font-size:12px}.downloads{padding:12px}.downloads a{font-size:14px}}
+.compare-controls{display:flex;gap:8px;flex-wrap:wrap}.compare-controls button{border:1px solid #496679;border-radius:6px;padding:8px 14px;background:#263c49;color:var(--fg);cursor:pointer}
+.languages{margin:0 0 20px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}.languages [aria-current=page]{color:white;font-weight:700;text-decoration:none}</style></head><body>
+<header><div class="languages" aria-label="Language / 언어 / 言語"><a href="index.html" lang="ko" hreflang="ko">한국어</a> · <a href="index.en.html" lang="en" hreflang="en" aria-current="page">English</a> · <a href="index.ja.html" lang="ja" hreflang="ja">日本語</a></div><small>COMFYUI × NOVELAI · FOLLOW REAL SCREENSHOTS</small><h1>From four characters<br>to enlargement and face correction</h1><p>Load the example workflow, check which character matches each face, and save the finished image. This guide covers the required settings and what to check when a step fails.</p><div class="badges"><span>NAI nodes 2.6.0 · V5 Full</span><span>Final image: 1728 × 1152</span><span>Four faces matched and corrected in the recorded test</span></div></header>
+<nav aria-label="Guide contents"><a href="#step-0">Run order</a><a href="#step-1">Setup</a><a href="#step-2">Characters</a><a href="#step-3">Crop and enlarge</a><a href="#step-4">WD matching</a><a href="#step-5">Before / after</a><a href="#step-6">Troubleshooting</a><a href="#step-7">Sharing</a></nav>
+<main><div class="downloads"><a download href="NAI_4characters_V5_WD_preview.json">Start here · matching-preview JSON</a><a download href="NAI_4characters_V5_WD.json">Full JSON · includes correction</a><a download href="NAI_4characters_V5_WD_preview.png">Matching-preview PNG</a><a download href="NAI_4characters_V5_WD.png">Full workflow PNG</a><a download href="README.en.md">Guide source</a></div><p>This guide generates four characters in one image, crops it to the desired aspect ratio, enlarges it by 1.5× with img2img, and refines each face using its original character prompt. The included workflows already have their nodes connected and configured.</p>
+<p>The recorded test used <strong>NAI nodes 2.6.0 · V5 Full · WD ViT v3</strong>. The screenshots and shared workflow use custom Korean node titles. Match the numbered steps to the node-name table below when following this English guide. Search for the original names when adding nodes yourself.</p>
+<p><strong>Generate at 1216×832 → center crop to 1152×768 → img2img at 1728×1152 → refine four faces</strong></p>
+<h2>Download the workflows</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>File to download</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="NAI_4characters_V5_WD_preview.png">Matching preview PNG</a> · <a href="NAI_4characters_V5_WD_preview.json">JSON</a></td>
+<td>Generate and enlarge the image, then check which character matches each face</td>
+</tr>
+<tr>
+<td><a href="NAI_4characters_V5_WD.png">Full workflow PNG</a> · <a href="NAI_4characters_V5_WD.json">JSON</a></td>
+<td>Continue through actual face correction and saving</td>
+</tr>
+</tbody></table></div>
+<p><strong>Both PNGs contain ComfyUI <code>workflow</code> metadata.</strong> Save the original file, then drag it into ComfyUI. On a GitHub file page, use <strong>Download raw file</strong>. A screenshot or a resized copy from an image service may lose the workflow. Download the JSON files as originals in the same way.</p>
+<p>The <a href="https://arca.live/b/aiart/185683009">Arca Live post</a> has the original Korean explanation and screenshots. Read this document on GitHub, or download the repository using <strong>Code → Download ZIP</strong>, extract it, and open <code>index.en.html</code> in this folder for image zoom and an interactive before/after comparison. GitHub&#39;s HTML file viewer does not run the guide.</p>
+<h2 id="step-0"><span>00</span> Start with this sequence</h2>
+<ol>
+<li>Install the requirements below, then drag <code>NAI_4characters_V5_WD_preview.json</code> into ComfyUI.</li>
+<li>For the first run, keep the example prompts and seeds. Allow the WD model download to finish if this is your first use.</li>
+<li>In <strong>⑤ WD matching preview</strong> and its report, check that all four faces match the correct character slots.</li>
+<li>If the matches are correct, load and run <code>NAI_4characters_V5_WD.json</code>. This file also performs face correction.</li>
+<li>After checking the result, customize the character prompts and scene.</li>
+</ol>
+<p><strong>This example includes an img2img step that can spend Anlas.</strong> The matching-preview workflow also runs the initial generation and img2img steps. The recorded test on 2026-10-12 spent 18 Anlas in total; this is not a fixed price. Check one run at a time before queuing more.</p>
+<p>The full workflow runs both the preview and actual correction. <strong>It does not stop automatically for you to approve the preview</strong>, so use the matching-preview file for your first check.</p>
+<h2 id="step-1"><span>01</span> Install the requirements and load the workflow</h2>
+<ul>
+<li>Install ComfyUI and <code>ComfyUI_RS_NAI_API_Request</code> version 2.6.0 or later.</li>
+<li>Install <code>ComfyUI-Impact-Pack</code> and <code>ComfyUI-Impact-Subpack</code> through Manager.</li>
+<li>Place the face detector <code>face_yolov8m.pt</code> in <code>ComfyUI/models/ultralytics/bbox/</code> and the SAM model <code>sam_vit_b_01ec64.pth</code> in <code>ComfyUI/models/sams/</code>. You can search for these filenames in model management to install them.</li>
+<li>Set your own <code>NAI_ACCESS_TOKEN</code> in <code>.env</code> in the NAI custom-node folder, then restart ComfyUI. The shared files contain no token.</li>
+<li>The tagger is set to <code>WD ViT v3</code>. Its required files download on first execution, with progress shown on the loader node.</li>
+</ul>
+<p>See the <a href="https://github.com/raspie10032/ComfyUI_RS_NAI_API_Request#configuration-api-token">NAI node README</a> for installation and token setup. If optional tagger packages are missing, run the installation command shown by the node <strong>in the Python environment used by ComfyUI</strong>, then restart.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>NAI_4characters_V5_WD_preview.json</code></td>
+<td>Generate, enlarge, and check face matching</td>
+</tr>
+<tr>
+<td><code>NAI_4characters_V5_WD.json</code></td>
+<td>Run through face correction and saving</td>
+</tr>
+<tr>
+<td><code>NAI_4characters_V5_WD.png</code></td>
+<td>PNG containing the same workflow as the full JSON</td>
+</tr>
+<tr>
+<td><code>NAI_4characters_V5_WD_preview.png</code></td>
+<td>PNG containing the same workflow as the preview JSON</td>
+</tr>
+</tbody></table></div>
+<p><strong>Start by dragging the matching-preview PNG or JSON into ComfyUI.</strong> When sharing on Arca Live, upload the original PNG with <strong>Preserve Exif data</strong> (<code>Exif 데이터 유지</code>) enabled. Readers must also open the image and save its original PNG. The workflow is stored in the PNG&#39;s <code>workflow</code> text metadata; the site&#39;s Exif-preservation option preserves that information too.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Step / custom title in the screenshots</th>
+<th>Original node name to search for</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>① Character prompts / 캐릭터 프롬프트</td>
+<td><code>NAI Character Prompt Select</code></td>
+</tr>
+<tr>
+<td>② Initial generation / 기본 생성</td>
+<td><code>NAI Image Generator</code></td>
+</tr>
+<tr>
+<td>③ Center crop / 중앙 크롭</td>
+<td><code>ImageCrop</code></td>
+</tr>
+<tr>
+<td>④ 1.5× img2img / 1.5배 img2img</td>
+<td><code>NAI Img2Img</code></td>
+</tr>
+<tr>
+<td>Face detection / 얼굴 검출</td>
+<td><code>UltralyticsDetectorProvider</code></td>
+</tr>
+<tr>
+<td>Face mask / 얼굴 마스크</td>
+<td><code>SAMLoader</code></td>
+</tr>
+<tr>
+<td>Character matching / 캐릭터 판별</td>
+<td><code>NAI WD Tagger Loader (PyTorch)</code></td>
+</tr>
+<tr>
+<td>⑤ WD matching preview / WD 매칭 미리보기; ⑥ Face correction / 얼굴 보정</td>
+<td><code>NAI Face Detailer</code></td>
+</tr>
+</tbody></table></div>
+<p>This example uses <strong>a face detector + SAM ViT-B</strong>. You do not need to download SAM3 or a SEGM model for this workflow.</p>
+<p><img src="screenshots/01-workflow-overview.png" alt="Complete workflow in ComfyUI"></p>
+<h2 id="step-2"><span>02</span> Set up four character prompts</h2>
+<p>One character-prompt node feeds the initial generator, img2img, and both detailers. It uses <strong><code>character_count=4</code>, with characters 2–4 enabled (<code>True</code>)</strong>.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Character</th>
+<th>Distinguishing features</th>
+<th>X / Y</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Blonde hair, long hair, green eyes</td>
+<td>0.2 / 0.5</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Blue hair, short hair, yellow eyes</td>
+<td>0.4 / 0.5</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Red hair, long hair, blue eyes</td>
+<td>0.6 / 0.5</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Black hair, short hair, purple eyes</td>
+<td>0.8 / 0.5</td>
+</tr>
+</tbody></table></div>
+<p>All characters in the example are adults. The coordinates are placement hints for the initial generation. WD matching compares tag scores from each cropped face against the original character prompts. Use distinguishing features such as different hair colors. The tagger&#39;s predicted tags are not appended to generation prompts.</p>
+<p>Put <strong>the scene and composition in the global prompt</strong> and <strong>individual features in the character slots</strong>. Avoid putting all four characters&#39; appearances into one global prompt. The example uses these character prompts:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>Prompt</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><code>1girl, adult, blonde hair, long hair, green eyes, white shirt</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>1girl, adult, blue hair, short hair, yellow eyes, white shirt</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>1girl, adult, red hair, long hair, blue eyes, white shirt</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>1girl, adult, black hair, short hair, purple eyes, white shirt</code></td>
+</tr>
+</tbody></table></div>
+<p>The global prompt uses <code>four women standing side by side in a single row</code> for the arrangement, and <code>heads fully in frame, generous margins, all faces visible</code> to help keep heads inside the frame. The complete prompt is stored in the JSON. When changing the scene, check <strong>the global prompts in both the initial generator and img2img nodes</strong>. The character slots are shared through one node.</p>
+<p><img src="screenshots/02-character-prompts.png" alt="Four character prompts and placement settings"></p>
+<h2 id="step-3"><span>03</span> Crop and enlarge with 1.5× img2img</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Settings</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Initial generation</td>
+<td>V5 Full / 1216×832 / 28 steps / CFG 5</td>
+</tr>
+<tr>
+<td>Center crop</td>
+<td>1152×768 / X=32 / Y=32</td>
+</tr>
+<tr>
+<td>img2img</td>
+<td>1728×1152 / strength=0.30 / noise=0 / 28 steps / CFG 5</td>
+</tr>
+</tbody></table></div>
+<p>Both width and height increase by 1.5×. NAI img2img generates a new image rather than simply resizing pixels. A higher <code>strength</code> may change the composition and characters more substantially.</p>
+<p>The crop removes 32 pixels from each edge to produce a <strong>3:2 aspect ratio</strong>. Check it first: heads or arms near the edges may be cut off. Then set <code>1152 × 1.5 = 1728</code> and <code>768 × 1.5 = 1152</code>. Each dimension grows by 1.5×, so the total pixel count grows by 2.25×.</p>
+<p><strong><code>limit_opus_free=False</code> on img2img allows paid requests.</strong> Running this example can spend Anlas. The initial generator and detailer have protection set to True. The detailer uses small Focused Inpainting crops that must meet the protection requirements; requests may be blocked if the account or settings do not qualify. Read the error guidance before deciding to disable protection.</p>
+<p><img src="screenshots/03-generation-crop-img2img.png" alt="Initial generation, center crop, and img2img settings"></p>
+<h2 id="step-4"><span>04</span> Match faces to characters with WD</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Value / meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Face detector</td>
+<td><code>bbox/face_yolov8m.pt</code></td>
+</tr>
+<tr>
+<td>Mask</td>
+<td><code>sam_vit_b_01ec64.pth</code>, <code>mask_source=sam</code></td>
+</tr>
+<tr>
+<td>WD model</td>
+<td><code>WD ViT v3</code></td>
+</tr>
+<tr>
+<td><code>batch_size</code></td>
+<td><code>4</code> — number of face crops analyzed together</td>
+</tr>
+<tr>
+<td><code>detail_mode</code></td>
+<td><code>all</code> — process multiple regions, not only the first face</td>
+</tr>
+<tr>
+<td><code>matching_mode</code></td>
+<td><code>wd14</code> — select an original character prompt using tagger scores</td>
+</tr>
+<tr>
+<td><code>max_regions</code></td>
+<td><code>4</code> — maximum number of regions to process</td>
+</tr>
+<tr>
+<td>Matching thresholds</td>
+<td>Minimum score <code>0.25</code>; gap between the top two candidates <code>0.08</code></td>
+</tr>
+<tr>
+<td>Correction strength</td>
+<td><code>strength=0.35</code></td>
+</tr>
+</tbody></table></div>
+<p>The face detector locates faces, SAM creates masks, and WD selects characters. <code>max_regions=4</code> does not force the detector to find four faces. Faces with uncertain character matches are skipped without correction.</p>
+<p><strong><code>batch_size=4</code> is not the number of recognized characters.</strong> It groups four face crops for one tagger batch. If memory is tight, reducing it to 1 still lets the tagger analyze all four faces in sequence. <code>character_count</code> controls the candidate character slots; <code>max_regions</code> limits the detected regions to process.</p>
+<p>Character numbers refer to <strong>the slots you wrote</strong>. Region 1 is not automatically assigned to character 1: each face&#39;s scores determine its slot. Matching does not force a unique slot onto each face, so check that all four faces match the intended, distinct characters.</p>
+<p><img src="screenshots/04-wd-detailer-settings.png" alt="WD loader and detailer settings"></p>
+<p><strong>Run <code>NAI_4characters_V5_WD_preview.json</code> first.</strong> It omits the actual correction node and its outputs. Check character numbers in the green boxes and report, then load the full JSON. The full JSON enables correction and runs through the final result with one execution. The preview does not automatically approve or block correction.</p>
+<p>The preview detailer itself sends no NAI request, but upstream generation and img2img run if they have not run yet or their cache is unavailable. <strong>The preview workflow as a whole is not necessarily free.</strong> In the same ComfyUI session, unchanged inputs and seeds may allow the full workflow to reuse cached upstream results.</p>
+<p>After changing settings, apply the <strong>same values to both ⑤ preview and ⑥ actual correction</strong> in the full workflow. They are separate nodes and do not synchronize automatically. Edits in the preview file are not automatically imported into the full file either.</p>
+<p>Start with these fields in the report:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>How to read it</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>region</code> / <code>character</code></td>
+<td>Face region number / selected character slot number</td>
+</tr>
+<tr>
+<td><code>score</code> / <code>margin</code></td>
+<td>Matching score / gap to the next candidate. These are not probabilities of correctness.</td>
+</tr>
+<tr>
+<td><code>status: planned</code></td>
+<td>Preview plans to use this character</td>
+</tr>
+<tr>
+<td><code>status: edited</code></td>
+<td>Actual correction completed</td>
+</tr>
+<tr>
+<td><code>status: skipped</code></td>
+<td>Correction skipped; see <code>reason</code> and <code>explanation</code></td>
+</tr>
+</tbody></table></div>
+<p>The SAM preview in this example is for <strong>checking face detection and character matching</strong>. Inspect <code>06-used-mask.png</code> from the final run for the actual SAM edit mask.</p>
+<p><img src="04-wd-preview.png" alt="Recorded WD matching result"></p>
+<h2 id="step-5"><span>05</span> Saved results</h2><section class="comparison" aria-label="Actual results before and after face correction">
+<h3>Compare the same area before and after correction</h3><p>The left side shows the img2img result; the right side shows face correction after WD matching. Move the slider to shift the boundary. Both images are recorded outputs.</p>
+<div class="compare-image" style="--split:50%">
+<img src="05-final.png" alt="Actual image after face correction" width="1728" height="1152">
+<img class="before" src="03-img2img.png" alt="img2img result before face correction" width="1728" height="1152">
+<span class="compare-label before-label">Before</span><span class="compare-label after-label">After</span><span class="compare-line"></span></div>
+<label class="slider-label" for="comparison-split">Portion showing the before image <output id="split-value">50%</output></label>
+<input id="comparison-split" type="range" min="0" max="100" value="50" aria-label="Portion showing the before image">
+<div class="compare-controls"><button type="button" data-split="100">Before only</button><button type="button" data-split="50">Half and half</button><button type="button" data-split="0">After only</button></div>
+<p class="muted">Open full size: <a href="03-img2img.png">Original before correction</a> · <a href="05-final.png">Original after correction</a></p></section>
+<p>The workflow saves the initial generation, crop, img2img result, WD preview, final image, and actual edit mask under <code>ComfyUI/output/RS_NAI_4characters/</code>. This example folder also contains the six recorded result images.</p>
+<p><img src="screenshots/05-result-nodes.png" alt="Output nodes in the actual ComfyUI run"></p>
+<p>In the recorded test, the four faces matched character slots 1, 2, 3, and 4 respectively, and all four were corrected. The final image was <strong>1728×1152</strong>, with <strong>0 changed pixels outside the edit mask</strong>. This does not guarantee four correct matches for every image. Overlapping faces or similar appearances can make matching harder.</p>
+<p><img src="05-final.png" alt="Final generated image after face correction"></p>
+<p>Seed control is saved as <code>fixed</code>. Change the initial generator&#39;s seed to create a new image. Even identical settings may produce different results after server-side model changes.</p>
+<p>Test date: 2026-10-12, Korea Standard Time. Including one extra initial generation to adjust composition, the observed total deduction was <strong>18 Anlas</strong>: 18 for img2img and 0 for the other steps. Cost varies by account and conditions.</p>
+<h2 id="step-6"><span>06</span> Troubleshooting</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>First thing to check</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Red or unknown nodes</td>
+<td>Check that the NAI nodes, Impact Pack, and Impact Subpack are installed; restart ComfyUI.</td>
+</tr>
+<tr>
+<td>Face detector or SAM model missing from the list</td>
+<td>Check the filenames and model folders above, then restart and select them again.</td>
+</tr>
+<tr>
+<td>Tagger download takes a long time</td>
+<td>Check progress on the loader. Follow the specific node guidance for missing packages or download errors.</td>
+</tr>
+<tr>
+<td>Tagger runs out of memory</td>
+<td>Lower <code>batch_size</code> to 1. If needed, set the tagger device to <code>cpu</code>; CPU inference can be slower.</td>
+</tr>
+<tr>
+<td>Only three faces are detected</td>
+<td>Check the img2img result for hidden, small, or cropped faces. Raising <code>max_regions</code> does not create missing detections.</td>
+</tr>
+<tr>
+<td>Four faces are found, but characters get mixed up</td>
+<td>Check distinguishing features such as hair colors and the <code>characterPrompts</code> connections. Check whether a matching crop includes a neighboring character.</td>
+</tr>
+<tr>
+<td>Report says <code>skipped</code></td>
+<td>Read its reason first. Lowering thresholds immediately can cause correction with the wrong character prompt.</td>
+</tr>
+<tr>
+<td>Preview and actual correction choose different characters</td>
+<td>Check that both detailers have the same image, character and tagger connections, and matching settings.</td>
+</tr>
+<tr>
+<td>Correction changes a face too much</td>
+<td>Lower <code>strength</code> on the actual correction node. Check that the shared correction prompt does not include another character&#39;s features.</td>
+</tr>
+<tr>
+<td>Anlas protection stops execution</td>
+<td>Read which step was blocked. Only img2img has protection disabled in this example; the other nodes retain it.</td>
+</tr>
+<tr>
+<td>Dropping the PNG does not load a workflow</td>
+<td>The site or image service may have stripped metadata. Use the included JSON.</td>
+</tr>
+</tbody></table></div>
+<p>To <strong>recheck matching only</strong> using an already enlarged image, load the saved <code>03-img2img</code> result with <code>Load Image</code> and use a separate workflow that connects it <strong>only to the preview detailer&#39;s image input</strong>. Keep the character slots, detector, and tagger, and leave only preview outputs active. Save nodes still connected to generation or actual correction can cause those branches to execute too.</p>
+<h2 id="step-7"><span>07</span> Files to include when sharing</h2>
+<p>Share the workflow PNGs/JSONs, recorded results, and this guide together. <strong>Extract the repository ZIP and open <code>examples/four-character-v5-wd/index.en.html</code></strong> to read the guide and enlarge screenshots without installing a viewer. Keep the entire <code>four-character-v5-wd</code> folder together; copying the HTML file alone loses its images.</p>
+<ul>
+<li><strong>Post text:</strong> <code>README.en.md</code> — copy it into your forum editor and attach screenshots at the corresponding positions.</li>
+<li><strong>Five screenshots:</strong> <code>screenshots/01</code> overview → <code>02</code> characters → <code>03</code> crop/img2img → <code>04</code> WD settings → <code>05</code> outputs.</li>
+<li><strong>Key results:</strong> <code>04-wd-preview.png</code> and <code>05-final.png</code> show matching and the final result.</li>
+<li><strong>Attachments:</strong> Both full and matching-preview PNGs, plus the two matching JSON files. Preserve metadata when uploading PNGs.</li>
+</ul>
+<p>Do not include tokens or <code>.env</code> in shared files. Model weights are not bundled; each user installs the models in their own environment.</p>
+<footer>Recorded run: 2026-10-12 · Click an image, or focus it and press Enter, to enlarge it. <a href="validation-summary.en.txt">Run and cost verification summary</a></footer></main>
+<dialog id="zoom" aria-label="Enlarge image"><button type="button">Close · ESC</button><img alt="Enlarged view"></dialog>
+<script>
+const zoom=document.querySelector('#zoom');let sourceImage;
+document.querySelectorAll('main img').forEach(img=>{if(img.closest('.compare-image'))return;img.tabIndex=0;img.setAttribute('role','button');img.setAttribute('aria-label',img.alt+" — enlarge");const open=()=>{sourceImage=img;zoom.querySelector('img').src=img.src;zoom.querySelector('img').alt=img.alt;zoom.showModal()};img.addEventListener('click',open);img.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();open()}})});
+zoom.addEventListener('click',()=>zoom.close());zoom.addEventListener('close',()=>sourceImage?.focus({preventScroll:true}));
+const splitInput=document.querySelector('#comparison-split');
+function setSplit(value){splitInput.value=value;document.querySelector('.compare-image').style.setProperty('--split',value+'%');document.querySelector('#split-value').textContent=value+'%'}
+splitInput.addEventListener('input',event=>setSplit(event.target.value));
+document.querySelectorAll('[data-split]').forEach(button=>button.addEventListener('click',()=>setSplit(button.dataset.split)));
+</script></body></html>

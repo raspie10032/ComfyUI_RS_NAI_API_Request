@@ -1,0 +1,373 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ComfyUI NAI：キャラクター4人の生成と顔補正ガイド</title>
+<style>
+:root{color-scheme:dark;--bg:#10151e;--panel:#192330;--line:#314051;--fg:#eaf0f7;--dim:#a5b6c8;--accent:#8edfd1}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.85 system-ui,'Noto Sans CJK KR',sans-serif}header{border-bottom:1px solid var(--line);padding:42px max(24px,calc((100vw - 1120px)/2));background:linear-gradient(135deg,#17332e,#182338 68%)}header small{font-weight:700;color:var(--accent);letter-spacing:.08em}header h1{font-size:clamp(28px,4vw,42px);line-height:1.4;margin:14px 0}header p{color:#c4d5e1;max-width:860px}.badges{display:flex;gap:10px;flex-wrap:wrap}.badges span{border:1px solid #496679;padding:4px 12px;border-radius:24px;font-size:14px}nav{position:sticky;top:0;background:#111923f5;border-bottom:1px solid var(--line);padding:12px 20px;z-index:2;backdrop-filter:blur(10px);overflow-x:auto;white-space:nowrap;text-align:center}nav a{display:inline-block;margin:0 12px;font-size:14px}main{max-width:1168px;margin:auto;padding:30px 24px 70px}a{color:#95dfd2;text-underline-offset:4px}a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #8edfd1;outline-offset:5px}h2{font-size:27px;margin:60px 0 20px;padding-top:18px;border-top:1px solid var(--line);scroll-margin-top:70px}h2 span{font-size:16px;color:var(--accent);margin-right:8px}h3{font-size:21px}strong{color:#fff}p{margin:18px 0}li{margin:8px 0}code{background:#233140;padding:2px 5px;border-radius:5px;overflow-wrap:anywhere;font-size:.88em}.table-scroll{overflow-x:auto;margin:24px 0}table{width:100%;border-collapse:collapse;background:var(--panel)}th{text-align:left;background:#243343;color:#d4e5ec}th,td{padding:11px 16px;border-bottom:1px solid var(--line);min-width:135px}td:first-child{font-weight:600}img{display:block;width:100%;height:auto;border:1px solid #3a4e62;border-radius:9px;margin:24px 0;cursor:zoom-in}main>p:has(img){margin:32px 0}.downloads{display:flex;gap:12px;flex-wrap:wrap;padding:20px;background:#1b2b36;border:1px solid #3f6570;border-radius:12px;margin:0 0 30px}.downloads a{padding:8px 14px;border-radius:7px;background:#2b4b53;font-weight:600;text-decoration:none}.downloads a:first-child{background:#315f58;color:white}.comparison{padding:20px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.comparison h3{margin-top:0}.compare-image{position:relative;isolation:isolate;line-height:0}.compare-image img{margin:0;border:0;border-radius:0;cursor:default}.compare-image .before{position:absolute;inset:0;clip-path:inset(0 calc(100% - var(--split)) 0 0)}.compare-line{position:absolute;left:var(--split);top:0;bottom:0;width:2px;background:white;transform:translateX(-1px);pointer-events:none}.compare-label{position:absolute;top:10px;background:#10151edc;padding:7px 12px;font-size:14px;line-height:1.5;border-radius:4px}.before-label{left:10px}.after-label{right:10px}.slider-label{display:flex;justify-content:space-between;margin-top:16px}input[type=range]{display:block;width:100%;height:32px;accent-color:var(--accent)}.muted,footer{color:var(--dim);font-size:14px}footer{border-top:1px solid var(--line);padding-top:20px;margin-top:40px}dialog{max-width:98vw;max-height:96vh;padding:8px;background:#10151e;border:1px solid var(--line)}dialog::backdrop{background:#000c}dialog img{width:auto;max-width:94vw;max-height:86vh;object-fit:contain;margin:0;border:0;cursor:zoom-out}dialog button{display:block;margin:0 0 8px auto;background:#25384a;color:white;border:0;padding:10px 18px;cursor:pointer}@media(max-width:640px){header{padding:30px 20px}main{padding:22px 18px 48px}nav{text-align:left}nav a{margin:0 9px}table{font-size:14px}th,td{padding:10px;min-width:125px}h2{font-size:23px}h3{font-size:19px}.comparison{padding:12px}.badges span{font-size:12px}.downloads{padding:12px}.downloads a{font-size:14px}}
+.compare-controls{display:flex;gap:8px;flex-wrap:wrap}.compare-controls button{border:1px solid #496679;border-radius:6px;padding:8px 14px;background:#263c49;color:var(--fg);cursor:pointer}
+.languages{margin:0 0 20px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}.languages [aria-current=page]{color:white;font-weight:700;text-decoration:none}</style></head><body>
+<header><div class="languages" aria-label="Language / 언어 / 言語"><a href="index.html" lang="ko" hreflang="ko">한국어</a> · <a href="index.en.html" lang="en" hreflang="en">English</a> · <a href="index.ja.html" lang="ja" hreflang="ja" aria-current="page">日本語</a></div><small>COMFYUI × NOVELAI · 実際の画面で手順を確認</small><h1>キャラクター4人の生成から<br>拡大と顔補正まで</h1><p>サンプルを読み込み、各顔とキャラクターの対応を確認して、完成画像を保存します。初めて使う方に向けて、必要な設定と問題が起きたときの確認事項をまとめました。</p><div class="badges"><span>NAIノード 2.6.0 · V5 Full</span><span>最終画像 1728 × 1152</span><span>試験で4人のマッチング・補正を確認</span></div></header>
+<nav aria-label="ガイドの目次"><a href="#step-0">実行順序</a><a href="#step-1">準備</a><a href="#step-2">キャラクター</a><a href="#step-3">クロップ・拡大</a><a href="#step-4">WDマッチング</a><a href="#step-5">補正前後の比較</a><a href="#step-6">問題解決</a><a href="#step-7">共有</a></nav>
+<main><div class="downloads"><a download href="NAI_4characters_V5_WD_preview.json">初回用 · マッチング確認JSON</a><a download href="NAI_4characters_V5_WD.json">補正まで実行 · 全工程JSON</a><a download href="NAI_4characters_V5_WD_preview.png">マッチング確認用PNG</a><a download href="NAI_4characters_V5_WD.png">全工程実行用PNG</a><a download href="README.ja.md">ガイド原文</a></div><p>キャラクター4人を1枚の画像に生成し、好みの比率に切り抜いてからimg2imgで1.5倍に拡大し、それぞれの顔を元のキャラクタープロンプトで補正するガイドです。付属ワークフローは接続と設定が済んでいるので、最初からノードを組む必要はありません。</p>
+<p>実行を確認した環境は <strong>NAIノード 2.6.0 · V5 Full · WD ViT v3</strong> です。スクリーンショットと共有ワークフローのノードには、韓国語のカスタムタイトルが付いています。この日本語ガイドでは、手順の番号と下のノード名対応表を見ながら進めてください。自分でノードを追加する場合は、元の名前で検索できます。</p>
+<p><strong>基本生成 1216×832 → 中央クロップ 1152×768 → img2img 1728×1152 → 4人の顔を補正</strong></p>
+<h2>ワークフローのダウンロード</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>ダウンロードするファイル</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="NAI_4characters_V5_WD_preview.png">マッチング確認用PNG</a> · <a href="NAI_4characters_V5_WD_preview.json">JSON</a></td>
+<td>基本生成と拡大の後、各顔とキャラクターの対応を確認</td>
+</tr>
+<tr>
+<td><a href="NAI_4characters_V5_WD.png">全工程実行用PNG</a> · <a href="NAI_4characters_V5_WD.json">JSON</a></td>
+<td>実際の顔補正と保存まで実行</td>
+</tr>
+</tbody></table></div>
+<p><strong>どちらのPNGにもComfyUIの<code>workflow</code>メタデータが入っています。</strong> リンク先から元ファイルを保存し、ComfyUIにドラッグ＆ドロップしてください。GitHubのファイル画面が開いた場合は <strong>Download raw file</strong> で保存します。スクリーンショットや画像サービスの縮小版では、ワークフロー情報が失われる場合があります。JSONも同じように元ファイルを保存してください。</p>
+<p><a href="https://arca.live/b/aiart/185683009">Arca Liveの投稿</a>では、韓国語の説明とスクリーンショットを確認できます。GitHub上ではこの文書を読み、画像の拡大表示や補正前後の比較を使いたい場合は <strong>Code → Download ZIP</strong> でリポジトリ全体をダウンロードして展開し、このフォルダーの<code>index.ja.html</code>を開いてください。GitHubのHTMLファイル表示画面ではガイドは動作しません。</p>
+<h2 id="step-0"><span>00</span> まずはこの順番で実行</h2>
+<ol>
+<li>下記の準備を済ませ、<code>NAI_4characters_V5_WD_preview.json</code>をComfyUIにドラッグ＆ドロップします。</li>
+<li>初回はサンプルのプロンプトとシードを変えずに実行します。WDモデルを初めて使う場合は、ダウンロード完了まで待ちます。</li>
+<li><strong>⑤ WDマッチングプレビュー</strong>とレポートで、4つの顔が正しいキャラクター番号に対応しているか確認します。</li>
+<li>正しければ<code>NAI_4characters_V5_WD.json</code>を読み込んで実行します。こちらは顔の補正まで進みます。</li>
+<li>結果を確認してから、キャラクタープロンプトや場面を好みに合わせて変更します。</li>
+</ol>
+<p><strong>このサンプルにはAnlasを消費する可能性のあるimg2img工程が含まれます。</strong> マッチング確認用ファイルも基本生成とimg2imgを実行します。2026-10-12の試験では合計18 Anlasが差し引かれましたが、固定料金ではありません。最初から何度もキューに入れず、1回ずつ結果を確認してください。</p>
+<p>全工程実行用ファイルでは、プレビューと実際の補正が両方とも実行されます。<strong>プレビューの承認を待って自動停止する仕組みではない</strong>ので、初回の確認にはマッチング確認用ファイルを使ってください。</p>
+<h2 id="step-1"><span>01</span> 準備と読み込み</h2>
+<ul>
+<li>ComfyUIと<code>ComfyUI_RS_NAI_API_Request</code> 2.6.0以降を用意します。</li>
+<li>Managerから<code>ComfyUI-Impact-Pack</code>と<code>ComfyUI-Impact-Subpack</code>をインストールします。</li>
+<li>顔検出モデル<code>face_yolov8m.pt</code>を<code>ComfyUI/models/ultralytics/bbox/</code>に、SAMモデル<code>sam_vit_b_01ec64.pth</code>を<code>ComfyUI/models/sams/</code>に配置します。モデル管理画面でファイル名を検索してインストールできます。</li>
+<li>NAIノードのフォルダーにある<code>.env</code>に自分の<code>NAI_ACCESS_TOKEN</code>を設定し、ComfyUIを再起動します。共有ファイルにトークンは含まれていません。</li>
+<li>タガーは<code>WD ViT v3</code>に設定済みです。初回実行時に必要なファイルがダウンロードされ、ローダーノードに進捗が表示されます。</li>
+</ul>
+<p>ノードのインストールとトークン設定は<a href="https://github.com/raspie10032/ComfyUI_RS_NAI_API_Request#configuration-api-token">NAIノードのREADME</a>を参照してください。タガー用の追加Pythonパッケージが不足している場合は、ノードに表示されるインストールコマンドを <strong>ComfyUIが使っているPython環境</strong> で実行し、再起動します。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>ファイル</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>NAI_4characters_V5_WD_preview.json</code></td>
+<td>基本生成・拡大後、顔のマッチングまで確認</td>
+</tr>
+<tr>
+<td><code>NAI_4characters_V5_WD.json</code></td>
+<td>顔補正と保存まで全工程を実行</td>
+</tr>
+<tr>
+<td><code>NAI_4characters_V5_WD.png</code></td>
+<td>全工程用JSONと同じワークフローを含むPNG</td>
+</tr>
+<tr>
+<td><code>NAI_4characters_V5_WD_preview.png</code></td>
+<td>マッチング確認用JSONと同じワークフローを含むPNG</td>
+</tr>
+</tbody></table></div>
+<p><strong>最初はマッチング確認用のPNGまたはJSONをComfyUIにドラッグ＆ドロップしてください。</strong> Arca Liveで再共有する場合は、画像アップロード時の <strong>Exifデータを保持</strong>（<code>Exif 데이터 유지</code>）を有効にして元のPNGをアップロードします。受け取る人も画像を開き、元のPNGを保存する必要があります。ワークフローはPNGの<code>workflow</code>テキストメタデータに保存されており、同サイトのExif保持オプションでこの情報も保たれます。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>手順 / スクリーンショット内のタイトル</th>
+<th>追加時に検索する元のノード名</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>① キャラクタープロンプト / 캐릭터 프롬프트</td>
+<td><code>NAI Character Prompt Select</code></td>
+</tr>
+<tr>
+<td>② 基本生成 / 기본 생성</td>
+<td><code>NAI Image Generator</code></td>
+</tr>
+<tr>
+<td>③ 中央クロップ / 중앙 크롭</td>
+<td><code>ImageCrop</code></td>
+</tr>
+<tr>
+<td>④ 1.5倍img2img / 1.5배 img2img</td>
+<td><code>NAI Img2Img</code></td>
+</tr>
+<tr>
+<td>顔検出 / 얼굴 검출</td>
+<td><code>UltralyticsDetectorProvider</code></td>
+</tr>
+<tr>
+<td>顔マスク / 얼굴 마스크</td>
+<td><code>SAMLoader</code></td>
+</tr>
+<tr>
+<td>キャラクター判別 / 캐릭터 판별</td>
+<td><code>NAI WD Tagger Loader (PyTorch)</code> / 日本語表示: NAI タガーローダー</td>
+</tr>
+<tr>
+<td>⑤ WDマッチングプレビュー / WD 매칭 미리보기; ⑥ 顔補正 / 얼굴 보정</td>
+<td><code>NAI Face Detailer</code></td>
+</tr>
+</tbody></table></div>
+<p>このサンプルでは <strong>顔検出器 + SAM ViT-B</strong> を使用します。SAM3やSEGMモデルを追加でダウンロードする必要はありません。</p>
+<p><img src="screenshots/01-workflow-overview.png" alt="ComfyUIのワークフロー全体"></p>
+<h2 id="step-2"><span>02</span> 4人分のキャラクタープロンプトを設定</h2>
+<p>1つのキャラクタープロンプトノードを、基本生成、img2img、2つのディテイラーに接続しています。**<code>character_count=4</code>で、キャラクター2〜4が有効（<code>True</code>）**になっています。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>キャラクター</th>
+<th>区別する特徴</th>
+<th>X / Y</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>金髪、ロングヘア、緑の瞳</td>
+<td>0.2 / 0.5</td>
+</tr>
+<tr>
+<td>2</td>
+<td>青い髪、ショートヘア、黄色の瞳</td>
+<td>0.4 / 0.5</td>
+</tr>
+<tr>
+<td>3</td>
+<td>赤い髪、ロングヘア、青い瞳</td>
+<td>0.6 / 0.5</td>
+</tr>
+<tr>
+<td>4</td>
+<td>黒髪、ショートヘア、紫の瞳</td>
+<td>0.8 / 0.5</td>
+</tr>
+</tbody></table></div>
+<p>サンプルの登場人物は全員成人です。座標は基本生成時の配置のヒントです。WDマッチングは、切り出した顔のタグスコアと元のキャラクタープロンプトを比較します。髪の色など、区別しやすい特徴を記述してください。タガーが推定したタグを生成プロンプトに追加することはありません。</p>
+<p><strong>共通プロンプトには場面と構図</strong>、<strong>キャラクタースロットには各人物の特徴</strong>を書くと管理しやすくなります。4人分の外見を共通プロンプト1か所にまとめないようにしてください。サンプルには次のキャラクタープロンプトが保存されています。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>スロット</th>
+<th>プロンプト</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><code>1girl, adult, blonde hair, long hair, green eyes, white shirt</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>1girl, adult, blue hair, short hair, yellow eyes, white shirt</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>1girl, adult, red hair, long hair, blue eyes, white shirt</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>1girl, adult, black hair, short hair, purple eyes, white shirt</code></td>
+</tr>
+</tbody></table></div>
+<p>4人を横一列に並べる指定は共通プロンプトの<code>four women standing side by side in a single row</code>、頭が切れないようにする指定は<code>heads fully in frame, generous margins, all faces visible</code>です。プロンプト全文はJSONに保存されています。場面を変更するときは、<strong>基本生成とimg2imgの両ノードの共通プロンプト</strong>を確認してください。キャラクタースロットは1つのノードで共有しています。</p>
+<p><img src="screenshots/02-character-prompts.png" alt="キャラクタープロンプトと配置の設定"></p>
+<h2 id="step-3"><span>03</span> クロップと1.5倍img2img</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>工程</th>
+<th>設定</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>基本生成</td>
+<td>V5 Full / 1216×832 / 28 steps / CFG 5</td>
+</tr>
+<tr>
+<td>中央クロップ</td>
+<td>1152×768 / X=32 / Y=32</td>
+</tr>
+<tr>
+<td>img2img</td>
+<td>1728×1152 / strength=0.30 / noise=0 / 28 steps / CFG 5</td>
+</tr>
+</tbody></table></div>
+<p>幅と高さをそれぞれ1.5倍にします。単純なリサイズではなく、NAIのimg2imgで再生成します。<code>strength</code>を高くすると、元の構図や人物が大きく変化する場合があります。</p>
+<p>クロップでは上下左右の各辺から32ピクセルずつ切り取り、<strong>3:2の比率</strong>にします。端にいるキャラクターの頭や腕も切れる可能性があるため、先にクロップ結果を確認してください。その後、<code>1152 × 1.5 = 1728</code>、<code>768 × 1.5 = 1152</code>に設定します。幅と高さは各1.5倍、総ピクセル数は2.25倍になります。</p>
+<p><strong>img2imgの<code>limit_opus_free=False</code>は有料リクエストを許可する設定です。</strong> このサンプルの実行でAnlasを消費する可能性があります。基本生成とディテイラーの保護設定はTrueです。ディテイラーは保護条件を満たす小さなFocused Inpainting用クロップを使い、アカウントや設定が条件に合わない場合はブロックされます。保護を無条件に解除せず、まずエラーの案内を確認してください。</p>
+<p><img src="screenshots/03-generation-crop-img2img.png" alt="基本生成・クロップ・img2imgの設定"></p>
+<h2 id="step-4"><span>04</span> WDで顔とキャラクターを対応付ける</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>設定</th>
+<th>値 / 意味</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>顔検出</td>
+<td><code>bbox/face_yolov8m.pt</code></td>
+</tr>
+<tr>
+<td>マスク</td>
+<td><code>sam_vit_b_01ec64.pth</code>、<code>mask_source=sam</code></td>
+</tr>
+<tr>
+<td>WDモデル</td>
+<td><code>WD ViT v3</code></td>
+</tr>
+<tr>
+<td><code>batch_size</code></td>
+<td><code>4</code> — 一度に解析する顔クロップの枚数</td>
+</tr>
+<tr>
+<td><code>detail_mode</code></td>
+<td><code>all</code> — 最初の顔だけでなく複数領域を処理</td>
+</tr>
+<tr>
+<td><code>matching_mode</code></td>
+<td><code>wd14</code> — タガーのスコアで元のキャラクタープロンプトを選択</td>
+</tr>
+<tr>
+<td><code>max_regions</code></td>
+<td><code>4</code> — 処理する領域数の上限</td>
+</tr>
+<tr>
+<td>マッチング基準</td>
+<td>最低スコア<code>0.25</code>、1位と2位のスコア差<code>0.08</code></td>
+</tr>
+<tr>
+<td>補正強度</td>
+<td><code>strength=0.35</code></td>
+</tr>
+</tbody></table></div>
+<p>顔検出器が位置を見つけ、SAMがマスクを作り、WDがキャラクターを選びます。<code>max_regions=4</code>にしても、必ず4つの顔が検出されるわけではありません。キャラクターを十分に判別できない顔は補正せずスキップします。</p>
+<p><strong><code>batch_size=4</code>は認識するキャラクター数ではありません。</strong> 顔クロップを4枚ずつまとめてタガーに渡す設定です。メモリが足りない場合は1に下げても、4人分を順番に解析できます。候補となるキャラクター数は<code>character_count</code>、処理する検出領域の上限は<code>max_regions</code>で設定します。</p>
+<p>キャラクター番号は <strong>自分が記述したスロットの番号</strong> です。顔領域1が必ずキャラクター1になるわけではなく、各顔のスコアからスロットを選びます。4つのスロットを1つずつ強制的に割り当てる方式でもないため、4人が意図した別々のキャラクターに対応しているか確認してください。</p>
+<p><img src="screenshots/04-wd-detailer-settings.png" alt="WDローダーとディテイラーの設定"></p>
+<p><strong>最初は<code>NAI_4characters_V5_WD_preview.json</code>を実行してください。</strong> 実際の顔補正ノードとその出力を除いたワークフローです。緑の枠とレポートでキャラクター番号を確認してから、全工程用JSONを読み込みます。全工程用JSONでは補正ノードも有効なので、1回の実行で最終補正まで進みます。プレビューが補正を自動承認・停止する接続ではありません。</p>
+<p>プレビューディテイラー自体はNAIにリクエストしませんが、前段の基本生成やimg2imgが未実行、またはキャッシュがない場合は実行されます。<strong>確認用ワークフロー全体が無料という意味ではありません。</strong> 同じComfyUIセッションで入力とシードが変わらず、キャッシュが残っていれば、全工程用に切り替えた際に前段の結果を再利用できる場合があります。</p>
+<p>設定を変更したら、全工程用ワークフローの <strong>⑤ プレビューと⑥ 実際の補正の両方に同じ値</strong> を設定してください。別々のノードなので自動同期はされません。確認用ファイルで変更した値が全工程用ファイルへ自動で引き継がれることもありません。</p>
+<p>レポートでは、まず次の項目を見れば十分です。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>項目</th>
+<th>読み方</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>region</code> / <code>character</code></td>
+<td>顔領域の番号 / 選択されたキャラクタースロット番号</td>
+</tr>
+<tr>
+<td><code>score</code> / <code>margin</code></td>
+<td>マッチングスコア / 次の候補との差。正解の確率ではありません。</td>
+</tr>
+<tr>
+<td><code>status: planned</code></td>
+<td>プレビューで、このキャラクターを使う予定</td>
+</tr>
+<tr>
+<td><code>status: edited</code></td>
+<td>実際の補正が完了</td>
+</tr>
+<tr>
+<td><code>status: skipped</code></td>
+<td>補正をスキップ。理由は<code>reason</code>と<code>explanation</code>で確認</td>
+</tr>
+</tbody></table></div>
+<p>このサンプルのSAMプレビューは <strong>顔検出とキャラクターマッチングの確認用</strong> です。実際のSAM編集マスクは、最終実行で保存される<code>06-used-mask.png</code>で確認してください。</p>
+<p><img src="04-wd-preview.png" alt="実行時のWDマッチング結果"></p>
+<h2 id="step-5"><span>05</span> 保存される結果</h2><section class="comparison" aria-label="実際の顔補正前後の比較">
+<h3>同じ位置で顔補正の前後を比較</h3><p>左側がimg2img結果、右側がWDマッチング後の顔補正結果です。スライダーで境界を動かせます。どちらも実際の実行結果です。</p>
+<div class="compare-image" style="--split:50%">
+<img src="05-final.png" alt="顔補正後の実際の結果" width="1728" height="1152">
+<img class="before" src="03-img2img.png" alt="顔補正前のimg2img結果" width="1728" height="1152">
+<span class="compare-label before-label">補正前</span><span class="compare-label after-label">補正後</span><span class="compare-line"></span></div>
+<label class="slider-label" for="comparison-split">補正前の画像を表示する割合 <output id="split-value">50%</output></label>
+<input id="comparison-split" type="range" min="0" max="100" value="50" aria-label="補正前の画像を表示する割合">
+<div class="compare-controls"><button type="button" data-split="100">補正前のみ</button><button type="button" data-split="50">半分ずつ比較</button><button type="button" data-split="0">補正後のみ</button></div>
+<p class="muted">原寸で開く： <a href="03-img2img.png">補正前の元画像</a> · <a href="05-final.png">補正後の元画像</a></p></section>
+<p><code>ComfyUI/output/RS_NAI_4characters/</code>に、基本生成、クロップ、img2img、WDプレビュー、最終画像、実際の編集マスクが保存されます。このサンプルフォルダーにも、試験で得られた6枚の結果画像が入っています。</p>
+<p><img src="screenshots/05-result-nodes.png" alt="実行時の出力ノード"></p>
+<p>今回の試験では4つの顔がキャラクター1・2・3・4にそれぞれ対応し、全員の補正が完了しました。最終画像は <strong>1728×1152</strong> で、編集マスクの外側で変化したピクセルは <strong>0個</strong> でした。別の画像でも4人を正しく対応付けられることを保証する結果ではありません。顔の重なりや似た外見はマッチングを難しくする場合があります。</p>
+<p><img src="05-final.png" alt="顔補正後の最終結果"></p>
+<p>シードの制御は<code>fixed</code>で保存しています。新しい画像を作る場合は基本生成ノードのシードを変更してください。同じ設定でも、サーバー側のモデル変更などで完全に同じ結果にならない場合があります。</p>
+<p>試験日: 2026-10-12（韓国標準時）。構図調整用の基本生成1回も含め、確認した合計消費は <strong>18 Anlas</strong> でした。img2imgで18、その他の工程で0でしたが、アカウントや条件によって料金は変わります。</p>
+<h2 id="step-6"><span>06</span> 困ったときの確認項目</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>症状</th>
+<th>最初に確認すること</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>赤いノードや不明なノードが出る</td>
+<td>NAIノード、Impact Pack、Impact Subpackの導入を確認し、ComfyUIを再起動します。</td>
+</tr>
+<tr>
+<td>顔検出モデルやSAMモデルが一覧にない</td>
+<td>ファイル名と上記のモデル配置先を確認し、再起動して選び直します。</td>
+</tr>
+<tr>
+<td>タガーのダウンロードに時間がかかる</td>
+<td>ローダーの進捗を確認します。パッケージ不足やダウンロードエラーは、ノードの具体的な案内に従ってください。</td>
+</tr>
+<tr>
+<td>タガーでメモリ不足になる</td>
+<td><code>batch_size</code>を1に下げます。必要ならタガーの実行デバイスを<code>cpu</code>に変更します。CPU推論は遅くなる場合があります。</td>
+</tr>
+<tr>
+<td>顔が3つしか検出されない</td>
+<td>img2img結果で、隠れた顔、小さな顔、切れた頭がないか確認します。<code>max_regions</code>を増やしても未検出の顔は増えません。</td>
+</tr>
+<tr>
+<td>顔は4つあるのにキャラクターが混ざる</td>
+<td>髪色などの区別できる特徴と<code>characterPrompts</code>の接続を確認します。マッチング用クロップに隣の人物が入っていないかも確認します。</td>
+</tr>
+<tr>
+<td><code>skipped</code>と表示される</td>
+<td>まずレポートの理由を読みます。いきなりしきい値を下げると、違うキャラクターで補正する場合があります。</td>
+</tr>
+<tr>
+<td>プレビューと実際の補正で対応が違う</td>
+<td>両ディテイラーの画像・キャラクター・タガー接続と、マッチング設定を揃えてください。</td>
+</tr>
+<tr>
+<td>補正で顔が変わりすぎる</td>
+<td>実際の補正ノードの<code>strength</code>を下げます。共通の補正プロンプトに別の人物の特徴が入っていないかも確認します。</td>
+</tr>
+<tr>
+<td>Anlas保護エラーで停止する</td>
+<td>どの工程がブロックされたか確認します。このサンプルではimg2imgだけ保護を解除し、他のノードは保護を有効にしています。</td>
+</tr>
+<tr>
+<td>PNGを置いてもワークフローが開かない</td>
+<td>掲示板や画像サービスがメタデータを削除した可能性があります。同梱のJSONを使ってください。</td>
+</tr>
+</tbody></table></div>
+<p>作成済みの拡大画像で <strong>マッチングだけを再確認</strong> する場合は、保存された<code>03-img2img</code>画像を<code>Load Image</code>で読み込み、<strong>プレビューディテイラーのimage入力だけに接続した別ワークフロー</strong>を使います。キャラクタースロット、検出器、タガーは維持し、実行する出力はプレビュー側だけにしてください。基本生成や実際の補正に接続した保存ノードを残すと、そちらも実行される場合があります。</p>
+<h2 id="step-7"><span>07</span> 共有するファイル</h2>
+<p>ワークフローのPNG・JSON、実行結果、このガイドをまとめて共有してください。<strong>リポジトリのZIPを展開して<code>examples/four-character-v5-wd/index.ja.html</code>を開くと</strong>、専用ビューアーをインストールせずにスクリーンショットを拡大して読めます。HTMLだけを移すと画像が表示されないので、<code>four-character-v5-wd</code>フォルダーごと保管してください。</p>
+<ul>
+<li><strong>投稿本文:</strong> <code>README.ja.md</code> — 掲示板のエディターに移し、対応する位置にスクリーンショットを添付します。</li>
+<li><strong>スクリーンショット5枚:</strong> <code>screenshots/01</code>全体 → <code>02</code>キャラクター → <code>03</code>クロップ・拡大 → <code>04</code>WD設定 → <code>05</code>出力の順です。</li>
+<li><strong>主な結果画像:</strong> <code>04-wd-preview.png</code>と<code>05-final.png</code>で、マッチングと最終結果を示します。</li>
+<li><strong>添付ファイル:</strong> 全工程用とマッチング確認用のPNG各1枚、および対応するJSON各1個。PNGのアップロード時はメタデータを保持してください。</li>
+</ul>
+<p>共有ファイルにトークンや<code>.env</code>を含めないでください。モデルの重みは同梱しておらず、利用者が自分の環境に用意する構成です。</p>
+<footer>実行日：2026-10-12 · 画像をクリックするか、キーボードで選択してEnterを押すと拡大できます。 <a href="validation-summary.ja.txt">実行・料金の検証概要</a></footer></main>
+<dialog id="zoom" aria-label="画像を拡大"><button type="button">閉じる · ESC</button><img alt="拡大表示"></dialog>
+<script>
+const zoom=document.querySelector('#zoom');let sourceImage;
+document.querySelectorAll('main img').forEach(img=>{if(img.closest('.compare-image'))return;img.tabIndex=0;img.setAttribute('role','button');img.setAttribute('aria-label',img.alt+" — 拡大");const open=()=>{sourceImage=img;zoom.querySelector('img').src=img.src;zoom.querySelector('img').alt=img.alt;zoom.showModal()};img.addEventListener('click',open);img.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();open()}})});
+zoom.addEventListener('click',()=>zoom.close());zoom.addEventListener('close',()=>sourceImage?.focus({preventScroll:true}));
+const splitInput=document.querySelector('#comparison-split');
+function setSplit(value){splitInput.value=value;document.querySelector('.compare-image').style.setProperty('--split',value+'%');document.querySelector('#split-value').textContent=value+'%'}
+splitInput.addEventListener('input',event=>setSplit(event.target.value));
+document.querySelectorAll('[data-split]').forEach(button=>button.addEventListener('click',()=>setSplit(button.dataset.split)));
+</script></body></html>
