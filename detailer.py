@@ -14,10 +14,10 @@ from .image_utils import (
     pil_to_base64,
     pil_to_tensor,
     png_bytes_to_pil,
-    save_png_preserving_metadata,
     tensor_to_pil,
     validate_single_image,
 )
+from .metadata import autosave, request_record, read_fields, validate_save_options
 from .diagnostics import notice
 from .nai_api import (
     apply_opus_free_limits,
@@ -307,8 +307,12 @@ def run_face_detail(
     detail_mask=None,
     mask_source="auto",
     primary_uses_native_mask=False,
+    save_format="PNG",
+    webp_quality=90,
 ):
     from .generators import NovelAIGenerator, mask_to_grid_boxes
+
+    validate_save_options(save_format, webp_quality)
 
     if limit_opus_free and not preview_only and (vibes or references):
         raise user_error("PAID_BLOCKED", RuntimeError,
@@ -522,6 +526,7 @@ def run_face_detail(
     total_mask = np.zeros((h, w), dtype=np.uint8)
     base_seed = int(np.random.randint(0, 0x7FFFFFFF)) if seed == -1 else int(seed)
     last_result = None
+    edit_history = []
     reference_params = None
     for index, seg in enumerate(regions[:active_count]):
         if report[index]["status"] != "planned":
@@ -677,13 +682,18 @@ def run_face_detail(
         )
         report[index]["status"] = "edited"
         last_result = result
+        edit_history.append({"region": index, "request": request_record(payload), "response": read_fields(result)[0]})
     if last_result is not None:
-        # Preserve API metadata and record the multi-request provenance separately.
-        last_result.info["rs_detailer_regions"] = json.dumps(report)
+        # A composite has no single NAI request: keep each crop under its own history.
+        metadata_source = out.copy()
+        metadata_source.info.clear()
+        metadata_source.info["rs_detailer_regions"] = json.dumps(report)
         folder, filename = NovelAIGenerator._get_save_path(
             "NAI_face", NovelAIGenerator._get_output_directory(), subfolder="face"
         )
-        save_png_preserving_metadata(out, folder / f"{filename}.png", last_result)
+        autosave(out, folder / filename, source_image=metadata_source, operation="detailer",
+                 extra={"base_generation_available": False, "edits": edit_history},
+                 save_format=save_format, webp_quality=webp_quality)
     return (
         pil_to_tensor(out),
         pil_to_tensor(Image.fromarray(total_mask).convert("RGB")),

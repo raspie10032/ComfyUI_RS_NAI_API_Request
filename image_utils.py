@@ -2,6 +2,7 @@
 # Copyright (c) 2025 raspie10032
 
 from .errors import user_error
+from .metadata import read_fields
 
 import base64
 import io
@@ -22,6 +23,8 @@ def png_bytes_to_pil(png_bytes):
     source = Image.open(io.BytesIO(png_bytes))
     image = source.convert("RGB")
     image.info.update(source.info)
+    fields, _ = read_fields(source)
+    image.info.update(fields)
     return image
 
 

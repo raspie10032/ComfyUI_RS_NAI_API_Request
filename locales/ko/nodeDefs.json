@@ -148,6 +148,12 @@
       "normalize_vibe_strengths": {
         "name": "바이브 강도 정규화",
         "tooltip": "V4/V4.5 Vibe 강도의 절댓값 합이 1.0을 초과하면 강도를 비례해서 낮춥니다."
+      },
+      "save_format": {
+        "name": "자동 저장 형식"
+      },
+      "webp_quality": {
+        "name": "WebP 품질"
       }
     },
     "outputs": {
@@ -569,6 +575,12 @@
       "normalize_vibe_strengths": {
         "name": "바이브 강도 정규화",
         "tooltip": "V4/V4.5 Vibe 강도의 절댓값 합이 1.0을 초과하면 강도를 비례해서 낮춥니다."
+      },
+      "save_format": {
+        "name": "자동 저장 형식"
+      },
+      "webp_quality": {
+        "name": "WebP 품질"
       }
     },
     "outputs": {
@@ -652,6 +664,12 @@
       "normalize_vibe_strengths": {
         "name": "바이브 강도 정규화",
         "tooltip": "V4/V4.5 Vibe 강도의 절댓값 합이 1.0을 초과하면 강도를 비례해서 낮춥니다."
+      },
+      "save_format": {
+        "name": "자동 저장 형식"
+      },
+      "webp_quality": {
+        "name": "WebP 품질"
       }
     },
     "outputs": {
@@ -784,6 +802,12 @@
       "normalize_vibe_strengths": {
         "name": "바이브 강도 정규화",
         "tooltip": "V4/V4.5 Vibe 강도의 절댓값 합이 1.0을 초과하면 강도를 비례해서 낮춥니다."
+      },
+      "save_format": {
+        "name": "자동 저장 형식"
+      },
+      "webp_quality": {
+        "name": "WebP 품질"
       }
     },
     "outputs": {
@@ -922,6 +946,12 @@
       "normalize_vibe_strengths": {
         "name": "바이브 강도 정규화",
         "tooltip": "V4/V4.5 Vibe 강도의 절댓값 합이 1.0을 초과하면 강도를 비례해서 낮춥니다."
+      },
+      "save_format": {
+        "name": "자동 저장 형식"
+      },
+      "webp_quality": {
+        "name": "WebP 품질"
       }
     },
     "outputs": {
@@ -1103,6 +1133,12 @@
       "characterPrompts": {
         "name": "캐릭터 프롬프트",
         "tooltip": "원래 캐릭터 프롬프트입니다. 0~1 좌표는 잘라낸 결과를 기준으로 하며 전체 캔버스 좌표로 자동 변환됩니다."
+      },
+      "save_format": {
+        "name": "자동 저장 형식"
+      },
+      "webp_quality": {
+        "name": "WebP 품질"
       }
     },
     "outputs": {
@@ -1160,6 +1196,23 @@
       },
       "2": {
         "name": "네거티브 프롬프트"
+      }
+    }
+  },
+  "NAILoadImage": {
+    "display_name": "NAI 이미지 불러오기",
+    "description": "이미지를 고르면 이 노드 안에서 NAI 메타데이터를 읽습니다. 복원한 설정을 선택한 생성 노드에 적용할 수 있습니다. 로컬 처리로 Anlas를 사용하지 않습니다.",
+    "inputs": {
+      "image": {
+        "name": "이미지"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "이미지"
+      },
+      "1": {
+        "name": "마스크"
       }
     }
   }

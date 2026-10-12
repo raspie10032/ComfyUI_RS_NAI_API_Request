@@ -4,7 +4,19 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The Detailer can use bbox+SAM, native SEGM masks, or a standard ComfyUI `MASK` from SAM3 or another mask node, and can process multiple regions sequentially. An optional **local PyTorch tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads only the selected model when the loader executes, after the optional dependencies are installed.
 
-> Current version: **2.6.1**
+> Current version: **2.7.0**
+
+## What's New in 2.7.0
+
+- **Autosave format:** choose PNG, WebP lossless (exact pixels), or WebP lossy (quality 1–100) directly on generation, img2img, inpainting, detailer and inset nodes. Existing workflows default to PNG. No separate save node or metadata connection is needed.
+- **NAI Load Image:** select/upload a PNG or WebP and inspect its NovelAI prompts, per-character negative prompts/positions and generation settings immediately inside the node. Copy text or apply supported settings to a chosen generation node; editable character inputs are connected automatically. IMAGE and MASK outputs work like ComfyUI Load Image.
+- NovelAI PNG text, WebP EXIF and compressed alpha metadata are supported. Autosaves preserve the NAI information and effective request settings, including the selected model. **No ComfyUI workflow is embedded**; use the standard Save Image node if you want a workflow in the image.
+- Detailer saves now keep a history of each face request. The loader does not mistake the final face's prompt for the whole image. Unknown models, unavailable source/reference images and settings that cannot be applied exactly are explained.
+- English, Korean and Japanese UI. [Usage and restoration limits / 사용법 / 使い方](docs/image-metadata.md).
+
+**한국어:** 생성 노드에서 **저장 형식**만 선택하면 자동 저장됩니다. **NAI 이미지 불러오기**에서 파일을 선택하면 바로 생성 정보를 확인하고, **적용할 노드 → 설정 적용**으로 옮길 수 있습니다. 워크플로는 저장하지 않습니다.
+
+**日本語:** 生成ノードで**保存形式**を選ぶと自動保存されます。**NAI画像を読み込む**でファイルを選択すると生成情報が表示され、**適用先 → 設定を適用**で転記できます。ワークフローは埋め込みません。
 
 ## Four-character walkthrough / 캐릭터 4명 실전 가이드 / 4人の実践ガイド
 

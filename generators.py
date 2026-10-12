@@ -19,6 +19,7 @@ from .image_utils import (
     validate_single_image,
     mask_to_pil,
 )
+from .metadata import autosave, save_inputs, validate_save_options
 from .diagnostics import notice
 from .nai_api import (
     MODEL_DISPLAY_LIST,
@@ -191,6 +192,7 @@ class NovelAIGenerator:
                 "characterPrompts": ("LIST", {"tooltip": "V5: up to 22 active character prompts; V4/V4.5: up to 6. V5 Curated inpainting uses V4.5 (6)."}),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **reference_inputs(),
+                **save_inputs(),
             }
         }
 
@@ -200,12 +202,13 @@ class NovelAIGenerator:
 
     def generate(self, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, seed,
                  scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, variety_boost=True, characterPrompts=None,
-                 limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True):
+                 limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True, save_format="PNG", webp_quality=90):
         if limit_opus_free and (vibes or references):
             raise user_error("PAID_BLOCKED", RuntimeError,
                 "limit_opus_free blocks Vibe and Precise Reference because they can spend Anlas. "
                 "Set it to False to allow paid requests."
             )
+        validate_save_options(save_format, webp_quality)
         model_id = get_model_id(model)
         validate_character_prompts(model_id, characterPrompts)
         validate_references(model_id, vibes, references, inpainting=False)
@@ -234,8 +237,7 @@ class NovelAIGenerator:
 
         # Autosave
         save_folder, filename = self._get_save_path('NAI', self.output_dir)
-        save_path = save_folder / f'{filename}.png'
-        save_path.write_bytes(png_bytes)
+        save_path = autosave(pil_img, save_folder / filename, payload=payload, save_format=save_format, webp_quality=webp_quality)
         print(f'Image saved: {save_path}')
 
         return (pil_to_tensor(pil_img),)
@@ -267,6 +269,7 @@ class NAIImg2ImgNode:
                 "characterPrompts": ("LIST", {"tooltip": "V5: up to 22 active character prompts; V4/V4.5: up to 6. V5 Curated inpainting uses V4.5 (6)."}),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **reference_inputs(),
+                **save_inputs(),
             }
         }
 
@@ -276,9 +279,10 @@ class NAIImg2ImgNode:
 
     def generate(self, image, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, strength, seed,
                  scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None,
-                 limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True):
+                 limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True, save_format="PNG", webp_quality=90):
         if limit_opus_free:
             raise user_error("PAID_BLOCKED", RuntimeError, "limit_opus_free blocks image-to-image because it can spend Anlas. Set it to False to allow paid requests.")
+        validate_save_options(save_format, webp_quality)
         model_id = get_model_id(model)
         validate_character_prompts(model_id, characterPrompts)
         validate_references(model_id, vibes, references, inpainting=False)
@@ -315,8 +319,7 @@ class NAIImg2ImgNode:
 
         # Autosave
         save_folder, filename = NovelAIGenerator._get_save_path('NAI_i2i', NovelAIGenerator._get_output_directory())
-        save_path = save_folder / f'{filename}.png'
-        save_path.write_bytes(png_bytes)
+        save_path = autosave(result_pil, save_folder / filename, payload=payload, save_format=save_format, webp_quality=webp_quality)
         print(f'Image saved: {save_path}')
 
         return (pil_to_tensor(result_pil),)
@@ -349,6 +352,7 @@ class NAIInpaintNode:
                 "characterPrompts": ("LIST", {"tooltip": "V5: up to 22 active character prompts; V4/V4.5: up to 6. V5 Curated inpainting uses V4.5 (6)."}),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **reference_inputs(),
+                **save_inputs(),
             }
         }
 
@@ -358,9 +362,10 @@ class NAIInpaintNode:
 
     def generate(self, image, mask, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, strength, seed,
                  scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None,
-                 limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True):
+                 limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True, save_format="PNG", webp_quality=90):
         if limit_opus_free:
             raise user_error("PAID_BLOCKED", RuntimeError, "limit_opus_free blocks inpainting because it can spend Anlas. Set it to False to allow paid requests.")
+        validate_save_options(save_format, webp_quality)
         model_id = get_model_id(model)
         validate_character_prompts(model_id, characterPrompts, inpainting=True)
         validate_references(model_id, vibes, references, inpainting=True)
@@ -409,8 +414,7 @@ class NAIInpaintNode:
 
         # Autosave
         save_folder, filename = NovelAIGenerator._get_save_path('NAI_inpaint', NovelAIGenerator._get_output_directory())
-        save_path = save_folder / f'{filename}.png'
-        save_path.write_bytes(png_bytes)
+        save_path = autosave(result_pil, save_folder / filename, payload=payload, save_format=save_format, webp_quality=webp_quality)
         print(f'Image saved: {save_path}')
 
         return (pil_to_tensor(result_pil),)
@@ -465,6 +469,7 @@ class NAIFaceDetailerNode:
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **_detailer_options(),
                 "mask_source": (["auto", "sam", "segm", "external_mask"], {"default": "auto"}),
+                **save_inputs(),
             }
         }
 
@@ -518,6 +523,7 @@ class NAIFaceDetailerSegmNode:
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **_detailer_options(),
                 "mask_source": (["auto", "sam", "segm", "external_mask"], {"default": "auto"}),
+                **save_inputs(),
             }
         }
 

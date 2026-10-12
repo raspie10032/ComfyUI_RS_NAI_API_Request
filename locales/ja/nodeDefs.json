@@ -148,6 +148,12 @@
       "normalize_vibe_strengths": {
         "name": "Vibe強度の正規化",
         "tooltip": "V4/V4.5 Vibeの強度の絶対値の合計が1.0を超える場合、強度を比例して下げます。"
+      },
+      "save_format": {
+        "name": "自動保存形式"
+      },
+      "webp_quality": {
+        "name": "WebP品質"
       }
     },
     "outputs": {
@@ -569,6 +575,12 @@
       "normalize_vibe_strengths": {
         "name": "Vibe強度の正規化",
         "tooltip": "V4/V4.5 Vibeの強度の絶対値の合計が1.0を超える場合、強度を比例して下げます。"
+      },
+      "save_format": {
+        "name": "自動保存形式"
+      },
+      "webp_quality": {
+        "name": "WebP品質"
       }
     },
     "outputs": {
@@ -652,6 +664,12 @@
       "normalize_vibe_strengths": {
         "name": "Vibe強度の正規化",
         "tooltip": "V4/V4.5 Vibeの強度の絶対値の合計が1.0を超える場合、強度を比例して下げます。"
+      },
+      "save_format": {
+        "name": "自動保存形式"
+      },
+      "webp_quality": {
+        "name": "WebP品質"
       }
     },
     "outputs": {
@@ -784,6 +802,12 @@
       "normalize_vibe_strengths": {
         "name": "Vibe強度の正規化",
         "tooltip": "V4/V4.5 Vibeの強度の絶対値の合計が1.0を超える場合、強度を比例して下げます。"
+      },
+      "save_format": {
+        "name": "自動保存形式"
+      },
+      "webp_quality": {
+        "name": "WebP品質"
       }
     },
     "outputs": {
@@ -922,6 +946,12 @@
       "normalize_vibe_strengths": {
         "name": "Vibe強度の正規化",
         "tooltip": "V4/V4.5 Vibeの強度の絶対値の合計が1.0を超える場合、強度を比例して下げます。"
+      },
+      "save_format": {
+        "name": "自動保存形式"
+      },
+      "webp_quality": {
+        "name": "WebP品質"
       }
     },
     "outputs": {
@@ -1103,6 +1133,12 @@
       "characterPrompts": {
         "name": "キャラクタープロンプト",
         "tooltip": "元のキャラクタープロンプトです。0〜1の座標は切り抜き結果基準で、全体キャンバスへ自動変換されます。"
+      },
+      "save_format": {
+        "name": "自動保存形式"
+      },
+      "webp_quality": {
+        "name": "WebP品質"
       }
     },
     "outputs": {
@@ -1160,6 +1196,23 @@
       },
       "2": {
         "name": "ネガティブプロンプト"
+      }
+    }
+  },
+  "NAILoadImage": {
+    "display_name": "NAI 画像読み込み",
+    "description": "画像を選ぶとノード内でNAIメタデータを読み取ります。復元した設定を選択した生成ノードに適用できます。ローカル処理のためAnlasは不要です。",
+    "inputs": {
+      "image": {
+        "name": "画像"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "画像"
+      },
+      "1": {
+        "name": "マスク"
       }
     }
   }

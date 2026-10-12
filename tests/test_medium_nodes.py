@@ -135,7 +135,11 @@ class MediumNodeTests(unittest.TestCase):
                     self.assertEqual(decoded_mask.getpixel((32, 32)), 255)
         saved = list(Path(self.temp.name).rglob("*.png"))
         self.assertEqual(len(saved), 3)
-        self.assertTrue(all(path.read_bytes() == self.png for path in saved))
+        for path in saved:
+            with Image.open(path) as stored, Image.open(io.BytesIO(self.png)) as original:
+                self.assertEqual(stored.tobytes(), original.tobytes())
+                self.assertEqual(stored.info.get("Comment"), original.info.get("Comment"))
+                self.assertIn("rs_nai", stored.info)
         self.assertEqual(self.characters[0].uc, "custom character negative")
 
     def test_medium_paid_nodes_fail_before_token_or_image_encoding(self):

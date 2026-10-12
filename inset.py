@@ -16,9 +16,10 @@ from PIL import Image, ImageOps
 
 from .diagnostics import notice
 from .errors import user_error
+from .metadata import autosave, save_inputs, validate_save_options
 from .generators import CharacterPrompt, NovelAIGenerator
 from .image_utils import (
-    pil_to_base64, pil_to_tensor, png_bytes_to_pil, save_png_preserving_metadata,
+    pil_to_base64, pil_to_tensor, png_bytes_to_pil,
     tensor_to_pil, validate_single_image,
 )
 from .nai_api import (
@@ -132,6 +133,7 @@ class NAIReferenceInsetGenerate:
             "sampler": (SAMPLER_LIST, {"default": "k_euler_ancestral"}),
             "scheduler": (SCHEDULER_LIST, {"default": "karras"}),
             "characterPrompts": ("LIST", {"tooltip": "Original character prompts. Coordinates 0–1 refer to the generated output and are mapped to the full canvas automatically."}),
+            **save_inputs(),
         }}
 
     RETURN_TYPES = ("IMAGE", "IMAGE", "STRING")
@@ -140,10 +142,11 @@ class NAIReferenceInsetGenerate:
     CATEGORY = "RS_NovelAI_API/Reference Inset"
 
     def generate(self, inset, prompt, negative_prompt, model, seed, steps, cfg_scale,
-                 limit_opus_free=True, sampler="k_euler_ancestral", scheduler="karras", characterPrompts=None):
+                 limit_opus_free=True, sampler="k_euler_ancestral", scheduler="karras", characterPrompts=None, save_format="PNG", webp_quality=90):
         if limit_opus_free:
             raise user_error("PAID_BLOCKED", RuntimeError,
                              "Reference inset uses ordinary inpainting and may spend Anlas. Use the preparation node for a free local preview, or set limit_opus_free=False to permit generation.")
+        validate_save_options(save_format, webp_quality)
         if not isinstance(inset, ReferenceInset):
             raise user_error("INSET_LAYOUT", ValueError, "Connect the inset output of NAI Reference Inset.")
         width, height = inset.canvas.size
@@ -171,8 +174,10 @@ class NAIReferenceInsetGenerate:
         cropped = composite.crop(inset.target_box)
         generated.info["rs_nai_inset"] = json.dumps({"version": 1, "canvas_size": [width, height], "crop_box": list(inset.target_box)})
         folder, filename = NovelAIGenerator._get_save_path("NAI_inset", NovelAIGenerator._get_output_directory(), "inset")
-        save_png_preserving_metadata(composite, folder / f"{filename}_canvas.png", generated)
-        save_png_preserving_metadata(cropped, folder / f"{filename}.png", generated)
+        for result, name in ((composite, f"{filename}_canvas"), (cropped, filename)):
+            autosave(result, folder / name, source_image=generated, payload=payload, operation="inset",
+                     extra={"canvas_size": [width, height], "crop_box": list(inset.target_box)},
+                     save_format=save_format, webp_quality=webp_quality)
         notice(f"Reference inset: canvas {width}×{height}; cropped output {cropped.width}×{cropped.height}. Applied prompt: {prompt}")
         return (pil_to_tensor(cropped), pil_to_tensor(composite), prompt)
 
