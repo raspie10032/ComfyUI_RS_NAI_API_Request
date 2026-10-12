@@ -478,10 +478,6 @@ Image-to-image and general inpainting use a base image and can cost Anlas even a
 
 This is a conservative preflight, not a billing guarantee: NovelAI may change its pricing or usage accounting, and a separate client or ComfyUI process can consume the same allowance after the check. The check does not read or compare your Anlas balance. See NovelAI's [subscription rules](https://docs.novelai.net/en/subscription/) and [V5 usage FAQ](https://docs.novelai.net/en/faq/).
 
-## Screenshots
-
-*(Screenshots placeholders)*
-
 ## Requirements
 
 - `requests`
@@ -556,7 +552,9 @@ Copyright (c) 2025 raspie10032
 
 ## Workflow Examples
 
-Files in `workflow_example/` (`example.json`, `example.png`) are project-provided examples distributed with this project under GPL-3.0-only unless otherwise noted.
+Start with the [four-character V5 + WD walkthrough](examples/four-character-v5-wd/README.md) for current workflow PNGs, JSON files, and real ComfyUI screenshots. See the [reference inset guide](docs/reference-inset.md) for inset examples and [Vibe Transfer and Precise Reference](#vibe-transfer-and-precise-reference) for reference API graphs.
+
+Project-provided examples in `examples/` and `workflow_example/` are distributed under GPL-3.0-only unless otherwise noted.
 
 ## Detailer validation
 
@@ -565,6 +563,7 @@ Run `python -m unittest discover -s tests -v` for deterministic regression tests
 
 For an optional real-weight CPU smoke after installing tagger dependencies, run
 `python tests/smoke_wd_tagger.py --cache-dir /path/to/model-cache --output /path/to/result.json`.
-This uses the repository screenshot and supplied face-box fixtures, then runs
+This uses the regression image in `tests/fixtures/wd-tagger-two-characters.png`
+and supplied face-box fixtures, then runs
 real PyTorch tagging and automatic matching, including the tighter-crop retry.
 It does not run live YOLO, SAM, ComfyUI UI execution or NovelAI generation.

@@ -3,7 +3,7 @@
 Run from package root:
     python tests/smoke_wd_tagger.py --cache-dir /path/to/cache --output /path/to/result.json
 
-Uses supplied face-box fixtures on the repository screenshot, not interactive
+Uses supplied face-box fixtures on the regression image, not interactive
 region assignment. The runtime itself automatically selects the character slots.
 """
 
@@ -33,7 +33,7 @@ def main():
     parser.add_argument("--device", choices=["auto", "cpu"], default="cpu")
     parser.add_argument("--batch-size", type=int, default=1)
     args = parser.parse_args()
-    image = Image.open(ROOT / "workflow_example/example.png").convert("RGB")
+    image = Image.open(ROOT / "tests/fixtures/wd-tagger-two-characters.png").convert("RGB")
     boxes = [(3580, 405, 3750, 560), (3650, 695, 3860, 860)]
     regions = [SimpleNamespace(bbox=b, crop_region=b) for b in boxes]
     detector = SimpleNamespace(
@@ -82,7 +82,7 @@ def main():
         "model_name": args.model_name,
         "model_revision": MODELS[args.model_name][1],
         "device": args.device,
-        "source": "repository screenshot with supplied face-box fixtures",
+        "source": "tests/fixtures/wd-tagger-two-characters.png with supplied face-box fixtures",
         "validation": "real tagger/PyTorch and automatic matching; no live YOLO/SAM/NAI",
         "seconds_including_cached_load": time.monotonic() - start,
         "regions": json.loads(report),
