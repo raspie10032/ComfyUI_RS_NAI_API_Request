@@ -65,6 +65,9 @@ def node_request_delay(cls):
             "FLOAT", {"default": 0.0, "min": 0.0, "max": 3600.0, "step": 0.5,
                       "tooltip": "Wait before each NovelAI request, including each detail region and uncached Vibe encoding. 0 adds no delay. The built-in 2-second gap overlaps this timer; a longer server retry wait still applies. Preview-only runs do not wait. Stop cancels the countdown."}
         )}
+        # New context controls follow all legacy widgets, including this timer.
+        if "use_context_settings" in schema["optional"]:
+            schema["optional"]["use_context_settings"] = schema["optional"].pop("use_context_settings")
         return schema
 
     @wraps(function)

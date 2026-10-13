@@ -32,12 +32,15 @@ function setValue(node, name, value) {
 function applyMetadata(data, target) {
     const result = { applied: [], skipped: [], characters: true };
     if (!targets.has(target.comfyClass ?? target.type) || data.operation === "detailer" || data.operation === "inset" || data.warnings?.includes("inset_canvas_coordinates")) return result;
+    const usesContext = target.inputs?.some(i => i.name === "nai_context" && i.link != null) &&
+        target.widgets?.find(w => w.name === "use_context_settings")?.value !== false;
+    const inherited = new Set(["prompt", "negative_prompt", "model", "sampler", "scheduler", "steps", "cfg_scale", "cfg_rescale", "prefer_brownian", "variety_boost"]);
     const allowed = new Set(["prompt", "negative_prompt", "model", "width", "height", "seed", "sampler", "scheduler", "steps", "cfg_scale", "cfg_rescale", "prefer_brownian", "variety_boost", "strength", "noise"]);
     // Do not touch spending protection, reference connections, autosave or queue state.
     app.graph.beforeChange?.();
     for (const [key, value] of Object.entries(data.settings ?? {})) {
         if (!allowed.has(key)) continue;
-        const applied = setValue(target, key, value);
+        const applied = !(usesContext && inherited.has(key)) && setValue(target, key, value);
         (applied ? result.applied : result.skipped).push(key);
         if (key === "seed" && applied) setValue(target, "control_after_generate", "fixed");
     }
@@ -53,7 +56,8 @@ function applyMetadata(data, target) {
         [c.centers[0]?.x, c.centers[0]?.y].every(v => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1 && Math.abs(v * 10 - Math.round(v * 10)) < 1e-6));
     const editable = !characterNode || ((characterNode.comfyClass ?? characterNode.type) === "CharacterPromptSelect" &&
         !characterNode.inputs?.some(i => i.link != null) && (characterNode.outputs?.[0]?.links?.length ?? 0) <= 1);
-    if (data.characters_present === false) { /* Missing character metadata leaves connections intact. */ }
+    if (usesContext) { result.characters = data.characters_present === false; }
+    else if (data.characters_present === false) { /* Missing character metadata leaves connections intact. */ }
     else if ((chars.length || linked) && (!input || !supported || !editable)) result.characters = false;
     else if (!chars.length && linked) { target.disconnectInput(target.inputs.indexOf(input)); }
     else if (chars.length) {

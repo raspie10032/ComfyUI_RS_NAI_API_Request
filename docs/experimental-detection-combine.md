@@ -119,3 +119,28 @@ Tests cover NAI infill routing, preview without authentication/API, strict guard
 A real V5 image was previewed with the installed face SEGM model and with optional BBOX + SAM + eye BBOX. One real V5 Full inpainting request used SEGM, strength 0.35, 28 steps and seed 161616. It produced an edited face with 56,838 mask pixels and zero changed pixels outside that mask. Account balance before and after this single test was unchanged. This is one functional example, not a general quality or billing guarantee. The subsequent usability check also completed six real V5 Full face edits: four SEGM faces matched to characters 1–4 with WD ViT v3 at strength 0.35, one default SEGM portrait at strength 0.55, and one BBOX+SAM portrait at strength 0.35. All three output images preserved every pixel outside their editing masks. The balance stayed unchanged for each workflow; this does not establish free billing for other accounts or settings. The initial test-server run stopped before submission because its environment lacked the API token; after correcting that environment, the recorded rerun succeeded.
 
 The prototype is isolated from the published 2.7.1 release. Existing detailers keep their input schema and behavior; their feather default remains zero.
+
+
+## T2I → I2I → detailer context / 생성 설정 이어받기 / 生成設定の引き継ぎ
+
+**한국어:** T2I의 `image`와 `nai_context`를 각각 I2I의 같은 입력에 연결하고, I2I의 두 출력을 시험 디테일러의 `image`·`nai_context`에 연결합니다. 캐릭터 프롬프트는 T2I에 한 번만 연결하면 됩니다. 디테일러에는 감지 모델 콤바인 로더를 연결하고, 여러 캐릭터라면 태거 로더도 연결하세요. 컨텍스트의 여러 캐릭터는 자동 매칭으로 원래 프롬프트를 선택하며, 태거가 없으면 안내 오류로 중단합니다.
+
+컨텍스트는 **실제 전송한 공통/캐릭터 프롬프트·네거티브·모델·샘플러·스텝·CFG·스케줄러·CFG Rescale·Brownian·Variety 설정**을 전달합니다. Medium/Opus 제한으로 조정된 값도 반영합니다. **시드는 단계마다 따로 설정**합니다. 이전 시드는 기록용이며 다음 노드의 시드를 덮어쓰지 않습니다. I2I의 크기·강도·노이즈, 디테일러의 감지·매칭·마스크·크롭 설정, Anlas 보호·요청 지연·저장 설정도 각 노드에서 정합니다. Vibe/Precise 참조 이미지는 컨텍스트로 전달하지 않으므로 필요한 단계에 별도로 연결하세요.
+
+컨텍스트 연결 시 가져오는 설정은 접힙니다. `컨텍스트 설정 사용`을 끄거나 연결을 빼면 보존돼 있던 직접 입력값을 다시 사용합니다. 연결된 별도 `characterPrompts`보다 컨텍스트의 캐릭터 목록이 우선합니다. I2I는 성공한 자기 요청의 설정으로 새 컨텍스트를 출력합니다.
+
+**중간 I2I를 ComfyUI의 바이패스로 설정하면 이미지와 컨텍스트가 모두 T2I에서 디테일러로 바로 전달됩니다.** I2I 요청은 발생하지 않고 디테일러는 자기 시드를 사용합니다. 이미지 선과 컨텍스트 선을 모두 연결해야 합니다. `Mute`는 바이패스와 다르며 사용하지 마세요. 기존 IMAGE 출력은 0번 슬롯을 유지합니다. 기존 워크플로는 컨텍스트 연결 없이 사용할 수 있습니다.
+
+**English:** Connect both `image` and `nai_context` from T2I to I2I, then both outputs from I2I to the experimental detailer. Character prompts only need a connection to T2I. Add the detector combine loader to the detailer and a tagger for multiple characters. Multiple characters in context automatically use matching to select their original prompts; a missing tagger produces an explanation instead of a generation request.
+
+Context carries effective positive/negative common and character prompts, model, sampler, steps, CFG, scheduler, CFG Rescale, Brownian and Variety settings, after Medium/Opus normalization. **Every stage keeps its own seed.** Previous seeds are provenance only. Size, strength, noise, detection/matching/mask/crop settings, Anlas protection, request delay and saving remain local. Reference images are not carried; connect Vibe/Precise separately at the stage that needs them. Connected context overrides a separate character input. Turn off `use_context_settings` or disconnect context to restore manual values. I2I outputs a fresh context after its own successful request.
+
+**ComfyUI bypass on I2I forwards both IMAGE and NAI_CONTEXT from T2I to the detailer and skips the I2I request.** Keep both wires connected; use Bypass, not Mute. The detailer retains its local seed. The existing IMAGE output remains at slot 0, and older workflows do not require context.
+
+**日本語:** T2Iの`image`と`nai_context`をI2Iへ、I2Iの両出力を試験ディテーラーへ接続します。キャラクタープロンプトはT2Iに1回接続すれば十分です。ディテーラーには検出モデルのコンバインローダーを、複数キャラクターにはタガーも接続してください。複数キャラクターは自動照合で元のプロンプトを選び、タガーがなければ説明付きエラーで停止します。
+
+コンテキストは実際に送信した共通/キャラクターの正負プロンプト、モデル、サンプラー、ステップ、CFG、スケジューラ、CFG Rescale、Brownian、Varietyを引き継ぎます。Medium/Opusで調整した値も反映します。**シードは各ノードで別々に設定**し、前段のシードは記録のみです。サイズ・強度・ノイズ、検出/照合/マスク/余白、Anlas保護、待機時間、保存は各ノードの設定を使います。参照画像は引き継がないため、Vibe/Preciseは必要な段階へ別に接続してください。コンテキストのキャラクターは別接続のキャラクター入力より優先します。設定の使用を無効にするか接続を外すと手動値へ戻ります。I2Iは成功した自分のリクエストから新しいコンテキストを出力します。
+
+**I2IをComfyUIのBypassにすると画像とコンテキストの両方がT2Iからディテーラーへ直接渡り、I2Iリクエストは実行されません。** 両方の線を接続し、MuteではなくBypassを使ってください。ディテーラーのシードは独立です。既存のIMAGE出力はスロット0のままで、従来のワークフローにコンテキスト接続は不要です。
+
+Live validation (2026-10-13): a five-character V5 Full workflow used different T2I, I2I and detailer seeds. The normal chain completed four correctly matched edits and skipped one low-score character; the bypass chain completed all five. Both retained original prompts and the effective sampling settings, with identical preview/live masks and zero changed pixels outside those masks. The actual ComfyUI frontend routed both outputs around bypassed I2I, omitted it from the execution graph, and preserved that behavior after save/reload. These are functional examples, not a guarantee of character-matching quality: the initial broad matching crop misidentified a blue-haired character after I2I. Tightening the matching crop resolved that assignment, while the red-haired character remained below the unchanged score threshold. Inspect the matching preview for each source image.

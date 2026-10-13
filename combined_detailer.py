@@ -6,6 +6,8 @@ from types import SimpleNamespace
 import numpy as np
 
 from .detector_bundle import DetectionBundle
+from .diagnostics import notice
+from .generation_context import context_inputs, inherit_context
 from .generators import NAIFaceDetailerNode
 from .image_utils import tensor_to_pil, validate_single_image
 from .mask_repair import bounds, plan_masks
@@ -97,6 +99,7 @@ class NAICombinedFaceDetailerTest:
             "fill_holes": ("BOOLEAN", {"default": True, "tooltip": "Fill enclosed holes within the repair limits, before dilation."}),
             "dilation": ("INT", {"default": 8, "min": 0, "max": 128, "tooltip": "Extra editing room in original-image pixels, after hole/notch filling."}),
             "mask_feather": ("INT", {"default": 8, "min": 0, "max": 64, "tooltip": "Blend inside the expanded mask. Separate from crop context and dilation."}),
+            **context_inputs(),
         }}
 
     RETURN_TYPES = ("IMAGE", "IMAGE", "STRING")
@@ -109,13 +112,21 @@ class NAICombinedFaceDetailerTest:
                preview_only=True, show_advanced=False, closing=True, fill_holes=True,
                dilation=8, mask_feather=8, sampler="k_euler", steps=28, cfg_scale=6.0,
                scheduler="karras", threshold=0.3, bbox_threshold=0.3, crop_factor=3.0,
-               detail_mode="all", max_regions=5, **options):
+               detail_mode="all", max_regions=5, nai_context=None, use_context_settings=True, **options):
         from .detailer import run_face_detail
         from .errors import user_error
         if not isinstance(detectors, DetectionBundle):
             raise ValueError("Connect NAI Detection Combine Loader (Test). / NAI 감지 모델 콤바인 로더(시험)를 연결해 주세요.")
         if detectors.segm_detector is None and detectors.bbox_detector is None:
             raise user_error("DETECTION_MODEL_SELECTION", ValueError, "Select a primary SEGM or BBOX model in the combine loader.")
+        inherited = inherit_context(nai_context, use_context_settings)
+        if inherited is not None:
+            prompt, negative_prompt, model, sampler, steps, cfg_scale, scheduler = (
+                inherited.pop(key) for key in ("prompt", "negative_prompt", "model", "sampler", "steps", "cfg_scale", "scheduler"))
+            options.update(inherited)
+            if len(options["characterPrompts"]) > 1 and options.get("matching_mode", "shared") == "shared":
+                options["matching_mode"] = "wd14"
+                notice("Multiple characters in NAI context: automatic character matching requires a connected tagger. / 컨텍스트에 여러 캐릭터가 있어 태거로 원래 캐릭터 프롬프트를 선택합니다. 태거 로더를 연결해 주세요. / 複数キャラクターの選択にはタガーローダーを接続してください。")
         validate_single_image(image)
         if isinstance(mask_feather, bool) or not isinstance(mask_feather, int) or not 0 <= mask_feather <= 64:
             raise ValueError("mask_feather must be 0–64 pixels. / 경계 부드러움은 0~64픽셀로 설정해 주세요.")

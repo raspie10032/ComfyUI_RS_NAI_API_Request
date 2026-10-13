@@ -21,6 +21,7 @@ from .image_utils import (
 )
 from .metadata import autosave, save_inputs, validate_save_options
 from .diagnostics import notice
+from .generation_context import context_inputs, context_from_payload, inherit_context, INHERITED_FIELDS
 from .nai_api import (
     MODEL_DISPLAY_LIST,
     MODEL_SELECTION_TOOLTIP,
@@ -146,7 +147,7 @@ class CharacterPromptSelect:
         return (character_prompts,)
 
 class NovelAIGenerator:
-    DESCRIPTION = "Generates one image. Opus limits and fixed Medium settings appear as execution notices. V3/Furry cannot use characterPrompts. Autosaves retain NovelAI metadata."
+    DESCRIPTION = "Generates one image. Opus limits and fixed Medium settings appear as execution notices. V3/Furry cannot use characterPrompts. Autosaves retain NovelAI metadata. NAI context outputs the effective prompts, characters and generation settings for Img2Img or the combined detailer. Each stage keeps its own seed."
     def __init__(self):
         self.output_dir = self._get_output_directory()
 
@@ -196,7 +197,8 @@ class NovelAIGenerator:
             }
         }
 
-    RETURN_TYPES = ("IMAGE",)
+    RETURN_TYPES = ("IMAGE", "NAI_CONTEXT")
+    RETURN_NAMES = ("image", "nai_context")
     FUNCTION = "generate"
     CATEGORY = "RS_NovelAI_API/Generation"
 
@@ -240,10 +242,10 @@ class NovelAIGenerator:
         save_path = autosave(pil_img, save_folder / filename, payload=payload, save_format=save_format, webp_quality=webp_quality)
         print(f'Image saved: {save_path}')
 
-        return (pil_to_tensor(pil_img),)
+        return (pil_to_tensor(pil_img), context_from_payload(payload))
 
 class NAIImg2ImgNode:
-    DESCRIPTION = "Requires one image; split batches before use. General img2img requires limit_opus_free=False and may spend Anlas. Width/height resize the source to the requested size."
+    DESCRIPTION = "Requires one image; split batches before use. General img2img requires limit_opus_free=False and may spend Anlas. Width/height resize the source to the requested size. NAI context inherits prompts, characters, model and sampling settings. Seed remains local. The context output records the settings actually sent by this stage."
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -270,18 +272,26 @@ class NAIImg2ImgNode:
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **reference_inputs(),
                 **save_inputs(),
+                **context_inputs(),
             }
         }
 
-    RETURN_TYPES = ("IMAGE",)
+    RETURN_TYPES = ("IMAGE", "NAI_CONTEXT")
+    RETURN_NAMES = ("image", "nai_context")
     FUNCTION = "generate"
     CATEGORY = "RS_NovelAI_API/Generation"
 
     def generate(self, image, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, strength, seed,
                  scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None,
-                 limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True, save_format="PNG", webp_quality=90):
+                 limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True, save_format="PNG", webp_quality=90,
+                 nai_context=None, use_context_settings=True):
         if limit_opus_free:
             raise user_error("PAID_BLOCKED", RuntimeError, "limit_opus_free blocks image-to-image because it can spend Anlas. Set it to False to allow paid requests.")
+        inherited = inherit_context(nai_context, use_context_settings)
+        if inherited is not None:
+            (prompt, negative_prompt, model, sampler, steps, cfg_scale, scheduler,
+             cfg_rescale, prefer_brownian, variety_boost, characterPrompts) = (
+                inherited[key] for key in INHERITED_FIELDS)
         validate_save_options(save_format, webp_quality)
         model_id = get_model_id(model)
         validate_character_prompts(model_id, characterPrompts)
@@ -322,7 +332,7 @@ class NAIImg2ImgNode:
         save_path = autosave(result_pil, save_folder / filename, payload=payload, save_format=save_format, webp_quality=webp_quality)
         print(f'Image saved: {save_path}')
 
-        return (pil_to_tensor(result_pil),)
+        return (pil_to_tensor(result_pil), context_from_payload(payload))
 
 class NAIInpaintNode:
     DESCRIPTION = "Requires one image and one nonempty mask; white repaints and black preserves. Width/height resize image and mask. Requires limit_opus_free=False and may spend Anlas. V5 Curated falls back to V4.5 Curated inpainting."

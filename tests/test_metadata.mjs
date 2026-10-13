@@ -41,3 +41,7 @@ t=target();t.inputs.push({name:'prompt',link:4});data=fixture();assert.ok(contex
 for(const operation of ['detailer','inset']){t=target();context.testApply({...fixture(),operation},t);assert.equal(value(t,'prompt'),'old');assert.equal(t.inputs[0].link,null);}
 t=target();const q=t.widgets.find(w=>w.name==='webp_quality');q.type='number';context.testQuality(t);assert.equal(q.hidden,true);t.widgets.find(w=>w.name==='save_format').value='WebP lossy';context.testQuality(t);assert.equal(q.type,'number');assert.ok(!q.hidden);assert.equal(q.value,90);
 console.log('PASS: metadata apply, fixed seed, spending/save preservation, character connection, shared/linked/missing inputs, unsupported coordinates/count, composite/inset exclusion, quality toggle');
+// Context-owned values must not be falsely reported as applied by the image loader.
+t=target();t.type='NAIImg2ImgNode';t.inputs.push({name:'nai_context',link:5});t.widgets.push({name:'use_context_settings',value:true,options:{}});
+const inheritedResult=context.testApply(fixture(),t);
+assert.ok(inheritedResult.skipped.includes('prompt'));assert.equal(inheritedResult.characters,false);assert.equal(value(t,'prompt'),'old');assert.equal(value(t,'seed'),123);assert.equal(t.inputs[0].link,null);

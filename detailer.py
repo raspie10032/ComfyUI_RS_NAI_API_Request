@@ -310,6 +310,9 @@ def run_face_detail(
     save_format="PNG",
     webp_quality=90,
     mask_feather=0,
+    cfg_rescale=0.0,
+    prefer_brownian=False,
+    variety_boost=True,
 ):
     from .generators import NovelAIGenerator, mask_to_grid_boxes
 
@@ -642,9 +645,9 @@ def run_face_detail(
             cfg_scale,
             request_negative,
             scheduler=scheduler,
-            cfg_rescale=0.0,
-            prefer_brownian=False,
-            variety_boost=True,
+            cfg_rescale=cfg_rescale,
+            prefer_brownian=prefer_brownian,
+            variety_boost=variety_boost,
             model_id=model_id,
         )
         if reference_params is None:

@@ -42,15 +42,19 @@ function updateLoader(node, clearProgress = false) {
 
 const targets = {
     NAIDetectorCombineLoaderTest: ["show_optional_models", new Set(["face_segm_model", "face_bbox_model", "sam_model", "show_optional_models"])],
-    NAICombinedFaceDetailerTest: ["show_advanced", new Set(["prompt", "negative_prompt", "model", "strength", "seed", "control_after_generate", "preview_only", "show_advanced", "limit_opus_free"])],
+    NAICombinedFaceDetailerTest: ["show_advanced", new Set(["prompt", "negative_prompt", "model", "strength", "seed", "control_after_generate", "preview_only", "show_advanced", "limit_opus_free", "use_context_settings"])],
 };
 
 function update(node, toggle, basic) {
     const expanded = Boolean(node.widgets?.find(w => w.name === toggle)?.value);
+    const inherited = node.inputs?.some(i => i.name === "nai_context" && i.link != null) &&
+        node.widgets?.find(w => w.name === "use_context_settings")?.value !== false;
+    const fields = new Set(["prompt", "negative_prompt", "model", "sampler", "steps", "cfg_scale", "scheduler", "cfg_rescale", "prefer_brownian", "variety_boost"]);
     for (const widget of node.widgets ?? []) {
-        if (basic.has(widget.name) || widget.options?.serialize === false) continue;
-        const hide = !expanded || (widget.name === "webp_quality" &&
-            node.widgets.find(w => w.name === "save_format")?.value !== "WebP lossy");
+        if (widget.options?.serialize === false) continue;
+        const hide = (inherited && fields.has(widget.name)) || (!basic.has(widget.name) &&
+            (!expanded || (widget.name === "webp_quality" &&
+            node.widgets.find(w => w.name === "save_format")?.value !== "WebP lossy")));
         if (hide && !widget.rsNaiDetectionVisible && !widget.type?.startsWith("converted-widget")) {
             widget.rsNaiDetectionVisible = { type: widget.type, computeSize: widget.computeSize, hidden: widget.hidden };
             widget.type = "rs-nai-detection-hidden";
@@ -86,7 +90,7 @@ app.registerExtension({
                     }
                 }
                 if (hook === "onNodeCreated") {
-                    for (const name of [toggle, "save_format", ...(nodeData.name === "NAIDetectorCombineLoaderTest" ? modelFields : [])]) {
+                    for (const name of [toggle, "save_format", "use_context_settings", ...(nodeData.name === "NAIDetectorCombineLoaderTest" ? modelFields : [])]) {
                         const widget = this.widgets?.find(w => w.name === name);
                         if (widget) {
                             const callback = widget.callback;
@@ -103,11 +107,11 @@ app.registerExtension({
                 return result;
             };
         }
-        if (nodeData.name === "NAIDetectorCombineLoaderTest") {
+        {
             const previous = nodeType.prototype.onConnectionsChange;
             nodeType.prototype.onConnectionsChange = function () {
                 const result = previous?.apply(this, arguments);
-                updateLoader(this, true);
+                if (nodeData.name === "NAIDetectorCombineLoaderTest") updateLoader(this, true);
                 update(this, toggle, basic);
                 return result;
             };

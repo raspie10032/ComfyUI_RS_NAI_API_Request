@@ -83,7 +83,7 @@ class MediumNodeTests(unittest.TestCase):
             (generators.NAIInpaintNode, {"image": torch.zeros((1, 64, 64, 3)), "mask": torch.ones((1, 64, 64)), "strength": 0.5}),
         ):
             with self.subTest(node=node.__name__):
-                output, = node().generate(**self.options(), **extra, limit_opus_free=False)
+                output, *_ = node().generate(**self.options(), **extra, limit_opus_free=False)
                 self.assertEqual(tuple(output.shape), (1, 64, 64, 3))
                 params = self.post.call_args.kwargs["json"]["parameters"]
                 self.assertEqual([c["char_caption"] for c in params["v4_prompt"]["caption"]["char_captions"]],
@@ -103,7 +103,7 @@ class MediumNodeTests(unittest.TestCase):
             with self.subTest(action=action):
                 self.get.reset_mock()
                 self.post.reset_mock()
-                output, = node().generate(**self.options(), **extra, limit_opus_free=strict)
+                output, *_ = node().generate(**self.options(), **extra, limit_opus_free=strict)
                 self.assertEqual(tuple(output.shape), (1, 64, 64, 3))
                 self.assertEqual(output[0, 0, 0].tolist(), [0.0, 1.0, 1.0])
                 self.post.assert_called_once()

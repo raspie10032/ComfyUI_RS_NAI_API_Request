@@ -152,7 +152,8 @@ class MetadataTests(unittest.TestCase):
         for value in (0, 101, True, 2.5):
             with self.assertRaises(ValueError): meta.validate_save_options('WebP lossy', value)
         for cls in (generators.NovelAIGenerator, generators.NAIImg2ImgNode, generators.NAIInpaintNode, generators.NAIFaceDetailerNode, generators.NAIFaceDetailerSegmNode):
-            self.assertEqual(list(cls.INPUT_TYPES()['optional'])[-3:], ['save_format','webp_quality','request_delay_seconds'])
+            legacy_fields = [key for key in cls.INPUT_TYPES()['optional'] if key not in {'nai_context', 'use_context_settings'}]
+            self.assertEqual(legacy_fields[-3:], ['save_format','webp_quality','request_delay_seconds'])
 
 
 class NodeSaveTests(unittest.TestCase):
