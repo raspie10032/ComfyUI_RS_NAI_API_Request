@@ -388,6 +388,47 @@ def apply_opus_free_limits(width, height, steps, limit_opus_free):
     return width, height, steps
 
 
+def notice_character_count_difference(prompt, character_prompts):
+    """Explain explicit count-tag mismatches without rewriting scene intent.
+
+    Count only standalone, positive numeric tags. Natural-language counts and
+    conflicting tags are ambiguous; this is guidance, not prompt validation.
+    """
+    if not character_prompts:
+        return
+    import re
+    counts = {}
+    tags = []
+    for part in re.split(r"[,\n]", prompt):
+        match = re.fullmatch(
+            r"(?:([0-9]+(?:\.[0-9]+)?)::\s*)?([1-9]\d*)\s*(girls?|boys?|people|persons?|characters?)(?:\s*::)?",
+            part.strip(), re.IGNORECASE,
+        )
+        if not match or (match[1] is not None and float(match[1]) <= 0):
+            continue
+        kind = match[3].lower()
+        kind = "girls" if kind.startswith("girl") else "boys" if kind.startswith("boy") else "total"
+        counts.setdefault(kind, set()).add(int(match[2]))
+        tags.append(f"{match[2]}{match[3]}")
+    if not counts or any(len(values) != 1 for values in counts.values()):
+        return
+    gender_total = sum(next(iter(counts[k])) for k in ("girls", "boys") if k in counts)
+    total = next(iter(counts["total"])) if "total" in counts else gender_total
+    if ("total" in counts and gender_total and gender_total != total) or total == len(character_prompts):
+        return
+    from .diagnostics import notice
+    active = len(character_prompts)
+    label = ", ".join(dict.fromkeys(tags))
+    notice(
+        f"Common prompt count tags ({label}) describe {total} people; {active} character prompts are active. "
+        "Changing character_count does not rewrite the common prompt. If changing the scene's person count, update its tags and wording too.\n"
+        f"공통 프롬프트의 인원 태그({label})는 {total}명, 활성 캐릭터 프롬프트는 {active}개입니다. "
+        "캐릭터 슬롯 수를 바꿔도 공통 프롬프트는 그대로입니다. 그림의 인원수를 바꾸려면 태그와 문장도 수정해 주세요.\n"
+        f"共通プロンプトの人数タグ（{label}）は{total}人、有効なキャラクタープロンプトは{active}件です。"
+        "スロット数を変更しても共通プロンプトは変わりません。描く人数を変える場合はタグと文章も修正してください。"
+    )
+
+
 def build_v4_prompt(
     prompt,
     negative_prompt,
@@ -396,6 +437,7 @@ def build_v4_prompt(
     use_order=True,
     allow_character_uc=True,
 ):
+    notice_character_count_difference(prompt, character_prompts)
     char_captions = []
     neg_char_captions = []
     if character_prompts:

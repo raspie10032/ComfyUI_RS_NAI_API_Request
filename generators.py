@@ -73,7 +73,7 @@ class CharacterPrompt:
         self.center = {"x": x, "y": y}
 
 class CharacterPromptSelect:
-    DESCRIPTION = "Choose character_count to show 1–22 slots (default 5). Hidden slots keep their values but are excluded from output. V5 supports 22 active prompts; V4/V4.5 and V5 Curated inpainting support 6. X/Y are normalized 0–1 coordinates; migrate old 0–10 values by dividing by ten. Positions guide the model; they are not hard masks."
+    DESCRIPTION = "Choose character_count to show 1–22 slots (default 5). Hidden slots keep their values but are excluded from output. This does not change the common prompt: update tags such as 5girls and phrases such as five women separately. V5 supports 22 active prompts; V4/V4.5 and V5 Curated inpainting support 6. X/Y are normalized 0–1 coordinates; migrate old 0–10 values by dividing by ten. Positions guide the model; they are not hard masks."
     @classmethod
     def INPUT_TYPES(cls):
         inputs = {
@@ -109,7 +109,7 @@ class CharacterPromptSelect:
 
         inputs["optional"]["character_count"] = ("INT", {
             "default": 5, "min": 1, "max": MAX_CHARACTER_SLOTS,
-            "tooltip": "Show and use only these slots. Hidden values are kept. V5: 22; V4/V4.5 and V5 Curated inpainting: 6. Disable individual slots to skip them.",
+            "tooltip": "Show and use only these slots. Hidden values are kept but not sent to NAI. Update the common prompt's person count (e.g. 5girls, five women) separately. V5: 22; V4/V4.5 and V5 Curated inpainting: 6. Disable individual slots to skip them.",
         })
         for i in range(6, MAX_CHARACTER_SLOTS + 1):
             inputs["optional"].update({
@@ -144,6 +144,19 @@ class CharacterPromptSelect:
                 x = round(max(0.0, min(1.0, float(x_val))), 1)
                 y = round(max(0.0, min(1.0, float(y_val))), 1)
                 character_prompts.append(CharacterPrompt(prompt, uc, x, y))
+        excluded = [str(i) for i in range(character_count + 1, MAX_CHARACTER_SLOTS + 1)
+                    if kwargs.get(f"character{i}_enable", i >= 6) and kwargs.get(f"character{i}", "")]
+        if excluded:
+            slots = ", ".join(excluded)
+            count = len(character_prompts)
+            notice(
+                f"Using {count} character prompts. Stored slots {slots} are excluded from output, including NAI context. "
+                "Update the common prompt's person count separately (e.g. 5girls → 3girls, five women → three women).\n"
+                f"캐릭터 프롬프트 {count}개 사용. 저장된 {slots}번 슬롯은 출력과 NAI 컨텍스트에서 제외됩니다. "
+                "공통 프롬프트의 인원수는 별도로 바꿔 주세요(예: 5girls → 3girls, five women → three women).\n"
+                f"キャラクタープロンプトを{count}件使用。保存済みスロット {slots} は出力とNAIコンテキストから除外されます。"
+                "共通プロンプトの人数は別途変更してください（例: 5girls → 3girls、five women → three women）。"
+            )
         return (character_prompts,)
 
 class NovelAIGenerator:

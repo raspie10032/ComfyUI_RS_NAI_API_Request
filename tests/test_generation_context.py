@@ -89,6 +89,33 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(updated.negative_prompt, source.negative_prompt)
         self.assertEqual(updated.model, source.model)
 
+    def test_five_three_five_updates_requests_and_context_without_stale_characters(self):
+        values = {f"character{i}": f"original character {i}" for i in range(1, 6)}
+        values.update({f"character{i}_enable": True for i in range(2, 6)})
+        saved = copy.deepcopy(values)
+        selector = g.CharacterPromptSelect()
+        snapshots = []
+        for count in (5, 3, 5):
+            with self.subTest(count=count):
+                chars, = selector.build_character_prompt(character_count=count, **values)
+                image, source = self.source(prompt="style, 5girls, five women", characterPrompts=chars)
+                expected = [f"original character {i}" for i in range(1, count + 1)]
+                def check_request():
+                    p = self.transport.post.call_args.kwargs["json"]["parameters"]
+                    self.assertEqual([c["char_caption"] for c in p["v4_prompt"]["caption"]["char_captions"]], expected)
+                    self.assertEqual(len(p["v4_negative_prompt"]["caption"]["char_captions"]), count)
+                check_request()
+                _, updated = self.i2i(image, source)
+                check_request()
+                # The detailer's context resolver must see the same candidates,
+                # whether it receives I2I's output or bypasses I2I to use T2I.
+                for context in (source, updated):
+                    self.assertEqual([c.prompt for c in inherit_context(context, True)["characterPrompts"]], expected)
+                    self.assertEqual(context.prompt, "style, 5girls, five women")
+                snapshots.append(source)
+        self.assertEqual([len(c.characters) for c in snapshots], [5, 3, 5])
+        self.assertEqual(values, saved)
+
     def test_no_context_and_disabled_context_keep_manual_values(self):
         image, source = self.source()
         for context in (source, object(), None):

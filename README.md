@@ -233,6 +233,8 @@ Main node for text-to-image generation.
 ### 2. NAI Character Prompt Select (`CharacterPromptSelect`)
 Defines up to 22 characters with spatial coordinates (0.0–1.0 scale). Start with the default five slots and increase `character_count` as needed. V4/V4.5 accept 6 active prompts; V5 accepts 22 (except V5 Curated inpainting: 6). Newly revealed slots 6–22 are enabled; fill them in or turn off their individual switch. Slots outside the count are excluded even if their switches are on.
 
+**Changing the slot count does not rewrite the common prompt.** When changing a five-person example to three people, also change `5girls` to `3girls`, `five women` to `three women`, and `all five faces visible` to `all three faces visible`. Otherwise the scene still asks for five people even though only three character prompts reach NAI and the context output. Execution notices show when stored slots are excluded and when simple numeric person-count tags disagree with the active character prompts. These are hints, not generation errors: crowd scenes and repeated characters can intentionally have different counts. Natural-language counts are not automatically interpreted or edited.
+
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
 | `character_count` | INT | Visible/usable slots, 1–22; default 5. Hidden values are preserved. |

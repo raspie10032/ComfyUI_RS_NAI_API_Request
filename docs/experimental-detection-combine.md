@@ -60,7 +60,15 @@ Model sources: [Anzhc](https://huggingface.co/Anzhc/Anzhcs_YOLOs), [Bingsu/adeta
 
 An example workflow is in [examples/experimental/NAI_detection_combo_test.json](../examples/experimental/NAI_detection_combo_test.json). Choose your own image after loading; the default face SEGM downloads automatically on first execution if missing. The example starts in preview mode and shows the image/detections and editing mask together. White mask pixels are editable; black pixels are preserved.
 
+### Changing the example's person count
+
+Reducing `character_count` from 5 to 3 excludes slots 4 and 5 from generation and NAI context. Their saved text remains available if you expand the slots again. Also update the T2I common prompt: `5girls` → `3girls`, `five women` → `three women`, and `all five faces visible` → `all three faces visible`. I2I and the detailer inherit the common prompt unchanged. `max_regions` limits editing regions; it does not set the number of people drawn. The same character can be matched to more than one region.
+
 ## 한국어
+
+### 예제의 인원수 바꾸기
+
+`character_count`를 5에서 3으로 줄이면 4·5번 슬롯은 생성 요청과 NAI 컨텍스트에서 제외됩니다. 저장된 내용은 다시 펼칠 때 복원하기 위해 남겨둡니다. **T2I 공통 프롬프트도** `5girls` → `3girls`, `five women` → `three women`, `all five faces visible` → `all three faces visible`로 바꿔 주세요. I2I와 디테일러는 공통 프롬프트를 그대로 이어받습니다. `max_regions`는 보정할 영역 수의 상한이며 그림에 나올 인원수를 정하지 않습니다. 같은 캐릭터가 여러 영역에 매칭될 수도 있습니다.
 
 **단, 처리 수가 많을수록 품질을 보장하지 못합니다.** 처리 영역이 많아지면 감지·캐릭터 매칭·보정 품질이 떨어질 수 있으므로, 미리보기를 확인하고 적은 수부터 시험해 주세요.
 
@@ -87,6 +95,10 @@ An example workflow is in [examples/experimental/NAI_detection_combo_test.json](
 피부 모델은 옷 입은 전신을 잡는 모델이 아닙니다. 전신은 `person` 모델을 쓰고, 손 BBOX를 쓰려면 먼저 SEGM을 OFF로 바꿔 주세요. 눈만 보정하려면 기본 SEGM/BBOX 선택칸에서 눈 모델을 고릅니다. 얼굴 전용 입력 이름은 예전 시험 워크플로 호환을 위해 내부적으로 유지합니다.
 
 ## 日本語
+
+### サンプルの人数を変更する
+
+`character_count`を5から3に減らすと、スロット4・5は生成リクエストとNAIコンテキストから除外されます。再び表示したときに復元できるよう、入力内容は保存されます。**T2Iの共通プロンプトも** `5girls` → `3girls`、`five women` → `three women`、`all five faces visible` → `all three faces visible`に変更してください。I2Iとディテーラーは共通プロンプトをそのまま引き継ぎます。`max_regions`は補正領域数の上限で、描く人数の指定ではありません。同じキャラクターが複数領域に照合される場合もあります。
 
 **ただし、処理する領域数が多くなるほど、品質を保証できません。** 検出・キャラクターの照合・補正の品質が低下する可能性があるため、プレビューを確認し、少ない領域数からお試しください。
 

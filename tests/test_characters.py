@@ -36,6 +36,48 @@ class CharacterCapacityTests(unittest.TestCase):
             with self.subTest(count=count), self.assertRaisesRegex(ValueError, "character_count"):
                 self.build(count)
 
+    def test_reduce_restore_excludes_stored_slots_and_reports_effective_count(self):
+        values = {f"character{i}": f"character {i}" for i in range(1, 6)}
+        values.update({f"character{i}_enable": True for i in range(2, 6)})
+        node = generators.CharacterPromptSelect()
+        for count in (5, 3, 5):
+            with self.subTest(count=count):
+                result = node.build_character_prompt(character_count=count, unique_id="8", **values)
+                self.assertEqual([c.prompt for c in result["result"][0]], [f"character {i}" for i in range(1, count + 1)])
+                messages = result["ui"]["rs_nai_notice"]
+                if count == 3:
+                    self.assertIn("Stored slots 4, 5 are excluded", messages[0])
+                    self.assertIn("캐릭터 프롬프트 3개", messages[0])
+                else:
+                    self.assertEqual(messages, [])
+        self.assertEqual(values["character5"], "character 5")
+
+    def test_count_mismatch_notice_preserves_request_and_uses_active_slots(self):
+        chars = self.build(3)
+        with mock.patch("ComfyUI_RS_NAI_API_Request.diagnostics.notice") as note:
+            prompt = "style, 5girls, five women, all five faces visible"
+            result = nai_api.build_v4_prompt(prompt, "5boys", chars)
+            self.assertIn("5girls", note.call_args.args[0])
+            self.assertIn("3 character prompts are active", note.call_args.args[0])
+            self.assertEqual(result["v4_prompt"]["caption"]["base_caption"], prompt)
+            self.assertEqual(len(result["v4_prompt"]["caption"]["char_captions"]), 3)
+            self.assertEqual(len(result["v4_negative_prompt"]["caption"]["char_captions"]), 3)
+
+    def test_count_hint_handles_mixed_tags_and_skips_ambiguous_counts(self):
+        chars = self.build(3)
+        for prompt, warns in (("1girl, 2boys", False), ("2girls, 2boys", True),
+                              ("5girls, 5girls", True), ("1.2::5girls::", True),
+                              ("0::5girls::", False), ("-1::5girls::", False),
+                              ("3girls", False), ("3girls, 3people", False),
+                              ("3girls, 5people", False), ("3girls, 5girls", False),
+                              ("girl, five women", False), ("5girls print", False)):
+            with self.subTest(prompt=prompt), mock.patch("ComfyUI_RS_NAI_API_Request.diagnostics.notice") as note:
+                nai_api.notice_character_count_difference(prompt, chars)
+                self.assertEqual(note.called, warns)
+        with mock.patch("ComfyUI_RS_NAI_API_Request.diagnostics.notice") as note:
+            nai_api.build_v4_prompt("5girls", "", None)
+            note.assert_not_called()
+
     def test_model_limit_applies_to_both_captions_and_effective_inpainting_model(self):
         for model, limit in (("nai-diffusion-4-full", 6), ("nai-diffusion-4-5-full", 6),
                              ("nai-diffusion-5-curated", 22), ("nai-diffusion-5-full", 22),
