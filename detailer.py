@@ -309,6 +309,7 @@ def run_face_detail(
     primary_uses_native_mask=False,
     save_format="PNG",
     webp_quality=90,
+    mask_feather=0,
 ):
     from .generators import NovelAIGenerator, mask_to_grid_boxes
 
@@ -450,7 +451,8 @@ def run_face_detail(
                 "status": "planned" if eligible else "skipped",
                 "explanation": explanation,
                 "tight_crop_retried": i in retried,
-                "mask_source": selected_mask_source,
+                "mask_source": getattr(seg, "repair_report", {}).get("source", selected_mask_source),
+                **({"mask_repair": seg.repair_report} if hasattr(seg, "repair_report") else {}),
             }
         )
     native_plans = {}
@@ -674,6 +676,9 @@ def run_face_detail(
         )))
         if result.size != (nw, nh):
             raise user_error("IMAGE_RESPONSE", ValueError, "NAI returned an unexpected detail crop size.")
+        if mask_feather:
+            from .mask_repair import inside_alpha
+            local_mask = Image.fromarray(np.rint(inside_alpha(local_array > 0, mask_feather) * 255).astype(np.uint8))
         out.paste(
             result.resize((cw, ch), Image.Resampling.LANCZOS), (crx0, cry0), local_mask
         )

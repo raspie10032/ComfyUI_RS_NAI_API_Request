@@ -1239,5 +1239,168 @@
         "name": "마스크"
       }
     }
+  },
+  "NAICombinedFaceDetailerTest": {
+    "display_name": "NAI 페이스 디테일러 (시험)",
+    "description": "감지 콤바인 로더를 연결합니다. 홀·요철 채우기와 확장 후 NAI 인페인팅으로 보정합니다. 기본값은 미리보기입니다.",
+    "inputs": {
+      "image": {
+        "name": "이미지"
+      },
+      "prompt": {
+        "name": "프롬프트"
+      },
+      "negative_prompt": {
+        "name": "네거티브 프롬프트"
+      },
+      "model": {
+        "name": "생성 모델",
+        "tooltip": "V5 Full Medium Effort는 14스텝, Euler Ancestral, CFG 리스케일 0, Heavy UC로 고정됩니다. 사용자 및 캐릭터 네거티브 프롬프트는 무시됩니다. 프롬프트 가이던스는 조절할 수 있습니다. 일반 img2img·인페인팅에는 limit_opus_free=False가 필요하며 Anlas가 소모될 수 있습니다."
+      },
+      "strength": {
+        "name": "변환 강도"
+      },
+      "threshold": {
+        "name": "마스크 격자 임계값"
+      },
+      "sampler": {
+        "name": "샘플러"
+      },
+      "steps": {
+        "name": "스텝 수"
+      },
+      "cfg_scale": {
+        "name": "프롬프트 가이던스 (CFG)"
+      },
+      "bbox_threshold": {
+        "name": "검출 신뢰도 임계값"
+      },
+      "dilation": {
+        "name": "마스크 확장 (픽셀)"
+      },
+      "crop_factor": {
+        "name": "크롭 배율"
+      },
+      "scheduler": {
+        "name": "스케줄러"
+      },
+      "seed": {
+        "name": "시드",
+        "tooltip": "-1이면 무작위 시드를 사용합니다."
+      },
+      "limit_opus_free": {
+        "name": "Anlas 사용 제한 (Opus 무료 조건)",
+        "tooltip": "켜면 Opus 무료 조건을 검사하고 Anlas가 소모될 수 있는 요청을 차단합니다. 일반 img2img·인페인팅과 Vibe·Precise 참조는 차단됩니다. 디테일러는 무료 조건을 충족한 Focused Inpainting 영역만 허용합니다. 끄면 유료 요청이 허용됩니다."
+      },
+      "detail_mode": {
+        "name": "처리 영역",
+        "options": {
+          "first": "첫 영역",
+          "all": "모든 영역"
+        }
+      },
+      "matching_mode": {
+        "name": "캐릭터 매칭 방식",
+        "tooltip": "shared는 공통 프롬프트를 사용합니다. wd14는 선택한 태거로 원본 캐릭터 프롬프트를 고릅니다. 태거 결과를 생성 프롬프트에 추가하지 않습니다.",
+        "options": {
+          "shared": "공통 프롬프트",
+          "wd14": "태거 자동 매칭"
+        }
+      },
+      "characterPrompts": {
+        "name": "캐릭터 프롬프트"
+      },
+      "tagger": {
+        "name": "태거"
+      },
+      "match_min_score": {
+        "name": "최소 매칭 점수"
+      },
+      "match_min_margin": {
+        "name": "최소 후보 점수 차이"
+      },
+      "match_crop_factor": {
+        "name": "매칭용 크롭 배율"
+      },
+      "max_regions": {
+        "name": "최대 처리 영역 수"
+      },
+      "preview_only": {
+        "name": "미리보기만 실행",
+        "tooltip": "NovelAI 요청 없이 검출·매칭을 확인합니다. SEGM/외부 마스크는 임계값·겹침 분할·건너뛴 영역을 반영한 최종 수정 마스크를 보여줍니다. 기존 bbox+SAM 경로는 검출만 미리 봅니다."
+      },
+      "vibes": {
+        "name": "바이브 참조"
+      },
+      "references": {
+        "name": "정밀 참조"
+      },
+      "normalize_vibe_strengths": {
+        "name": "바이브 강도 정규화",
+        "tooltip": "V4/V4.5 Vibe 강도의 절댓값 합이 1.0을 초과하면 강도를 비례해서 낮춥니다."
+      },
+      "save_format": {
+        "name": "자동 저장 형식"
+      },
+      "webp_quality": {
+        "name": "WebP 품질"
+      },
+      "request_delay_seconds": {
+        "name": "요청 전 대기 시간(초)",
+        "tooltip": "각 NovelAI 요청 전에 기다립니다. 얼굴별 보정과 캐시가 없는 Vibe 인코딩에도 적용됩니다. 0은 추가 대기 없음입니다. 기본 2초 간격과 동시에 계산하며, 서버가 요구한 재시도 대기는 더 길 수 있습니다. 미리보기는 기다리지 않으며 중지로 취소할 수 있습니다."
+      },
+      "detectors": {
+        "name": "감지 모델 묶음"
+      },
+      "show_advanced": {
+        "name": "상세 설정 펼치기"
+      },
+      "closing": {
+        "name": "요철 채우기"
+      },
+      "fill_holes": {
+        "name": "홀 채우기"
+      },
+      "mask_feather": {
+        "name": "경계 부드러움 (픽셀)"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "이미지"
+      },
+      "1": {
+        "name": "마스크 미리보기"
+      },
+      "2": {
+        "name": "매칭 보고서"
+      }
+    }
+  },
+  "NAIDetectorCombineLoaderTest": {
+    "display_name": "NAI 감지 모델 콤바인 로더 (시험)",
+    "description": "SEGM 기본, BBOX·SAM·눈 감지 선택. 감지 모델만 로드하여 한 선으로 NAI 디테일러에 전달합니다.",
+    "inputs": {
+      "face_segm_model": {
+        "name": "얼굴 SEGM 모델"
+      },
+      "show_optional_models": {
+        "name": "추가 감지 모델 펼치기"
+      },
+      "face_bbox_model": {
+        "name": "얼굴 BBOX (SAM용)"
+      },
+      "sam_model": {
+        "name": "SAM (선택)"
+      },
+      "eye_bbox_model": {
+        "name": "눈 BBOX (선택)"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "감지 모델 묶음"
+      }
+    }
   }
 }

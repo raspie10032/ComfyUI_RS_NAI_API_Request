@@ -6,6 +6,10 @@ The Detailer can use bbox+SAM, native SEGM masks, or a standard ComfyUI `MASK` f
 
 > Current version: **2.7.1**
 
+## Experimental branch
+
+This branch adds a detection-only combine loader and a SEGM-first **NovelAI** face detailer test node, with hole/notch filling and dilation enabled by default. See the [test node guide](docs/experimental-detection-combine.md). These nodes are not part of the published 2.7.1 release.
+
 ## What's New in 2.7.1
 
 - **Request delay (seconds):** set `request_delay_seconds` directly on generation, img2img, inpainting, both detailers and inset generation. The default **0** keeps existing pacing; **5** waits at least five seconds before each request. No separate delay node is needed.

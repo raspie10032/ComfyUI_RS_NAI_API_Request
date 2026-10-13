@@ -1239,5 +1239,168 @@
         "name": "マスク"
       }
     }
+  },
+  "NAICombinedFaceDetailerTest": {
+    "display_name": "NAI フェイスディテーラー（テスト）",
+    "description": "検出コンバインローダーを接続。穴・凹み補修と拡張後、NAIインペイントで修正します。初期設定はプレビューです。",
+    "inputs": {
+      "image": {
+        "name": "画像"
+      },
+      "prompt": {
+        "name": "プロンプト"
+      },
+      "negative_prompt": {
+        "name": "ネガティブプロンプト"
+      },
+      "model": {
+        "name": "生成モデル",
+        "tooltip": "V5 Full Medium Effortは14ステップ、Euler Ancestral、CFGリスケール0、Heavy UCに固定されます。ユーザー指定およびキャラクターのネガティブプロンプトは無視されます。プロンプトガイダンスは調整できます。通常のimg2img・インペイントにはlimit_opus_free=Falseが必要で、Anlasを消費する場合があります。"
+      },
+      "strength": {
+        "name": "変換強度"
+      },
+      "threshold": {
+        "name": "マスクグリッドのしきい値"
+      },
+      "sampler": {
+        "name": "サンプラー"
+      },
+      "steps": {
+        "name": "ステップ数"
+      },
+      "cfg_scale": {
+        "name": "プロンプトガイダンス (CFG)"
+      },
+      "bbox_threshold": {
+        "name": "検出信頼度のしきい値"
+      },
+      "dilation": {
+        "name": "マスク拡張（px）"
+      },
+      "crop_factor": {
+        "name": "クロップ倍率"
+      },
+      "scheduler": {
+        "name": "スケジューラー"
+      },
+      "seed": {
+        "name": "シード",
+        "tooltip": "-1でランダムなシードを使用します。"
+      },
+      "limit_opus_free": {
+        "name": "Anlas消費制限（Opus無料条件）",
+        "tooltip": "有効にするとOpusの無料条件を確認し、Anlasを消費する可能性があるリクエストをブロックします。通常のimg2img・インペイント、Vibe・Precise参照はブロックされます。ディテーラーでは無料条件を満たすFocused Inpainting領域のみ許可します。無効にすると有料リクエストを許可します。"
+      },
+      "detail_mode": {
+        "name": "処理領域",
+        "options": {
+          "first": "最初の領域",
+          "all": "すべての領域"
+        }
+      },
+      "matching_mode": {
+        "name": "キャラクターの対応付け方法",
+        "tooltip": "sharedは共通プロンプトを使用します。wd14は選択したタガーで元のキャラクタープロンプトを選びます。タガーの結果を生成プロンプトに追加しません。",
+        "options": {
+          "shared": "共通プロンプト",
+          "wd14": "タガーで自動対応付け"
+        }
+      },
+      "characterPrompts": {
+        "name": "キャラクタープロンプト"
+      },
+      "tagger": {
+        "name": "タガー"
+      },
+      "match_min_score": {
+        "name": "マッチングの最低スコア"
+      },
+      "match_min_margin": {
+        "name": "候補間の最小スコア差"
+      },
+      "match_crop_factor": {
+        "name": "マッチング用クロップ倍率"
+      },
+      "max_regions": {
+        "name": "最大処理領域数"
+      },
+      "preview_only": {
+        "name": "プレビューのみ実行",
+        "tooltip": "NovelAIにリクエストせず検出・マッチングを確認します。SEGM/外部マスクでは閾値・重なりの割り当て・スキップを反映した最終編集マスクを表示します。従来のbbox+SAM経路は検出のみをプレビューします。"
+      },
+      "vibes": {
+        "name": "Vibe参照"
+      },
+      "references": {
+        "name": "精密参照"
+      },
+      "normalize_vibe_strengths": {
+        "name": "Vibe強度の正規化",
+        "tooltip": "V4/V4.5 Vibeの強度の絶対値の合計が1.0を超える場合、強度を比例して下げます。"
+      },
+      "save_format": {
+        "name": "自動保存形式"
+      },
+      "webp_quality": {
+        "name": "WebP品質"
+      },
+      "request_delay_seconds": {
+        "name": "リクエスト前の待機時間（秒）",
+        "tooltip": "各NovelAIリクエストの前に待機します。領域ごとの補正と未キャッシュのVibeエンコードにも適用されます。0は追加待機なしです。既定の2秒間隔と同時に計算し、サーバー指定の再試行待機が長い場合はそちらを優先します。プレビューでは待機せず、停止でキャンセルできます。"
+      },
+      "detectors": {
+        "name": "検出モデル"
+      },
+      "show_advanced": {
+        "name": "詳細設定を表示"
+      },
+      "closing": {
+        "name": "凹みを補修"
+      },
+      "fill_holes": {
+        "name": "穴を埋める"
+      },
+      "mask_feather": {
+        "name": "境界ぼかし（px）"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "画像"
+      },
+      "1": {
+        "name": "マスクプレビュー"
+      },
+      "2": {
+        "name": "マッチングレポート"
+      }
+    }
+  },
+  "NAIDetectorCombineLoaderTest": {
+    "display_name": "NAI 検出コンバインローダー（テスト）",
+    "description": "SEGMが標準。BBOX・SAM・目の検出は任意。検出モデルだけをロードし、1本の接続でNAIディテーラーに渡します。",
+    "inputs": {
+      "face_segm_model": {
+        "name": "顔 SEGM モデル"
+      },
+      "show_optional_models": {
+        "name": "追加の検出モデルを表示"
+      },
+      "face_bbox_model": {
+        "name": "顔 BBOX（SAM用）"
+      },
+      "sam_model": {
+        "name": "SAM（任意）"
+      },
+      "eye_bbox_model": {
+        "name": "目 BBOX（任意）"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "検出モデル"
+      }
+    }
   }
 }

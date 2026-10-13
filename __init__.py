@@ -9,6 +9,8 @@ from .inset import NODE_CLASS_MAPPINGS as INSET_MAPPINGS, NODE_DISPLAY_NAME_MAPP
 from .assets import NODE_CLASS_MAPPINGS as ASSET_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS as ASSET_DISPLAY_MAPPINGS
 
 from .metadata_loader import NODE_CLASS_MAPPINGS as IMAGE_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS as IMAGE_DISPLAY_MAPPINGS
+from .detector_bundle import NAIDetectorCombineLoaderTest
+from .combined_detailer import NAICombinedFaceDetailerTest
 
 NODE_CLASS_MAPPINGS = {
     **GENERATOR_MAPPINGS,
@@ -16,6 +18,8 @@ NODE_CLASS_MAPPINGS = {
     **INSET_MAPPINGS,
     **ASSET_MAPPINGS,
     **IMAGE_MAPPINGS,
+    "NAIDetectorCombineLoaderTest": NAIDetectorCombineLoaderTest,
+    "NAICombinedFaceDetailerTest": NAICombinedFaceDetailerTest,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -24,13 +28,15 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     **INSET_DISPLAY_MAPPINGS,
     **ASSET_DISPLAY_MAPPINGS,
     **IMAGE_DISPLAY_MAPPINGS,
+    "NAIDetectorCombineLoaderTest": "NAI Detection Combine Loader (Test)",
+    "NAICombinedFaceDetailerTest": "NAI Face Detailer (Test)",
 }
 
 for node_class in NODE_CLASS_MAPPINGS.values():
     node_notices(node_class)
 
 for name in ("NovelAIGenerator", "NAIImg2ImgNode", "NAIInpaintNode",
-             "NAIFaceDetailerNode", "NAIFaceDetailerSegmNode", "NAIReferenceInsetGenerate"):
+             "NAIFaceDetailerNode", "NAIFaceDetailerSegmNode", "NAIReferenceInsetGenerate", "NAICombinedFaceDetailerTest"):
     node_request_delay(NODE_CLASS_MAPPINGS[name])
 
 WEB_DIRECTORY = "./web"
