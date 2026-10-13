@@ -7,6 +7,8 @@ This branch adds two **test nodes** under `RS_NovelAI_API/Experimental`:
 
 Connect `Load Image → image` and `NAI Detection Combine Loader (Test) → detectors` on the detailer. There are no local checkpoint, CLIP, VAE or conditioning inputs.
 
+**Quality cannot be guaranteed as the number of processed regions increases.** Higher region counts may reduce detection, character matching, and correction quality. Check the preview and start with a small number of regions.
+
 ## Start with SEGM
 
 Install ComfyUI-Impact-Pack and ComfyUI-Impact-Subpack. The loader defaults to **Anzhc Face seg 640 v2 y8n**. If the file is missing, the first **execution** downloads it into the registered `ultralytics_segm` folder (normally `models/ultralytics/segm`). The loader displays the filename, percentage, received size, and loading status. Opening the node or selecting a model does not download anything. Existing models are reused; `OFF` never downloads or loads SEGM. The catalog also contains eyes, clothing, skin, hair, hands and whole-person detectors. Only the selected, active models are downloaded; BBOX/SAM ignored because of SEGM priority do not download.
@@ -60,6 +62,8 @@ An example workflow is in [examples/experimental/NAI_detection_combo_test.json](
 
 ## 한국어
 
+**단, 처리 수가 많을수록 품질을 보장하지 못합니다.** 처리 영역이 많아지면 감지·캐릭터 매칭·보정 품질이 떨어질 수 있으므로, 미리보기를 확인하고 적은 수부터 시험해 주세요.
+
 **감지 모델 콤바인 로더(시험)**에서 얼굴 SEGM 모델을 고르고, 출력 한 선을 **NAI 페이스 디테일러(시험)**에 연결합니다. 이미지도 연결한 뒤 디테일러에서 NAI 프롬프트·모델·강도를 정하면 됩니다. 생성은 NovelAI API로 처리합니다.
 
 **SEGM·BBOX·SAM 선택창은 항상 표시**됩니다. 각 모델에서 `OFF`를 고르면 로드도 전달도 하지 않습니다. 얼굴 SEGM만 사용하는 것이 기본이며 **BBOX 단독**, **BBOX+SAM**도 가능합니다. BBOX만 사용하면 사각 영역을 보정합니다. **SEGM을 선택하면 BBOX·SAM은 선택값이 있어도 로드·실행하지 않습니다.** 셋 다 골라도 SEGM만 사용하며, SAM으로 다시 보정하지 않습니다. BBOX·SAM은 SEGM이 OFF일 때만 사용합니다. 저장된 선택값은 유지됩니다. 선택창 아래에 **현재 선택의 실행 방식**이 바로 표시되고, 모델을 바꾸면 이전 로딩 완료 표시는 지웁니다. 예제에는 **이미지와 수정 마스크 미리보기**를 함께 연결했습니다. 흰 영역은 수정 대상, 검은 영역은 보존 대상입니다.
@@ -83,6 +87,8 @@ An example workflow is in [examples/experimental/NAI_detection_combo_test.json](
 피부 모델은 옷 입은 전신을 잡는 모델이 아닙니다. 전신은 `person` 모델을 쓰고, 손 BBOX를 쓰려면 먼저 SEGM을 OFF로 바꿔 주세요. 눈만 보정하려면 기본 SEGM/BBOX 선택칸에서 눈 모델을 고릅니다. 얼굴 전용 입력 이름은 예전 시험 워크플로 호환을 위해 내부적으로 유지합니다.
 
 ## 日本語
+
+**ただし、処理する領域数が多くなるほど、品質を保証できません。** 検出・キャラクターの照合・補正の品質が低下する可能性があるため、プレビューを確認し、少ない領域数からお試しください。
 
 **検出モデル結合ローダー（テスト）**で顔 SEGM モデルを選び、出力を **NAI 顔ディテーラー（テスト）**へ接続します。画像も接続し、ディテーラーで NAI のプロンプト・モデル・強度を指定します。生成には NovelAI API を使います。
 

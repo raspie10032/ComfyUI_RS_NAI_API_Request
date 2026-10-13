@@ -92,7 +92,7 @@ class NAICombinedFaceDetailerTest:
             **{key: req[key] for key in ("sampler", "steps", "cfg_scale", "scheduler", "threshold", "crop_factor")},
             "bbox_threshold": ("FLOAT", {"default": 0.3, "min": 0.0, "max": 1.0, "step": 0.01}),
             "detail_mode": (["all", "first"], {"default": "all"}),
-            "max_regions": ("INT", {"default": 5, "min": 1, "max": 64}),
+            "max_regions": ("INT", {"default": 5, "min": 1, "max": 64, "tooltip": "Maximum number of regions to process. Quality cannot be guaranteed as the number of processed regions increases."}),
             "closing": ("BOOLEAN", {"default": True, "tooltip": "Fill small notches before dilation."}),
             "fill_holes": ("BOOLEAN", {"default": True, "tooltip": "Fill enclosed holes within the repair limits, before dilation."}),
             "dilation": ("INT", {"default": 8, "min": 0, "max": 128, "tooltip": "Extra editing room in original-image pixels, after hole/notch filling."}),
@@ -103,7 +103,7 @@ class NAICombinedFaceDetailerTest:
     RETURN_NAMES = ("image", "mask_visualization", "matching_report")
     FUNCTION = "detail"
     CATEGORY = "RS_NovelAI_API/Experimental"
-    DESCRIPTION = "NovelAI face detailer test: image + detection bundle. Fills holes/notches, expands the mask, then uses NovelAI inpainting. Optional character matching and references use the existing NAI pipeline."
+    DESCRIPTION = "NovelAI face detailer test: image + detection bundle. Fills holes/notches, expands the mask, then uses NovelAI inpainting. Optional character matching and references use the existing NAI pipeline. Quality cannot be guaranteed as the number of processed regions increases."
 
     def detail(self, image, detectors, prompt, negative_prompt, model, strength=0.55, seed=-1,
                preview_only=True, show_advanced=False, closing=True, fill_holes=True,
