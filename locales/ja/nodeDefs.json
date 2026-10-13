@@ -1379,7 +1379,7 @@
   },
   "NAIDetectorCombineLoaderTest": {
     "display_name": "NAI 検出コンバインローダー（テスト）",
-    "description": "顔・目・服・手・肌・人物全体の検出モデルを選び、1本で接続します。SEGM選択時はBBOX・SAMをロード・実行しません。SEGMがOFFの場合のみBBOXまたはBBOX+SAMを使います。カタログの未インストールモデルは実行時に進捗を表示してダウンロードします。既存のultralytics/segm・ultralytics/bbox・samsフォルダーに追加したモデルもリスト更新後に表示されます。",
+    "description": "顔・目・服・手・肌・人物全体の検出モデルを選び、1本で接続します。SEGM選択時はBBOX・SAMをロード・実行しません。SEGMがOFFの場合のみBBOXまたはBBOX+SAMを使います。カタログの未インストールモデルは実行時に進捗を表示してダウンロードします。既存のultralytics/segm・ultralytics/bbox・samsフォルダーに追加したモデルもリスト更新後に表示されます。 選択欄の下に実行方法とスキップするモデルを表示します。",
     "inputs": {
       "face_segm_model": {
         "name": "SEGM モデル",

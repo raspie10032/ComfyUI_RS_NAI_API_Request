@@ -1379,7 +1379,7 @@
   },
   "NAIDetectorCombineLoaderTest": {
     "display_name": "NAI 감지 모델 콤바인 로더 (시험)",
-    "description": "얼굴·눈·옷·손·피부·인물 전체 감지 모델을 선택해 한 선으로 전달합니다. SEGM 선택 시 BBOX·SAM은 로드·실행하지 않습니다. SEGM이 OFF일 때만 BBOX 또는 BBOX+SAM을 사용합니다. 목록의 미설치 모델은 실행할 때 진행도를 표시하며 받습니다. 기존 ultralytics/segm·ultralytics/bbox·sams 폴더에 넣은 모델도 목록 새로고침 후 표시됩니다.",
+    "description": "얼굴·눈·옷·손·피부·인물 전체 감지 모델을 선택해 한 선으로 전달합니다. SEGM 선택 시 BBOX·SAM은 로드·실행하지 않습니다. SEGM이 OFF일 때만 BBOX 또는 BBOX+SAM을 사용합니다. 목록의 미설치 모델은 실행할 때 진행도를 표시하며 받습니다. 기존 ultralytics/segm·ultralytics/bbox·sams 폴더에 넣은 모델도 목록 새로고침 후 표시됩니다. 모델 선택 아래에 이번 실행에 사용할 방식과 건너뛸 모델을 표시합니다.",
     "inputs": {
       "face_segm_model": {
         "name": "SEGM 모델",

@@ -2,10 +2,15 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 
-let extension;
-const app = { registerExtension(e) { extension = e; } };
+let extension, locale = "en";
+const app = { registerExtension(e) { extension = e; }, ui: { settings: { getSettingValue: () => locale } } };
+const ComfyWidgets = { STRING(node, name) {
+    const value = { ...widget(name, "", "text"), inputEl: {}, onRemove() { this.removed = true; } };
+    node.widgets.push(value);
+    return { widget: value };
+} };
 vm.runInNewContext(readFileSync(new URL("../web/combined_detailer.js", import.meta.url), "utf8")
-    .replace(/^import .*;\n/gm, ""), { app });
+    .replace(/^import .*;\n/gm, ""), { app, ComfyWidgets });
 
 function widget(name, value, type = "combo") {
     return { name, value, type, hidden: false, options: {}, computeSize: () => [100, 20] };
@@ -39,6 +44,36 @@ sam.value = "None"; bbox.value = "None"; optional.value = "None";
 node.onConfigure();
 assert.deepEqual([sam.value, bbox.value, optional.value], ["OFF", "OFF", "OFF"]);
 assert.equal(node.widgets[0].value, "segm/face.pt");
+
+const plan = node.widgets.find(w => w.name === "rs_detector_plan");
+assert.match(plan.value, /SEGM only/);
+assert.equal(plan.hidden, false);
+assert.equal(plan.inputEl.readOnly, true);
+assert.equal(plan.serializeValue(), undefined);
+assert.equal(plan.options.serialize, false);
+const progress = ComfyWidgets.STRING(node, "rs_tagger_status").widget;
+progress.value = "Ready: SEGM";
+const segm = node.widgets[0];
+segm.value = "OFF"; segm.callback("OFF");
+assert.match(plan.value, /Select SEGM or BBOX/);
+assert.equal(progress.removed, true);
+assert.equal(node.widgets.includes(progress), false);
+bbox.value = "bbox/hand.pt"; bbox.callback(bbox.value);
+assert.match(plan.value, /BBOX rectangles/);
+sam.value = "sam_vit_b.pth"; sam.callback(sam.value);
+assert.match(plan.value, /BBOX \+ SAM/);
+segm.value = "segm/face.pt"; segm.callback(segm.value);
+assert.match(plan.value, /BBOX \/ SAM are skipped/);
+assert.equal(sam.value, "sam_vit_b.pth");
+assert.equal(bbox.value, "bbox/hand.pt");
+for (const [code, expected] of [["ko", /SEGM만 사용/], ["ja", /SEGMのみ使用/]]) {
+    locale = code; node.onConfigure(); assert.match(plan.value, expected);
+}
+node.inputs = [{ name: "face_segm_model", link: 10 }];
+locale = "en"; node.onConnectionsChange();
+assert.match(plan.value, /Connected model inputs/);
+node.inputs[0].link = null; node.onConnectionsChange();
+assert.match(plan.value, /SEGM only/);
 
 const advanced = widget("show_advanced", false, "toggle");
 const format = widget("save_format", "PNG");

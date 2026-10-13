@@ -1,6 +1,6 @@
 {
-  "last_node_id": 5,
-  "last_link_id": 4,
+  "last_node_id": 6,
+  "last_link_id": 6,
   "nodes": [
     {
       "id": 1,
@@ -124,7 +124,9 @@
         {
           "name": "image",
           "type": "IMAGE",
-          "links": []
+          "links": [
+            6
+          ]
         },
         {
           "name": "mask_visualization",
@@ -181,8 +183,8 @@
       "id": 4,
       "type": "SaveImage",
       "pos": [
-        870,
-        40
+        1290,
+        0
       ],
       "size": [
         340,
@@ -210,14 +212,15 @@
       },
       "widgets_values": [
         "NAI_detector_preview"
-      ]
+      ],
+      "title": "Editing mask (white = editable)"
     },
     {
       "id": 5,
       "type": "PreviewAny",
       "pos": [
         870,
-        470
+        510
       ],
       "size": [
         340,
@@ -246,6 +249,34 @@
       "widgets_values": [
         ""
       ]
+    },
+    {
+      "id": 6,
+      "type": "PreviewImage",
+      "pos": [
+        870,
+        0
+      ],
+      "size": [
+        380,
+        450
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 6
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "title": "Image / detection preview"
     }
   ],
   "links": [
@@ -280,6 +311,14 @@
       5,
       0,
       "*"
+    ],
+    [
+      6,
+      3,
+      0,
+      6,
+      0,
+      "IMAGE"
     ]
   ],
   "groups": [],

@@ -13,7 +13,7 @@ Install ComfyUI-Impact-Pack and ComfyUI-Impact-Subpack. The loader defaults to *
 
 The default download uses the [author's public model repository](https://huggingface.co/Anzhc/Anzhcs_YOLOs/tree/main), pinned at revision `f5a2306d7fed4f3cfc26c25ff1ab2e3f3cfce855`. The approximately 6.6 MiB download is verified by size and SHA-256 before it replaces the temporary file. Interrupted or failed downloads remove the temporary file and can be retried. A manually installed model with the same filename is reused without replacement.
 
-**SEGM takes priority. When SEGM is selected, BBOX and SAM are neither loaded nor run, even if their saved selections are non-OFF.** Their selection values are preserved, so they become active again when SEGM is set to OFF. There is no SAM refinement after a SEGM mask. All three selectors stay visible.
+**SEGM takes priority. When SEGM is selected, BBOX and SAM are neither loaded nor run, even if their saved selections are non-OFF.** Their selection values are preserved, so they become active again when SEGM is set to OFF. There is no SAM refinement after a SEGM mask. A read-only note below the selectors explains the current execution path before running. Changing a model clears the previous loading status, without clearing saved model selections. All three selectors stay visible.
 
 | Selected models | Loaded / used for the editing mask |
 | --- | --- |
@@ -56,13 +56,13 @@ Model sources: [Anzhc](https://huggingface.co/Anzhc/Anzhcs_YOLOs), [Bingsu/adeta
 - Folding a section only hides its widgets. Saved selections still apply. To disable a model, select `OFF`. Older prototype workflows using `None` are migrated to `OFF` when opened; API calls with `None` also remain accepted. The widget serialization order is preserved. Closing and hole filling can each be disabled for comparisons.
 - `mask_visualization` is a black/white IMAGE of the final editing support. The matching report includes repair counts and whether the original mask came from SEGM, BBOX or SAM. Feather blends inside that support, keeping pixels outside it unchanged.
 
-An example workflow is in [examples/experimental/NAI_detection_combo_test.json](../examples/experimental/NAI_detection_combo_test.json). Choose your own image after loading; the default face SEGM downloads automatically on first execution if missing. The example starts in preview mode.
+An example workflow is in [examples/experimental/NAI_detection_combo_test.json](../examples/experimental/NAI_detection_combo_test.json). Choose your own image after loading; the default face SEGM downloads automatically on first execution if missing. The example starts in preview mode and shows the image/detections and editing mask together. White mask pixels are editable; black pixels are preserved.
 
 ## 한국어
 
 **감지 모델 콤바인 로더(시험)**에서 얼굴 SEGM 모델을 고르고, 출력 한 선을 **NAI 페이스 디테일러(시험)**에 연결합니다. 이미지도 연결한 뒤 디테일러에서 NAI 프롬프트·모델·강도를 정하면 됩니다. 생성은 NovelAI API로 처리합니다.
 
-**SEGM·얼굴 BBOX·SAM 선택창은 항상 표시**됩니다. 각 모델에서 `OFF`를 고르면 로드도 전달도 하지 않습니다. 얼굴 SEGM만 사용하는 것이 기본이며 **BBOX 단독**, **BBOX+SAM**도 가능합니다. BBOX만 사용하면 사각 영역을 보정합니다. **SEGM을 선택하면 얼굴 BBOX·SAM은 선택값이 있어도 로드·실행하지 않습니다.** 셋 다 골라도 SEGM만 사용하며, SAM으로 다시 보정하지 않습니다. BBOX·SAM은 SEGM이 OFF일 때만 사용합니다. 저장된 선택값은 유지됩니다.
+**SEGM·BBOX·SAM 선택창은 항상 표시**됩니다. 각 모델에서 `OFF`를 고르면 로드도 전달도 하지 않습니다. 얼굴 SEGM만 사용하는 것이 기본이며 **BBOX 단독**, **BBOX+SAM**도 가능합니다. BBOX만 사용하면 사각 영역을 보정합니다. **SEGM을 선택하면 BBOX·SAM은 선택값이 있어도 로드·실행하지 않습니다.** 셋 다 골라도 SEGM만 사용하며, SAM으로 다시 보정하지 않습니다. BBOX·SAM은 SEGM이 OFF일 때만 사용합니다. 저장된 선택값은 유지됩니다. 선택창 아래에 **현재 선택의 실행 방식**이 바로 표시되고, 모델을 바꾸면 이전 로딩 완료 표시는 지웁니다. 예제에는 **이미지와 수정 마스크 미리보기**를 함께 연결했습니다. 흰 영역은 수정 대상, 검은 영역은 보존 대상입니다.
 
 기본 모델 **Anzhc Face seg 640 v2 y8n**이 없으면 첫 실행 때 자동으로 받습니다(약 6.6 MiB). 로더에 파일명·퍼센트·받은 용량·로딩 상태가 표시됩니다. 노드를 추가하거나 모델을 고르는 것만으로는 다운로드하지 않으며, SEGM이 OFF면 받지 않습니다. 기존 파일은 재사용하고 다운로드 실패·취소 시 임시 파일을 지웁니다. 다음 실행 때 다시 시도할 수 있습니다.
 
@@ -86,7 +86,7 @@ An example workflow is in [examples/experimental/NAI_detection_combo_test.json](
 
 **検出モデル結合ローダー（テスト）**で顔 SEGM モデルを選び、出力を **NAI 顔ディテーラー（テスト）**へ接続します。画像も接続し、ディテーラーで NAI のプロンプト・モデル・強度を指定します。生成には NovelAI API を使います。
 
-**SEGM・顔BBOX・SAMの選択欄は常に表示**されます。それぞれ `OFF` にすると、そのモデルはロードも受け渡しもしません。標準は顔SEGMのみですが、**BBOX単独**・**BBOX+SAM**も使えます。BBOX単独では矩形を補正します。**SEGM選択時は、顔BBOX・SAMが選択されていてもロード・実行しません。** 3つ選んでもSEGMのみを使い、SAMで再補正しません。BBOX・SAMはSEGMがOFFの場合のみ有効です。選択値は保持されます。
+**SEGM・BBOX・SAMの選択欄は常に表示**されます。それぞれ `OFF` にすると、そのモデルはロードも受け渡しもしません。標準は顔SEGMのみですが、**BBOX単独**・**BBOX+SAM**も使えます。BBOX単独では矩形を補正します。**SEGM選択時は、BBOX・SAMが選択されていてもロード・実行しません。** 3つ選んでもSEGMのみを使い、SAMで再補正しません。BBOX・SAMはSEGMがOFFの場合のみ有効です。選択値は保持されます。モデル選択欄の下に現在の実行方法を表示します。モデルを変更すると以前のロード完了表示を消去します。サンプルで画像と編集マスクを同時に確認できます。白い部分が編集対象、黒い部分は保持されます。
 
 標準の **Anzhc Face seg 640 v2 y8n** がなければ初回実行時に自動ダウンロードします（約6.6 MiB）。ノードにファイル名・進捗率・受信量・ロード状態を表示します。ノード追加やモデル選択だけではダウンロードしません。SEGMがOFFならダウンロードも行いません。既存ファイルを再利用し、失敗・中断時は一時ファイルを削除します。次の実行で再試行できます。
 
@@ -110,6 +110,6 @@ All **17 catalog weights** were loaded and inferred through the running ComfyUI 
 
 Tests cover NAI infill routing, preview without authentication/API, strict guard blocking, empty detections, invalid/batched images, repaired masks and feather support, all 16 loader combinations (including eye BBOX), all eight SEGM/BBOX/SAM detailer combinations, shared BBOX model caching, invalid selections before model loading, legacy `None` values, and folding without changing saved values.
 
-A real V5 image was previewed with the installed face SEGM model and with optional BBOX + SAM + eye BBOX. One real V5 Full inpainting request used SEGM, strength 0.35, 28 steps and seed 161616. It produced an edited face with 56,838 mask pixels and zero changed pixels outside that mask. Account balance before and after this single test was unchanged. This is one functional example, not a general quality or billing guarantee. The optional SAM combination has live preview evidence, not a separate paid generation test.
+A real V5 image was previewed with the installed face SEGM model and with optional BBOX + SAM + eye BBOX. One real V5 Full inpainting request used SEGM, strength 0.35, 28 steps and seed 161616. It produced an edited face with 56,838 mask pixels and zero changed pixels outside that mask. Account balance before and after this single test was unchanged. This is one functional example, not a general quality or billing guarantee. The subsequent usability check also completed six real V5 Full face edits: four SEGM faces matched to characters 1–4 with WD ViT v3 at strength 0.35, one default SEGM portrait at strength 0.55, and one BBOX+SAM portrait at strength 0.35. All three output images preserved every pixel outside their editing masks. The balance stayed unchanged for each workflow; this does not establish free billing for other accounts or settings. The initial test-server run stopped before submission because its environment lacked the API token; after correcting that environment, the recorded rerun succeeded.
 
 The prototype is isolated from the published 2.7.1 release. Existing detailers keep their input schema and behavior; their feather default remains zero.
