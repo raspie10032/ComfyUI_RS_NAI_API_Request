@@ -33,6 +33,23 @@ The default mask processing is **fill small notches and enclosed holes → dilat
 
 The default is `preview_only=true`: inspect the mask and matching report without a NovelAI request. Set it to `false` to generate. `limit_opus_free` stays visible and retains the existing protection rules. A preview does not prove that a chosen model or reference operation will be free; generation checks those separately.
 
+### Preview and context settings are independent
+
+`use_context_settings` chooses where prompts, characters, model and sampling settings come from; it does not enable or disable detailing. Turning it off restores the saved manual values, including the model. Check them before generating. Manual WD matching requires a separate `characterPrompts` connection and tagger; context characters are not used while context settings are off.
+
+| Context settings | Preview only | Result |
+| --- | --- | --- |
+| On, context connected | On | Detect / match using context; no NAI request |
+| Off | On | Detect / match using manual values; no NAI request |
+| On, context connected | Off | Generate eligible regions using context |
+| Off | Off | Generate eligible regions using manual values |
+
+The node displays the next run mode and setting source before execution. A preview also leaves an explicit no-generation notice. Anlas protection, missing-input errors and matching skips still apply when generation is selected.
+
+**한국어:** `컨텍스트 설정 사용`은 프롬프트·캐릭터·모델·샘플링 설정을 가져올 곳만 정합니다. 끄면 저장된 수동값(모델 포함)으로 돌아가며, 디테일러 실행이나 미리보기를 끄지 않습니다. **감지·매칭만 된다면 `미리보기만 실행`을 확인하고, 실제 보정하려면 끄세요.** 컨텍스트를 끈 상태에서 WD 매칭을 쓰려면 캐릭터 프롬프트와 태거를 따로 연결해야 합니다. 노드에 다음 실행 모드와 설정 출처가 표시되고, 미리보기 실행 후에는 생성 요청이 없었다는 안내도 남습니다. 실제 생성 모드에서도 과금 보호·입력 오류·매칭 탈락 조건은 적용됩니다.
+
+**日本語:** `コンテキスト設定を使用`は設定の取得元を選びます。無効にすると保存済みの手動値（モデルも含む）に戻り、補正やプレビューを無効にするわけではありません。**検出・照合だけで終わる場合は「プレビューのみ」を確認し、生成するには無効にしてください。** コンテキストを無効にしてWD照合を使う場合は、キャラクタープロンプトとタガーを別途接続します。ノードには次の実行モードと設定の取得元が表示され、プレビュー後には生成リクエストを送っていない旨も表示されます。生成モードでもAnlas保護・入力エラー・照合によるスキップは適用されます。
+
 ## Detector catalog and additional files
 
 The model list combines the downloadable catalog with **all compatible models discovered by Impact Pack/Subpack in its registered folders**, including nested directories and extra model paths. Put additional files in `ComfyUI/models/ultralytics/segm`, `ComfyUI/models/ultralytics/bbox`, or `ComfyUI/models/sams`, then refresh ComfyUI's node definitions/model lists (or reload the page). No source edits or catalog registration are needed. A matching local filename is reused instead of downloaded. SAM selection uses the installed SAM ViT models; it does not automatically download SAM or include SAM3/ESAM.

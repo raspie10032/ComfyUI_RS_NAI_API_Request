@@ -478,6 +478,11 @@ def run_face_detail(
             for r in report
         ))
     if preview_only:
+        notice(
+            "Preview only: no NovelAI request was sent. Turn off preview_only to generate.\n"
+            "미리보기만 실행했습니다. NAI 생성 요청은 보내지 않았습니다. 실제 보정하려면 ‘미리보기만 실행’을 끄세요.\n"
+            "プレビューのみ実行しました。NAIへ生成リクエストは送信していません。補正するには「プレビューのみ」を無効にしてください。"
+        )
         preview = source.copy()
         draw = ImageDraw.Draw(preview)
         for item in report:

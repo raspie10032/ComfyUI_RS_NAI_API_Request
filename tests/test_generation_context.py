@@ -89,6 +89,65 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(updated.negative_prompt, source.negative_prompt)
         self.assertEqual(updated.model, source.model)
 
+    def test_detailer_context_toggle_never_switches_preview_or_bypasses_generation(self):
+        _, source = self.source()
+        pipeline = detailing.PipelineTests()
+        pipeline.setUp()
+        self.addCleanup(pipeline.doCleanups)
+        manual = g.CharacterPrompt("manual green hair", "manual character negative", .5, .5)
+        tagger = SimpleNamespace(score=lambda images: [
+            {"blonde_hair": .99, "black_hair": .01},
+            {"blonde_hair": .01, "black_hair": .99},
+        ][:len(images)])
+        # Same connected context, all four combinations, then restore inherited mode.
+        for enabled, preview in ((True, True), (False, True), (False, False), (True, False), (True, True)):
+            with self.subTest(use_context_settings=enabled, preview_only=preview):
+                pipeline.payloads.clear()
+                pipeline.post.reset_mock()
+                token = mock.Mock(return_value="test")
+                if preview:
+                    token.side_effect = AssertionError("preview read a token")
+                with mock.patch.object(detailer, "get_nai_token", token):
+                    result = NAICombinedFaceDetailerTest().detail(
+                        image=pipeline.image, detectors=DetectionBundle(bbox_detector=pipeline.detector),
+                        prompt="manual style", negative_prompt="manual negative",
+                        model="NAI Diffusion V4.5 Full", seed=789, nai_context=source,
+                        use_context_settings=enabled, preview_only=preview, limit_opus_free=False,
+                        matching_mode="shared", characterPrompts=[manual], tagger=tagger,
+                        steps=17, sampler="k_euler", unique_id="toggle-test")
+                records = json.loads(result["result"][2])
+                self.assertEqual(len(records), 2)
+                self.assertEqual(len(pipeline.payloads), 0 if preview else 2)
+                notices = "\n".join(result["ui"]["rs_nai_notice"])
+                self.assertEqual("Preview only: no NovelAI request" in notices, preview)
+                if preview:
+                    pipeline.post.assert_not_called()
+                    token.assert_not_called()
+                else:
+                    self.assertTrue(all(r["status"] == "edited" for r in records))
+                    for index, payload in enumerate(pipeline.payloads):
+                        self.assertEqual(payload["action"], "infill")
+                        self.assertEqual(payload["model"], "nai-diffusion-5-full-inpainting" if enabled else "nai-diffusion-4-5-full-inpainting")
+                        self.assertEqual(payload["input"], source.prompt + ", " + source.characters[index].prompt if enabled else "manual style, manual green hair")
+                        self.assertEqual(payload["parameters"]["negative_prompt"], source.negative_prompt + ", " + source.characters[index].uc if enabled else "manual negative, manual character negative")
+                        self.assertEqual(payload["parameters"]["seed"], 789 + index)
+                        self.assertEqual(payload["parameters"]["steps"], source.steps if enabled else 17)
+
+    def test_manual_detailer_with_connected_context_still_enforces_matching_and_payment_guards(self):
+        _, source = self.source()
+        pipeline = detailing.PipelineTests()
+        pipeline.setUp()
+        self.addCleanup(pipeline.doCleanups)
+        args = dict(image=pipeline.image, detectors=DetectionBundle(bbox_detector=pipeline.detector),
+                    prompt="manual", negative_prompt="negative", model="NAI Diffusion V4.5 Full",
+                    nai_context=source, use_context_settings=False, preview_only=False)
+        with mock.patch.object(detailer, "get_nai_token", side_effect=AssertionError("token")):
+            with self.assertRaisesRegex(RuntimeError, "(?i)(free|anlas)"):
+                NAICombinedFaceDetailerTest().detail(**args, limit_opus_free=True, references=[object()])
+            with self.assertRaisesRegex(ValueError, "CharacterPromptSelect"):
+                NAICombinedFaceDetailerTest().detail(**args, matching_mode="wd14", limit_opus_free=False)
+        pipeline.post.assert_not_called()
+
     def test_five_three_five_updates_requests_and_context_without_stale_characters(self):
         values = {f"character{i}": f"original character {i}" for i in range(1, 6)}
         values.update({f"character{i}_enable": True for i in range(2, 6)})

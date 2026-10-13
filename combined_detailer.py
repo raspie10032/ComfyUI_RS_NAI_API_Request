@@ -86,7 +86,7 @@ class NAICombinedFaceDetailerTest:
             "image": req["image"], "detectors": ("NAI_DETECTION_BUNDLE",),
             **{key: req[key] for key in ("prompt", "negative_prompt", "model", "strength", "seed")},
             "model": (model_choices, {**model_options, "default": "NAI Diffusion V5 Full"}),
-            "preview_only": ("BOOLEAN", {"default": True, "tooltip": "Check repaired masks and character matching without a NovelAI request. Turn off to generate with NovelAI."}),
+            "preview_only": ("BOOLEAN", {"default": True, "tooltip": "On: detection and matching only, with no NovelAI request. Off: generate eligible regions with NovelAI. Independent of use_context_settings, which only selects inherited or manual settings."}),
         }, "optional": {
             "show_advanced": ("BOOLEAN", {"default": False}),
             **{key: value for key, value in old["optional"].items()
@@ -100,6 +100,7 @@ class NAICombinedFaceDetailerTest:
             "dilation": ("INT", {"default": 8, "min": 0, "max": 128, "tooltip": "Extra editing room in original-image pixels, after hole/notch filling."}),
             "mask_feather": ("INT", {"default": 8, "min": 0, "max": 64, "tooltip": "Blend inside the expanded mask. Separate from crop context and dilation."}),
             **context_inputs(),
+            "use_context_settings": ("BOOLEAN", {"default": True, "tooltip": "On: inherit prompts, characters, model and sampling settings from connected NAI context. Off: use this node's manual values. Does not switch preview_only or bypass detailing. Turn off preview_only to generate; the seed stays local."}),
         }}
 
     RETURN_TYPES = ("IMAGE", "IMAGE", "STRING")
