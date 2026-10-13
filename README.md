@@ -8,7 +8,7 @@ The Detailer can use bbox+SAM, native SEGM masks, or a standard ComfyUI `MASK` f
 
 ## Experimental branch
 
-This branch adds a detection-only combine loader and a SEGM-first **NovelAI** face detailer test node, with hole/notch filling and dilation enabled by default. See the [test node guide](docs/experimental-detection-combine.md). These nodes are not part of the published 2.7.1 release.
+This branch adds a detection-only combine loader and a SEGM-first **NovelAI** face detailer test node, with hole/notch filling and dilation enabled by default. Its detector catalog covers faces, eyes, hands, clothes, skin, hair and whole people; active selections download on first execution and additional models are discovered in the existing model folders. SEGM takes priority and skips BBOX/SAM loading. See the [test node guide](docs/experimental-detection-combine.md). These nodes are not part of the published 2.7.1 release.
 
 ## What's New in 2.7.1
 

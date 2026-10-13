@@ -23,11 +23,14 @@ class RepairedDetector:
         check_interrupted()
         height, width = image.shape[1:3]
         bundle = self.bundle
-        primary = bundle.bbox_detector if bundle.sam_model is not None and bundle.bbox_detector is not None else bundle.segm_detector
+        if bundle.segm_detector is not None:
+            primary, source = bundle.segm_detector, "segm"
+        else:
+            primary, source = bundle.bbox_detector, "bbox"
         segments = _detect(primary, image, threshold, 0, crop_factor)
         masks, valid = [], []
         predictor = None
-        if bundle.sam_model is not None and segments:
+        if source == "bbox" and bundle.sam_model is not None and segments:
             from segment_anything import SamPredictor
             predictor = SamPredictor(bundle.sam_model)
             predictor.set_image(np.asarray(tensor_to_pil(image)))
@@ -41,7 +44,10 @@ class RepairedDetector:
                 continue
             if predictor is None:
                 mask = np.zeros((height, width), bool)
-                mask[y0:y1, x0:x1] = _native_crop_mask(seg, (x0, y0, x1, y1)) >= max(self.mask_threshold, 1e-6)
+                if source == "bbox":
+                    mask[by0:by1, bx0:bx1] = True
+                else:
+                    mask[y0:y1, x0:x1] = _native_crop_mask(seg, (x0, y0, x1, y1)) >= max(self.mask_threshold, 1e-6)
             else:
                 predicted, _, _ = predictor.predict(box=np.array([bx0, by0, bx1, by1]), multimask_output=False)
                 mask = np.asarray(predicted[0], dtype=bool)
@@ -63,7 +69,8 @@ class RepairedDetector:
             result.append(SimpleNamespace(bbox=seg.bbox, crop_region=(x0, y0, x1, y1),
                 cropped_mask=fixed[y0:y1, x0:x1].astype(np.float32),
                 repair_report={**report, "closing": self.closing, "fill_holes": self.fill_holes,
-                               "dilation": self.dilation, "source": "sam" if predictor is not None else "segm"}))
+                               "dilation": self.dilation, "source": "sam" if predictor is not None else source,
+                               "face_detector": source}))
         return (height, width), result
 
 
@@ -104,8 +111,11 @@ class NAICombinedFaceDetailerTest:
                scheduler="karras", threshold=0.3, bbox_threshold=0.3, crop_factor=3.0,
                detail_mode="all", max_regions=5, **options):
         from .detailer import run_face_detail
-        if not isinstance(detectors, DetectionBundle) or detectors.segm_detector is None:
+        from .errors import user_error
+        if not isinstance(detectors, DetectionBundle):
             raise ValueError("Connect NAI Detection Combine Loader (Test). / NAI 감지 모델 콤바인 로더(시험)를 연결해 주세요.")
+        if detectors.segm_detector is None and detectors.bbox_detector is None:
+            raise user_error("DETECTION_MODEL_SELECTION", ValueError, "Select a primary SEGM or BBOX model in the combine loader.")
         validate_single_image(image)
         if isinstance(mask_feather, bool) or not isinstance(mask_feather, int) or not 0 <= mask_feather <= 64:
             raise ValueError("mask_feather must be 0–64 pixels. / 경계 부드러움은 0~64픽셀로 설정해 주세요.")

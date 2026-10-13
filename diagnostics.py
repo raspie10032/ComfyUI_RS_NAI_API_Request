@@ -2,6 +2,7 @@
 """Per-execution notices, without adding saved widgets or output sockets."""
 
 import logging
+import inspect
 from contextvars import ContextVar
 from functools import wraps
 
@@ -24,6 +25,7 @@ def node_notices(cls):
     """Keep direct Python tuple returns; expose notices in ComfyUI's UI result."""
     input_types = cls.INPUT_TYPES
     function = getattr(cls, cls.FUNCTION)
+    takes_unique_id = "unique_id" in inspect.signature(function).parameters
 
     @classmethod
     def inputs(subclass):
@@ -36,6 +38,8 @@ def node_notices(cls):
         messages = []
         marker = _messages.set(messages)
         try:
+            if takes_unique_id:
+                kwargs["unique_id"] = unique_id
             result = function(self, *args, **kwargs)
         except Exception as exc:
             # ComfyUI must still recognize cancellation and OOM by their type.

@@ -1,7 +1,7 @@
 import { app } from "../../scripts/app.js";
 
 const targets = {
-    NAIDetectorCombineLoaderTest: ["show_optional_models", new Set(["face_segm_model", "show_optional_models"])],
+    NAIDetectorCombineLoaderTest: ["show_optional_models", new Set(["face_segm_model", "face_bbox_model", "sam_model", "show_optional_models"])],
     NAICombinedFaceDetailerTest: ["show_advanced", new Set(["prompt", "negative_prompt", "model", "strength", "seed", "control_after_generate", "preview_only", "show_advanced", "limit_opus_free"])],
 };
 
@@ -38,6 +38,13 @@ app.registerExtension({
             const previous = nodeType.prototype[hook];
             nodeType.prototype[hook] = function () {
                 const result = previous?.apply(this, arguments);
+                if (nodeData.name === "NAIDetectorCombineLoaderTest" && hook === "onConfigure") {
+                    for (const widget of this.widgets ?? []) {
+                        if (["face_segm_model", "face_bbox_model", "sam_model", "eye_bbox_model"].includes(widget.name) && widget.value === "None") {
+                            widget.value = "OFF";
+                        }
+                    }
+                }
                 if (hook === "onNodeCreated") {
                     for (const name of [toggle, "save_format"]) {
                         const widget = this.widgets?.find(w => w.name === name);

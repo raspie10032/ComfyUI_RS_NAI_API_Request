@@ -1379,19 +1379,22 @@
   },
   "NAIDetectorCombineLoaderTest": {
     "display_name": "NAI 감지 모델 콤바인 로더 (시험)",
-    "description": "SEGM 기본, BBOX·SAM·눈 감지 선택. 감지 모델만 로드하여 한 선으로 NAI 디테일러에 전달합니다.",
+    "description": "얼굴·눈·옷·손·피부·인물 전체 감지 모델을 선택해 한 선으로 전달합니다. SEGM 선택 시 BBOX·SAM은 로드·실행하지 않습니다. SEGM이 OFF일 때만 BBOX 또는 BBOX+SAM을 사용합니다. 목록의 미설치 모델은 실행할 때 진행도를 표시하며 받습니다. 기존 ultralytics/segm·ultralytics/bbox·sams 폴더에 넣은 모델도 목록 새로고침 후 표시됩니다.",
     "inputs": {
       "face_segm_model": {
-        "name": "얼굴 SEGM 모델"
+        "name": "SEGM 모델",
+        "tooltip": "얼굴·눈·옷·피부·머리카락·인물 전체 마스크. SEGM 선택 시 BBOX·SAM은 건너뜁니다. 목록의 미설치 모델은 실행할 때 다운로드합니다. OFF는 받거나 로드하지 않습니다."
       },
       "show_optional_models": {
-        "name": "추가 감지 모델 펼치기"
+        "name": "눈 감지 옵션 펼치기"
       },
       "face_bbox_model": {
-        "name": "얼굴 BBOX (SAM용)"
+        "name": "BBOX 모델",
+        "tooltip": "얼굴·눈·손 등의 사각 감지 영역. SEGM이 OFF일 때만 사용합니다. SAM이 있으면 마스크를 만들고 없으면 사각 영역을 사용합니다. 목록의 미설치 모델은 실행할 때 받습니다."
       },
       "sam_model": {
-        "name": "SAM (선택)"
+        "name": "SAM 모델",
+        "tooltip": "SEGM이 OFF이고 BBOX가 선택된 경우에만 마스크를 만듭니다. SEGM이 켜져 있으면 로드·실행하지 않습니다. models/sams에 설치한 SAM ViT 모델을 선택합니다."
       },
       "eye_bbox_model": {
         "name": "눈 BBOX (선택)"

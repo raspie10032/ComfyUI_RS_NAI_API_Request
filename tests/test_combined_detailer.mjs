@@ -20,18 +20,25 @@ async function make(name, widgets) {
     await extension.beforeRegisterNodeDef(Node, { name });
     const node = new Node(); node.onNodeCreated(); return node;
 }
-const optional = widget("sam_model", "sam_vit_b.pth");
+const optional = widget("eye_bbox_model", "bbox/eye.pt");
+const sam = widget("sam_model", "sam_vit_b.pth");
+const bbox = widget("face_bbox_model", "OFF");
 const toggle = widget("show_optional_models", false, "toggle");
-const node = await make("NAIDetectorCombineLoaderTest", [widget("face_segm_model", "segm/face.pt"), toggle, optional]);
+const node = await make("NAIDetectorCombineLoaderTest", [widget("face_segm_model", "segm/face.pt"), toggle, sam, bbox, optional]);
+assert.equal(sam.hidden, false); assert.equal(bbox.hidden, false);
 const values = node.widgets.map(w => w.value);
 assert.equal(optional.hidden, true);
-assert.equal(optional.value, "sam_vit_b.pth");
+assert.equal(optional.value, "bbox/eye.pt");
 toggle.value = true; toggle.callback(true);
 assert.equal(optional.hidden, false); assert.equal(optional.type, "combo");
 toggle.value = false; toggle.callback(false); node.onConfigure();
 assert.deepEqual(node.widgets.map(w => w.value), values);
 assert.equal(optional.options.serialize, undefined);
 toggle.value = true; node.onConfigure(); assert.equal(optional.hidden, false);
+sam.value = "None"; bbox.value = "None"; optional.value = "None";
+node.onConfigure();
+assert.deepEqual([sam.value, bbox.value, optional.value], ["OFF", "OFF", "OFF"]);
+assert.equal(node.widgets[0].value, "segm/face.pt");
 
 const advanced = widget("show_advanced", false, "toggle");
 const format = widget("save_format", "PNG");

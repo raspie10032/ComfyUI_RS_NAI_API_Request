@@ -1379,19 +1379,22 @@
   },
   "NAIDetectorCombineLoaderTest": {
     "display_name": "NAI 検出コンバインローダー（テスト）",
-    "description": "SEGMが標準。BBOX・SAM・目の検出は任意。検出モデルだけをロードし、1本の接続でNAIディテーラーに渡します。",
+    "description": "顔・目・服・手・肌・人物全体の検出モデルを選び、1本で接続します。SEGM選択時はBBOX・SAMをロード・実行しません。SEGMがOFFの場合のみBBOXまたはBBOX+SAMを使います。カタログの未インストールモデルは実行時に進捗を表示してダウンロードします。既存のultralytics/segm・ultralytics/bbox・samsフォルダーに追加したモデルもリスト更新後に表示されます。",
     "inputs": {
       "face_segm_model": {
-        "name": "顔 SEGM モデル"
+        "name": "SEGM モデル",
+        "tooltip": "顔・目・服・肌・髪・人物全体のマスク。SEGM選択時はBBOX・SAMをスキップします。カタログの未インストールモデルは実行時にダウンロードします。OFFではダウンロード・ロードしません。"
       },
       "show_optional_models": {
-        "name": "追加の検出モデルを表示"
+        "name": "目の検出オプションを表示"
       },
       "face_bbox_model": {
-        "name": "顔 BBOX（SAM用）"
+        "name": "BBOX モデル",
+        "tooltip": "顔・目・手などの矩形領域。SEGMがOFFの場合のみ使用します。SAMがあればマスクを作り、なければ矩形領域を補正します。カタログの未インストールモデルは実行時にダウンロードします。"
       },
       "sam_model": {
-        "name": "SAM（任意）"
+        "name": "SAM モデル",
+        "tooltip": "SEGMがOFFでBBOXが選択されている場合のみマスクを作ります。SEGM選択時はロード・実行しません。models/samsにインストールしたSAM ViTモデルを選択します。"
       },
       "eye_bbox_model": {
         "name": "目 BBOX（任意）"

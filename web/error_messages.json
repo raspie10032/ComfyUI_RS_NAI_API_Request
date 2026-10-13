@@ -207,6 +207,14 @@
     "REQUEST_DELAY": [
       "The request delay is invalid.",
       "Set the request delay to 0 or a positive number of seconds. 0 keeps the existing request pacing."
+    ],
+    "DETECTION_MODEL_DOWNLOAD": [
+      "The detection model could not be downloaded.",
+      "Check the network and model folder permissions, then run again. Alternatively, download the named file into models/ultralytics/segm or models/ultralytics/bbox. Incomplete downloads are removed; existing models are preserved."
+    ],
+    "DETECTION_MODEL_SELECTION": [
+      "No region detection model is selected.",
+      "Choose a SEGM or BBOX model in the combine loader. SAM and the optional eye context model cannot define the editing regions alone."
     ]
   },
   "ko": {
@@ -417,6 +425,14 @@
     "REQUEST_DELAY": [
       "요청 전 대기 시간이 올바르지 않습니다.",
       "대기 시간을 0 이상의 초 단위 숫자로 입력하세요. 0이면 기존 요청 간격만 적용됩니다."
+    ],
+    "DETECTION_MODEL_DOWNLOAD": [
+      "감지 모델을 다운로드하지 못했습니다.",
+      "인터넷 연결과 모델 폴더 권한을 확인한 뒤 다시 실행해 주세요. 표시된 파일을 models/ultralytics/segm 또는 models/ultralytics/bbox에 직접 넣어도 됩니다. 불완전한 다운로드는 제거하며 기존 모델은 유지합니다."
+    ],
+    "DETECTION_MODEL_SELECTION": [
+      "수정 영역을 감지할 모델이 선택되지 않았습니다.",
+      "콤바인 로더에서 SEGM 또는 BBOX 모델을 선택해 주세요. SAM과 보조 눈 감지 모델만으로는 수정 영역을 정할 수 없습니다."
     ]
   },
   "ja": {
@@ -627,6 +643,14 @@
     "REQUEST_DELAY": [
       "リクエスト前の待機時間が正しくありません。",
       "待機時間は0以上の秒数で指定してください。0では既定のリクエスト間隔のみ適用されます。"
+    ],
+    "DETECTION_MODEL_DOWNLOAD": [
+      "検出モデルをダウンロードできませんでした。",
+      "ネット接続とモデルフォルダーの権限を確認して再実行してください。表示されたファイルを models/ultralytics/segm または models/ultralytics/bbox に手動で配置することもできます。不完全なファイルは削除し、既存モデルは保持します。"
+    ],
+    "DETECTION_MODEL_SELECTION": [
+      "補正領域の検出モデルが選択されていません。",
+      "結合ローダーで SEGM または BBOX を選択してください。SAM と補助の目検出モデルだけでは補正領域を決定できません。"
     ]
   }
 }

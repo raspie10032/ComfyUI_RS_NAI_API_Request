@@ -1,0 +1,121 @@
+{
+  "segm/Anzhc Face seg 640 v2 y8n.pt": {
+    "target": "face",
+    "source": "https://huggingface.co/Anzhc/Anzhcs_YOLOs",
+    "url": "https://huggingface.co/Anzhc/Anzhcs_YOLOs/resolve/f5a2306d7fed4f3cfc26c25ff1ab2e3f3cfce855/Anzhc%20Face%20seg%20640%20v2%20y8n.pt",
+    "sha256": "d473e8bccc4c833d8eb36c95e566ce6460ffdc8b2899c859910e380c85def276",
+    "size": 6878186
+  },
+  "segm/Anzhc Face seg 640 v4 y11n.pt": {
+    "target": "face",
+    "source": "https://huggingface.co/Anzhc/Anzhcs_YOLOs",
+    "url": "https://huggingface.co/Anzhc/Anzhcs_YOLOs/resolve/f5a2306d7fed4f3cfc26c25ff1ab2e3f3cfce855/Anzhc%20Face%20seg%20640%20v4%20y11n.pt",
+    "sha256": "1e77ad7bd349babd8a4a90478bfc965348642b63a8d95d3b43ee13db42fd0a64",
+    "size": 6020644
+  },
+  "segm/Anzhc Eyes -seg-hd.pt": {
+    "target": "eyes",
+    "source": "https://huggingface.co/Anzhc/Anzhcs_YOLOs",
+    "url": "https://huggingface.co/Anzhc/Anzhcs_YOLOs/resolve/f5a2306d7fed4f3cfc26c25ff1ab2e3f3cfce855/Anzhc%20Eyes%20-seg-hd.pt",
+    "sha256": "6be1c13ca7a51c2425e278e07e7ae3d4c94ee125b874a0104a142f4f5a35a308",
+    "size": 6906493
+  },
+  "segm/Anzhc HeadHair seg y8n.pt": {
+    "target": "head/hair",
+    "source": "https://huggingface.co/Anzhc/Anzhcs_YOLOs",
+    "url": "https://huggingface.co/Anzhc/Anzhcs_YOLOs/resolve/f5a2306d7fed4f3cfc26c25ff1ab2e3f3cfce855/Anzhc%20HeadHair%20seg%20y8n.pt",
+    "sha256": "a6e99b1305f600c35e7f6400741c2322b198ae03755f91dc1c59d7a78d77f13c",
+    "size": 6813030
+  },
+  "segm/deepfashion2_yolov8s-seg.pt": {
+    "target": "clothes",
+    "source": "https://huggingface.co/Bingsu/adetailer",
+    "url": "https://huggingface.co/Bingsu/adetailer/resolve/53cc19de382014514d9d4038601d261a7faa9b7b/deepfashion2_yolov8s-seg.pt",
+    "sha256": "c319c15e86443ea61f70b40620909d737c47ff2a39381536503ac5c54772f8ac",
+    "size": 23852321
+  },
+  "segm/person_yolov8n-seg.pt": {
+    "target": "person",
+    "source": "https://huggingface.co/Bingsu/adetailer",
+    "url": "https://huggingface.co/Bingsu/adetailer/resolve/53cc19de382014514d9d4038601d261a7faa9b7b/person_yolov8n-seg.pt",
+    "sha256": "38fc8aaae97cb6e70be4ec44770005b26ed473471362afcda62a0037d7ccf432",
+    "size": 6777003
+  },
+  "segm/person_yolov8s-seg.pt": {
+    "target": "person",
+    "source": "https://huggingface.co/Bingsu/adetailer",
+    "url": "https://huggingface.co/Bingsu/adetailer/resolve/53cc19de382014514d9d4038601d261a7faa9b7b/person_yolov8s-seg.pt",
+    "sha256": "53c54aec2239355faffc6c5b70d0f3d05042f386f956cbec39cec46ad456f050",
+    "size": 23850731
+  },
+  "segm/person_yolov8m-seg.pt": {
+    "target": "person",
+    "source": "https://huggingface.co/Bingsu/adetailer",
+    "url": "https://huggingface.co/Bingsu/adetailer/resolve/53cc19de382014514d9d4038601d261a7faa9b7b/person_yolov8m-seg.pt",
+    "sha256": "c8ab26f517173b1fe8342d336a09f443eb61cb08dcbfc78d53fff4c2547ae81e",
+    "size": 54827683
+  },
+  "bbox/face_yolov8n.pt": {
+    "target": "face",
+    "source": "https://huggingface.co/Bingsu/adetailer",
+    "url": "https://huggingface.co/Bingsu/adetailer/resolve/53cc19de382014514d9d4038601d261a7faa9b7b/face_yolov8n.pt",
+    "sha256": "70b640f8f60b1cf0dcc72f30caf3da9495eb2fb6509da48c53374ad6806e6a9c",
+    "size": 6230011
+  },
+  "bbox/face_yolov8n_v2.pt": {
+    "target": "face",
+    "source": "https://huggingface.co/Bingsu/adetailer",
+    "url": "https://huggingface.co/Bingsu/adetailer/resolve/53cc19de382014514d9d4038601d261a7faa9b7b/face_yolov8n_v2.pt",
+    "sha256": "8f5f2110f83c4e00712993fab48c771d26036e2e80ec62bd5b9cb37c29e36b36",
+    "size": 6239036
+  },
+  "bbox/face_yolov8s.pt": {
+    "target": "face",
+    "source": "https://huggingface.co/Bingsu/adetailer",
+    "url": "https://huggingface.co/Bingsu/adetailer/resolve/53cc19de382014514d9d4038601d261a7faa9b7b/face_yolov8s.pt",
+    "sha256": "c7237eff25787377de196961140ceaed324d859ee8de5a775d93d33a0e3fab78",
+    "size": 22507707
+  },
+  "bbox/face_yolov8m.pt": {
+    "target": "face",
+    "source": "https://huggingface.co/Bingsu/adetailer",
+    "url": "https://huggingface.co/Bingsu/adetailer/resolve/53cc19de382014514d9d4038601d261a7faa9b7b/face_yolov8m.pt",
+    "sha256": "717923c19b3f4bbf5250b728f1fa6b2cb72a33aed1d236ea9caf0e21ad943e5f",
+    "size": 52026019
+  },
+  "bbox/hand_yolov8n.pt": {
+    "target": "hands",
+    "source": "https://huggingface.co/Bingsu/adetailer",
+    "url": "https://huggingface.co/Bingsu/adetailer/resolve/53cc19de382014514d9d4038601d261a7faa9b7b/hand_yolov8n.pt",
+    "sha256": "3991202eb69e9ddcb3b9ba80cdeb41e734ffaf844403d6c9f47d515cd88c6f29",
+    "size": 6237883
+  },
+  "bbox/hand_yolov8s.pt": {
+    "target": "hands",
+    "source": "https://huggingface.co/Bingsu/adetailer",
+    "url": "https://huggingface.co/Bingsu/adetailer/resolve/53cc19de382014514d9d4038601d261a7faa9b7b/hand_yolov8s.pt",
+    "sha256": "70b540063fbc385736d8258970744a4afbc4cbf7932134bae3b24cdadeadec06",
+    "size": 22507643
+  },
+  "bbox/eye_yolov8n.pt": {
+    "target": "eyes",
+    "source": "https://huggingface.co/killjoyelite/anime-eye-yolov8",
+    "url": "https://huggingface.co/killjoyelite/anime-eye-yolov8/resolve/10aeb7a1ac4f652a00d73d5221b0d1fb46bc099b/eye_yolov8n.pt",
+    "sha256": "25564ce95f1889ff9397e1c3e9030564e1c3904db6ad43b7c548df3499bec540",
+    "size": 6241258
+  },
+  "bbox/eye_yolov8s.pt": {
+    "target": "eyes",
+    "source": "https://huggingface.co/killjoyelite/anime-eye-yolov8",
+    "url": "https://huggingface.co/killjoyelite/anime-eye-yolov8/resolve/10aeb7a1ac4f652a00d73d5221b0d1fb46bc099b/eye_yolov8s.pt",
+    "sha256": "79d7ea8c534392917066c8705b074efea3b80aef3d7e74c108eb7a7b5f103ccf",
+    "size": 22510250
+  },
+  "segm/skin_yolov8n-seg_400.pt": {
+    "target": "skin/body",
+    "source": "https://github.com/hben35096/assets/releases/tag/yolo8",
+    "url": "https://github.com/hben35096/assets/releases/download/yolo8/skin_yolov8n-seg_400.pt",
+    "sha256": "0fdc28e11cfc342ce50761880b22ae6dc3f0f6a46d61b2b5942fb7b1b5e37278",
+    "size": 6827768
+  }
+}
