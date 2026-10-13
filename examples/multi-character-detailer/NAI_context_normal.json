@@ -1,0 +1,2889 @@
+{
+  "id": "8a22bd30-d475-4c4f-99cb-4294bb06bbfc",
+  "revision": 0,
+  "last_node_id": 21,
+  "last_link_id": 12,
+  "nodes": [
+    {
+      "id": 2,
+      "type": "NAIDetectionCombineLoader",
+      "pos": [
+        1305,
+        690
+      ],
+      "size": [
+        390,
+        184
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "SEGM 모델",
+          "name": "face_segm_model",
+          "type": "COMBO",
+          "widget": {
+            "name": "face_segm_model"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "눈 감지 옵션 펼치기",
+          "name": "show_optional_models",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "show_optional_models"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "SAM 모델",
+          "name": "sam_model",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "sam_model"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "BBOX 모델",
+          "name": "face_bbox_model",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "face_bbox_model"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "눈 BBOX (선택)",
+          "name": "eye_bbox_model",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "eye_bbox_model"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "감지 모델 묶음",
+          "name": "detectors",
+          "type": "NAI_DETECTION_BUNDLE",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "NAIDetectionCombineLoader"
+      },
+      "widgets_values": [
+        "segm/Anzhc Face seg 640 v2 y8n.pt",
+        false,
+        "OFF",
+        "OFF",
+        "OFF"
+      ],
+      "widgets_values_named": {
+        "face_segm_model": "segm/Anzhc Face seg 640 v2 y8n.pt",
+        "show_optional_models": false,
+        "sam_model": "OFF",
+        "face_bbox_model": "OFF",
+        "eye_bbox_model": "OFF"
+      }
+    },
+    {
+      "id": 3,
+      "type": "NAIMultiCharacterDetailer",
+      "pos": [
+        1750,
+        40
+      ],
+      "size": [
+        390,
+        352
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "이미지",
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "localized_name": "감지 모델 묶음",
+          "name": "detectors",
+          "type": "NAI_DETECTION_BUNDLE",
+          "link": 2
+        },
+        {
+          "localized_name": "캐릭터 프롬프트",
+          "name": "characterPrompts",
+          "shape": 7,
+          "type": "LIST",
+          "link": null
+        },
+        {
+          "localized_name": "태거",
+          "name": "tagger",
+          "shape": 7,
+          "type": "RS_WD_TAGGER",
+          "link": 3
+        },
+        {
+          "localized_name": "바이브 참조",
+          "name": "vibes",
+          "shape": 7,
+          "type": "RS_NAI_VIBES",
+          "link": null
+        },
+        {
+          "localized_name": "정밀 참조",
+          "name": "references",
+          "shape": 7,
+          "type": "RS_NAI_REFERENCES",
+          "link": null
+        },
+        {
+          "localized_name": "NAI 컨텍스트",
+          "name": "nai_context",
+          "shape": 7,
+          "type": "NAI_CONTEXT",
+          "link": 4
+        },
+        {
+          "localized_name": "프롬프트",
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "네거티브 프롬프트",
+          "name": "negative_prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "negative_prompt"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "생성 모델",
+          "name": "model",
+          "type": "COMBO",
+          "widget": {
+            "name": "model"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "변환 강도",
+          "name": "strength",
+          "type": "FLOAT",
+          "widget": {
+            "name": "strength"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "시드",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "상세 설정 펼치기",
+          "name": "show_advanced",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "show_advanced"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "Anlas 사용 제한 (Opus 무료 조건)",
+          "name": "limit_opus_free",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "limit_opus_free"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "처리 영역",
+          "name": "detail_mode",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "detail_mode"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 매칭 방식",
+          "name": "matching_mode",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "matching_mode"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "최소 매칭 점수",
+          "name": "match_min_score",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "match_min_score"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "최소 후보 점수 차이",
+          "name": "match_min_margin",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "match_min_margin"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "매칭용 크롭 배율",
+          "name": "match_crop_factor",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "match_crop_factor"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "최대 처리 영역 수",
+          "name": "max_regions",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "max_regions"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "바이브 강도 정규화",
+          "name": "normalize_vibe_strengths",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "normalize_vibe_strengths"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "자동 저장 형식",
+          "name": "save_format",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "save_format"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "WebP 품질",
+          "name": "webp_quality",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "webp_quality"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "샘플러",
+          "name": "sampler",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "sampler"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "스텝 수",
+          "name": "steps",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "프롬프트 가이던스 (CFG)",
+          "name": "cfg_scale",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "cfg_scale"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "스케줄러",
+          "name": "scheduler",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "scheduler"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "마스크 격자 임계값",
+          "name": "threshold",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "threshold"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "크롭 배율",
+          "name": "crop_factor",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "crop_factor"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "검출 신뢰도 임계값",
+          "name": "bbox_threshold",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "bbox_threshold"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "요철 채우기",
+          "name": "closing",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "closing"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "홀 채우기",
+          "name": "fill_holes",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "fill_holes"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "마스크 확장 (픽셀)",
+          "name": "dilation",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "dilation"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "경계 부드러움 (픽셀)",
+          "name": "mask_feather",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "mask_feather"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "요청 전 대기 시간(초)",
+          "name": "request_delay_seconds",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "request_delay_seconds"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "컨텍스트 설정 사용",
+          "name": "use_context_settings",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "use_context_settings"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "이미지",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            5
+          ]
+        },
+        {
+          "localized_name": "마스크 미리보기",
+          "name": "mask_visualization",
+          "type": "IMAGE",
+          "links": [
+            7
+          ]
+        },
+        {
+          "localized_name": "매칭 보고서",
+          "name": "matching_report",
+          "type": "STRING",
+          "links": [
+            6
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "NAIMultiCharacterDetailer"
+      },
+      "widgets_values": [
+        "anime illustration, detailed face, natural expression",
+        "low quality, distorted eyes",
+        "NAI Diffusion V5 Full",
+        0.35,
+        2026101355,
+        "fixed",
+        false,
+        true,
+        "all",
+        "shared",
+        0.25,
+        0.08,
+        1.3,
+        5,
+        true,
+        "PNG",
+        90,
+        "k_euler",
+        28,
+        6,
+        "karras",
+        0.3,
+        3,
+        0.3,
+        true,
+        true,
+        8,
+        8,
+        2,
+        true
+      ],
+      "widgets_values_named": {
+        "prompt": "anime illustration, detailed face, natural expression",
+        "negative_prompt": "low quality, distorted eyes",
+        "model": "NAI Diffusion V5 Full",
+        "strength": 0.35,
+        "seed": 2026101355,
+        "control_after_generate": "fixed",
+        "show_advanced": false,
+        "limit_opus_free": true,
+        "detail_mode": "all",
+        "matching_mode": "shared",
+        "match_min_score": 0.25,
+        "match_min_margin": 0.08,
+        "match_crop_factor": 1.3,
+        "max_regions": 5,
+        "normalize_vibe_strengths": true,
+        "save_format": "PNG",
+        "webp_quality": 90,
+        "sampler": "k_euler",
+        "steps": 28,
+        "cfg_scale": 6,
+        "scheduler": "karras",
+        "threshold": 0.3,
+        "crop_factor": 3,
+        "bbox_threshold": 0.3,
+        "closing": true,
+        "fill_holes": true,
+        "dilation": 8,
+        "mask_feather": 8,
+        "request_delay_seconds": 2,
+        "use_context_settings": true
+      }
+    },
+    {
+      "id": 4,
+      "type": "SaveImage",
+      "pos": [
+        2210,
+        40
+      ],
+      "size": [
+        390,
+        58
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "이미지",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 5
+        },
+        {
+          "localized_name": "파일명 접두사",
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        "Context/detail"
+      ],
+      "widgets_values_named": {
+        "filename_prefix": "Context/detail"
+      }
+    },
+    {
+      "id": 5,
+      "type": "PreviewAny",
+      "pos": [
+        1750,
+        970
+      ],
+      "size": [
+        390,
+        122
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "소스",
+          "name": "source",
+          "type": "*",
+          "link": 6
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "문자열",
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewAny"
+      },
+      "widgets_values": [],
+      "widgets_values_named": {}
+    },
+    {
+      "id": 6,
+      "type": "SaveImage",
+      "pos": [
+        2210,
+        570
+      ],
+      "size": [
+        390,
+        58
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "이미지",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 7
+        },
+        {
+          "localized_name": "파일명 접두사",
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        "Context/mask"
+      ],
+      "widgets_values_named": {
+        "filename_prefix": "Context/mask"
+      }
+    },
+    {
+      "id": 8,
+      "type": "CharacterPromptSelect",
+      "pos": [
+        10,
+        80
+      ],
+      "size": [
+        390,
+        634
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "캐릭터 1 프롬프트",
+          "name": "character1",
+          "type": "STRING",
+          "widget": {
+            "name": "character1"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 1 네거티브",
+          "name": "character1_uc",
+          "type": "STRING",
+          "widget": {
+            "name": "character1_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 1 X 좌표",
+          "name": "character1_x",
+          "type": "FLOAT",
+          "widget": {
+            "name": "character1_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 1 Y 좌표",
+          "name": "character1_y",
+          "type": "FLOAT",
+          "widget": {
+            "name": "character1_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 2 사용",
+          "name": "character2_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character2_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 2 프롬프트",
+          "name": "character2",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character2"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 2 네거티브",
+          "name": "character2_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character2_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 2 X 좌표",
+          "name": "character2_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character2_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 2 Y 좌표",
+          "name": "character2_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character2_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 3 사용",
+          "name": "character3_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character3_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 3 프롬프트",
+          "name": "character3",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character3"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 3 네거티브",
+          "name": "character3_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character3_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 3 X 좌표",
+          "name": "character3_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character3_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 3 Y 좌표",
+          "name": "character3_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character3_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 4 사용",
+          "name": "character4_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character4_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 4 프롬프트",
+          "name": "character4",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character4"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 4 네거티브",
+          "name": "character4_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character4_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 4 X 좌표",
+          "name": "character4_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character4_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 4 Y 좌표",
+          "name": "character4_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character4_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 5 사용",
+          "name": "character5_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character5_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 5 프롬프트",
+          "name": "character5",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character5"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 5 네거티브",
+          "name": "character5_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character5_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 5 X 좌표",
+          "name": "character5_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character5_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 5 Y 좌표",
+          "name": "character5_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character5_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 슬롯 수",
+          "name": "character_count",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "character_count"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 6 사용",
+          "name": "character6_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character6_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 6 프롬프트",
+          "name": "character6",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character6"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 6 네거티브",
+          "name": "character6_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character6_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 6 X 좌표",
+          "name": "character6_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character6_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 6 Y 좌표",
+          "name": "character6_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character6_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 7 사용",
+          "name": "character7_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character7_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 7 프롬프트",
+          "name": "character7",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character7"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 7 네거티브",
+          "name": "character7_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character7_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 7 X 좌표",
+          "name": "character7_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character7_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 7 Y 좌표",
+          "name": "character7_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character7_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 8 사용",
+          "name": "character8_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character8_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 8 프롬프트",
+          "name": "character8",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character8"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 8 네거티브",
+          "name": "character8_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character8_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 8 X 좌표",
+          "name": "character8_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character8_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 8 Y 좌표",
+          "name": "character8_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character8_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 9 사용",
+          "name": "character9_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character9_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 9 프롬프트",
+          "name": "character9",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character9"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 9 네거티브",
+          "name": "character9_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character9_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 9 X 좌표",
+          "name": "character9_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character9_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 9 Y 좌표",
+          "name": "character9_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character9_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 10 사용",
+          "name": "character10_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character10_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 10 프롬프트",
+          "name": "character10",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character10"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 10 네거티브",
+          "name": "character10_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character10_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 10 X 좌표",
+          "name": "character10_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character10_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 10 Y 좌표",
+          "name": "character10_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character10_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 11 사용",
+          "name": "character11_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character11_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 11 프롬프트",
+          "name": "character11",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character11"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 11 네거티브",
+          "name": "character11_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character11_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 11 X 좌표",
+          "name": "character11_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character11_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 11 Y 좌표",
+          "name": "character11_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character11_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 12 사용",
+          "name": "character12_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character12_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 12 프롬프트",
+          "name": "character12",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character12"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 12 네거티브",
+          "name": "character12_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character12_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 12 X 좌표",
+          "name": "character12_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character12_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 12 Y 좌표",
+          "name": "character12_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character12_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 13 사용",
+          "name": "character13_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character13_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 13 프롬프트",
+          "name": "character13",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character13"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 13 네거티브",
+          "name": "character13_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character13_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 13 X 좌표",
+          "name": "character13_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character13_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 13 Y 좌표",
+          "name": "character13_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character13_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 14 사용",
+          "name": "character14_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character14_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 14 프롬프트",
+          "name": "character14",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character14"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 14 네거티브",
+          "name": "character14_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character14_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 14 X 좌표",
+          "name": "character14_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character14_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 14 Y 좌표",
+          "name": "character14_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character14_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 15 사용",
+          "name": "character15_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character15_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 15 프롬프트",
+          "name": "character15",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character15"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 15 네거티브",
+          "name": "character15_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character15_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 15 X 좌표",
+          "name": "character15_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character15_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 15 Y 좌표",
+          "name": "character15_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character15_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 16 사용",
+          "name": "character16_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character16_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 16 프롬프트",
+          "name": "character16",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character16"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 16 네거티브",
+          "name": "character16_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character16_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 16 X 좌표",
+          "name": "character16_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character16_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 16 Y 좌표",
+          "name": "character16_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character16_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 17 사용",
+          "name": "character17_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character17_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 17 프롬프트",
+          "name": "character17",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character17"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 17 네거티브",
+          "name": "character17_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character17_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 17 X 좌표",
+          "name": "character17_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character17_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 17 Y 좌표",
+          "name": "character17_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character17_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 18 사용",
+          "name": "character18_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character18_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 18 프롬프트",
+          "name": "character18",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character18"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 18 네거티브",
+          "name": "character18_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character18_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 18 X 좌표",
+          "name": "character18_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character18_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 18 Y 좌표",
+          "name": "character18_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character18_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 19 사용",
+          "name": "character19_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character19_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 19 프롬프트",
+          "name": "character19",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character19"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 19 네거티브",
+          "name": "character19_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character19_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 19 X 좌표",
+          "name": "character19_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character19_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 19 Y 좌표",
+          "name": "character19_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character19_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 20 사용",
+          "name": "character20_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character20_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 20 프롬프트",
+          "name": "character20",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character20"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 20 네거티브",
+          "name": "character20_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character20_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 20 X 좌표",
+          "name": "character20_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character20_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 20 Y 좌표",
+          "name": "character20_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character20_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 21 사용",
+          "name": "character21_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character21_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 21 프롬프트",
+          "name": "character21",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character21"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 21 네거티브",
+          "name": "character21_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character21_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 21 X 좌표",
+          "name": "character21_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character21_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 21 Y 좌표",
+          "name": "character21_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character21_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 22 사용",
+          "name": "character22_enable",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "character22_enable"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 22 프롬프트",
+          "name": "character22",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character22"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 22 네거티브",
+          "name": "character22_uc",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "character22_uc"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 22 X 좌표",
+          "name": "character22_x",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character22_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "캐릭터 22 Y 좌표",
+          "name": "character22_y",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "character22_y"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "캐릭터 프롬프트",
+          "name": "CharacterPrompt",
+          "type": "LIST",
+          "links": [
+            8
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CharacterPromptSelect"
+      },
+      "widgets_values": [
+        "1girl, adult woman, blonde hair, long hair, white shirt",
+        "",
+        0.1,
+        0.5,
+        true,
+        "1girl, adult woman, blue hair, short hair, white shirt",
+        "",
+        0.3,
+        0.5,
+        true,
+        "1girl, adult woman, red hair, long hair, white shirt",
+        "",
+        0.5,
+        0.5,
+        true,
+        "1girl, adult woman, black hair, short hair, white shirt",
+        "",
+        0.7,
+        0.5,
+        true,
+        "1girl, adult woman, grey hair, long hair, white shirt",
+        "",
+        0.9,
+        0.5,
+        5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5,
+        true,
+        "",
+        "",
+        0.5,
+        0.5
+      ],
+      "widgets_values_named": {
+        "character1": "1girl, adult woman, blonde hair, long hair, white shirt",
+        "character1_uc": "",
+        "character1_x": 0.1,
+        "character1_y": 0.5,
+        "character2_enable": true,
+        "character2": "1girl, adult woman, blue hair, short hair, white shirt",
+        "character2_uc": "",
+        "character2_x": 0.3,
+        "character2_y": 0.5,
+        "character3_enable": true,
+        "character3": "1girl, adult woman, red hair, long hair, white shirt",
+        "character3_uc": "",
+        "character3_x": 0.5,
+        "character3_y": 0.5,
+        "character4_enable": true,
+        "character4": "1girl, adult woman, black hair, short hair, white shirt",
+        "character4_uc": "",
+        "character4_x": 0.7,
+        "character4_y": 0.5,
+        "character5_enable": true,
+        "character5": "1girl, adult woman, grey hair, long hair, white shirt",
+        "character5_uc": "",
+        "character5_x": 0.9,
+        "character5_y": 0.5,
+        "character_count": 5,
+        "character6_enable": true,
+        "character6": "",
+        "character6_uc": "",
+        "character6_x": 0.5,
+        "character6_y": 0.5,
+        "character7_enable": true,
+        "character7": "",
+        "character7_uc": "",
+        "character7_x": 0.5,
+        "character7_y": 0.5,
+        "character8_enable": true,
+        "character8": "",
+        "character8_uc": "",
+        "character8_x": 0.5,
+        "character8_y": 0.5,
+        "character9_enable": true,
+        "character9": "",
+        "character9_uc": "",
+        "character9_x": 0.5,
+        "character9_y": 0.5,
+        "character10_enable": true,
+        "character10": "",
+        "character10_uc": "",
+        "character10_x": 0.5,
+        "character10_y": 0.5,
+        "character11_enable": true,
+        "character11": "",
+        "character11_uc": "",
+        "character11_x": 0.5,
+        "character11_y": 0.5,
+        "character12_enable": true,
+        "character12": "",
+        "character12_uc": "",
+        "character12_x": 0.5,
+        "character12_y": 0.5,
+        "character13_enable": true,
+        "character13": "",
+        "character13_uc": "",
+        "character13_x": 0.5,
+        "character13_y": 0.5,
+        "character14_enable": true,
+        "character14": "",
+        "character14_uc": "",
+        "character14_x": 0.5,
+        "character14_y": 0.5,
+        "character15_enable": true,
+        "character15": "",
+        "character15_uc": "",
+        "character15_x": 0.5,
+        "character15_y": 0.5,
+        "character16_enable": true,
+        "character16": "",
+        "character16_uc": "",
+        "character16_x": 0.5,
+        "character16_y": 0.5,
+        "character17_enable": true,
+        "character17": "",
+        "character17_uc": "",
+        "character17_x": 0.5,
+        "character17_y": 0.5,
+        "character18_enable": true,
+        "character18": "",
+        "character18_uc": "",
+        "character18_x": 0.5,
+        "character18_y": 0.5,
+        "character19_enable": true,
+        "character19": "",
+        "character19_uc": "",
+        "character19_x": 0.5,
+        "character19_y": 0.5,
+        "character20_enable": true,
+        "character20": "",
+        "character20_uc": "",
+        "character20_x": 0.5,
+        "character20_y": 0.5,
+        "character21_enable": true,
+        "character21": "",
+        "character21_uc": "",
+        "character21_x": 0.5,
+        "character21_y": 0.5,
+        "character22_enable": true,
+        "character22": "",
+        "character22_uc": "",
+        "character22_x": 0.5,
+        "character22_y": 0.5
+      }
+    },
+    {
+      "id": 9,
+      "type": "RSWDTaggerLoader",
+      "pos": [
+        10,
+        970
+      ],
+      "size": [
+        390,
+        106
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "실행 장치",
+          "name": "device",
+          "type": "COMBO",
+          "widget": {
+            "name": "device"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "배치 크기",
+          "name": "batch_size",
+          "type": "INT",
+          "widget": {
+            "name": "batch_size"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "태거 모델",
+          "name": "model_name",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "model_name"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "RS_WD_TAGGER",
+          "name": "RS_WD_TAGGER",
+          "type": "RS_WD_TAGGER",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "RSWDTaggerLoader"
+      },
+      "widgets_values": [
+        "cpu",
+        1,
+        "PixAI Tagger v1.0"
+      ],
+      "widgets_values_named": {
+        "device": "cpu",
+        "batch_size": 1,
+        "model_name": "PixAI Tagger v1.0"
+      }
+    },
+    {
+      "id": 11,
+      "type": "NovelAIGenerator",
+      "pos": [
+        435,
+        40
+      ],
+      "size": [
+        390,
+        530
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "캐릭터 프롬프트",
+          "name": "characterPrompts",
+          "shape": 7,
+          "type": "LIST",
+          "link": 8
+        },
+        {
+          "localized_name": "바이브 참조",
+          "name": "vibes",
+          "shape": 7,
+          "type": "RS_NAI_VIBES",
+          "link": null
+        },
+        {
+          "localized_name": "정밀 참조",
+          "name": "references",
+          "shape": 7,
+          "type": "RS_NAI_REFERENCES",
+          "link": null
+        },
+        {
+          "localized_name": "프롬프트",
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "네거티브 프롬프트",
+          "name": "negative_prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "negative_prompt"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "생성 모델",
+          "name": "model",
+          "type": "COMBO",
+          "widget": {
+            "name": "model"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "너비",
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "높이",
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "샘플러",
+          "name": "sampler",
+          "type": "COMBO",
+          "widget": {
+            "name": "sampler"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "스텝 수",
+          "name": "steps",
+          "type": "INT",
+          "widget": {
+            "name": "steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "프롬프트 가이던스 (CFG)",
+          "name": "cfg_scale",
+          "type": "FLOAT",
+          "widget": {
+            "name": "cfg_scale"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "시드",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "스케줄러",
+          "name": "scheduler",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "scheduler"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "CFG 리스케일",
+          "name": "cfg_rescale",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "cfg_rescale"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "브라운 운동 노이즈 우선",
+          "name": "prefer_brownian",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "prefer_brownian"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "다양성 강화",
+          "name": "variety_boost",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "variety_boost"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "Anlas 사용 제한 (Opus 무료 조건)",
+          "name": "limit_opus_free",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "limit_opus_free"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "바이브 강도 정규화",
+          "name": "normalize_vibe_strengths",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "normalize_vibe_strengths"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "자동 저장 형식",
+          "name": "save_format",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "save_format"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "WebP 품질",
+          "name": "webp_quality",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "webp_quality"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "요청 전 대기 시간(초)",
+          "name": "request_delay_seconds",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "request_delay_seconds"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "이미지",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            9,
+            10
+          ]
+        },
+        {
+          "localized_name": "NAI 컨텍스트",
+          "name": "nai_context",
+          "type": "NAI_CONTEXT",
+          "links": [
+            11
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "NovelAIGenerator"
+      },
+      "widgets_values": [
+        "masterpiece, best quality, anime illustration, 5girls, five women, all five faces visible, upper body, colorful hair, outdoor cafe, bright daylight",
+        "lowres, worst quality, bad anatomy, bad hands, extra people, duplicate, overlapping faces, cropped head, text, watermark, signature, comic, multiple panels, out of frame",
+        "NAI Diffusion V5 Full",
+        1344,
+        768,
+        "k_euler_ancestral",
+        28,
+        6,
+        2026101351,
+        "fixed",
+        "karras",
+        0.05,
+        false,
+        false,
+        true,
+        true,
+        "PNG",
+        90,
+        0
+      ],
+      "widgets_values_named": {
+        "prompt": "masterpiece, best quality, anime illustration, 5girls, five women, all five faces visible, upper body, colorful hair, outdoor cafe, bright daylight",
+        "negative_prompt": "lowres, worst quality, bad anatomy, bad hands, extra people, duplicate, overlapping faces, cropped head, text, watermark, signature, comic, multiple panels, out of frame",
+        "model": "NAI Diffusion V5 Full",
+        "width": 1344,
+        "height": 768,
+        "sampler": "k_euler_ancestral",
+        "steps": 28,
+        "cfg_scale": 6,
+        "seed": 2026101351,
+        "control_after_generate": "fixed",
+        "scheduler": "karras",
+        "cfg_rescale": 0.05,
+        "prefer_brownian": false,
+        "variety_boost": false,
+        "limit_opus_free": true,
+        "normalize_vibe_strengths": true,
+        "save_format": "PNG",
+        "webp_quality": 90,
+        "request_delay_seconds": 0
+      }
+    },
+    {
+      "id": 12,
+      "type": "SaveImage",
+      "pos": [
+        435,
+        850
+      ],
+      "size": [
+        390,
+        58
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "이미지",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 9
+        },
+        {
+          "localized_name": "파일명 접두사",
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        "Context/t2i"
+      ],
+      "widgets_values_named": {
+        "filename_prefix": "Context/t2i"
+      }
+    },
+    {
+      "id": 20,
+      "type": "NAIImg2ImgNode",
+      "pos": [
+        870,
+        40
+      ],
+      "size": [
+        390,
+        432
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "이미지",
+          "name": "image",
+          "type": "IMAGE",
+          "link": 10
+        },
+        {
+          "localized_name": "캐릭터 프롬프트",
+          "name": "characterPrompts",
+          "shape": 7,
+          "type": "LIST",
+          "link": null
+        },
+        {
+          "localized_name": "바이브 참조",
+          "name": "vibes",
+          "shape": 7,
+          "type": "RS_NAI_VIBES",
+          "link": null
+        },
+        {
+          "localized_name": "정밀 참조",
+          "name": "references",
+          "shape": 7,
+          "type": "RS_NAI_REFERENCES",
+          "link": null
+        },
+        {
+          "localized_name": "NAI 컨텍스트",
+          "name": "nai_context",
+          "shape": 7,
+          "type": "NAI_CONTEXT",
+          "link": 11
+        },
+        {
+          "localized_name": "프롬프트",
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "네거티브 프롬프트",
+          "name": "negative_prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "negative_prompt"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "생성 모델",
+          "name": "model",
+          "type": "COMBO",
+          "widget": {
+            "name": "model"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "너비",
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "높이",
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "샘플러",
+          "name": "sampler",
+          "type": "COMBO",
+          "widget": {
+            "name": "sampler"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "스텝 수",
+          "name": "steps",
+          "type": "INT",
+          "widget": {
+            "name": "steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "프롬프트 가이던스 (CFG)",
+          "name": "cfg_scale",
+          "type": "FLOAT",
+          "widget": {
+            "name": "cfg_scale"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "변환 강도",
+          "name": "strength",
+          "type": "FLOAT",
+          "widget": {
+            "name": "strength"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "시드",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "스케줄러",
+          "name": "scheduler",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "scheduler"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "CFG 리스케일",
+          "name": "cfg_rescale",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "cfg_rescale"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "브라운 운동 노이즈 우선",
+          "name": "prefer_brownian",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "prefer_brownian"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "추가 노이즈",
+          "name": "noise",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "noise"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "다양성 강화",
+          "name": "variety_boost",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "variety_boost"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "Anlas 사용 제한 (Opus 무료 조건)",
+          "name": "limit_opus_free",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "limit_opus_free"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "바이브 강도 정규화",
+          "name": "normalize_vibe_strengths",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "normalize_vibe_strengths"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "자동 저장 형식",
+          "name": "save_format",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "save_format"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "WebP 품질",
+          "name": "webp_quality",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "webp_quality"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "요청 전 대기 시간(초)",
+          "name": "request_delay_seconds",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "request_delay_seconds"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "컨텍스트 설정 사용",
+          "name": "use_context_settings",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "use_context_settings"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "이미지",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            1,
+            12
+          ]
+        },
+        {
+          "localized_name": "NAI 컨텍스트",
+          "name": "nai_context",
+          "type": "NAI_CONTEXT",
+          "links": [
+            4
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "NAIImg2ImgNode"
+      },
+      "widgets_values": [
+        "manual unused",
+        "manual unused",
+        "NAI Diffusion V4.5 Full",
+        1344,
+        768,
+        "k_euler",
+        20,
+        5,
+        0.3,
+        2026101354,
+        "fixed",
+        "karras",
+        0,
+        false,
+        0,
+        true,
+        true,
+        true,
+        "PNG",
+        90,
+        0,
+        true
+      ],
+      "widgets_values_named": {
+        "prompt": "manual unused",
+        "negative_prompt": "manual unused",
+        "model": "NAI Diffusion V4.5 Full",
+        "width": 1344,
+        "height": 768,
+        "sampler": "k_euler",
+        "steps": 20,
+        "cfg_scale": 5,
+        "strength": 0.3,
+        "seed": 2026101354,
+        "control_after_generate": "fixed",
+        "scheduler": "karras",
+        "cfg_rescale": 0,
+        "prefer_brownian": false,
+        "noise": 0,
+        "variety_boost": true,
+        "limit_opus_free": true,
+        "normalize_vibe_strengths": true,
+        "save_format": "PNG",
+        "webp_quality": 90,
+        "request_delay_seconds": 0,
+        "use_context_settings": true
+      }
+    },
+    {
+      "id": 21,
+      "type": "SaveImage",
+      "pos": [
+        870,
+        840
+      ],
+      "size": [
+        390,
+        58
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "이미지",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 12
+        },
+        {
+          "localized_name": "파일명 접두사",
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        "Context/i2i"
+      ],
+      "widgets_values_named": {
+        "filename_prefix": "Context/i2i"
+      }
+    }
+  ],
+  "links": [
+    [
+      1,
+      20,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      2,
+      0,
+      3,
+      1,
+      "NAI_DETECTION_BUNDLE"
+    ],
+    [
+      3,
+      9,
+      0,
+      3,
+      3,
+      "RS_WD_TAGGER"
+    ],
+    [
+      4,
+      20,
+      1,
+      3,
+      6,
+      "NAI_CONTEXT"
+    ],
+    [
+      5,
+      3,
+      0,
+      4,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      3,
+      2,
+      5,
+      0,
+      "STRING"
+    ],
+    [
+      7,
+      3,
+      1,
+      6,
+      0,
+      "IMAGE"
+    ],
+    [
+      8,
+      8,
+      0,
+      11,
+      0,
+      "LIST"
+    ],
+    [
+      9,
+      11,
+      0,
+      12,
+      0,
+      "IMAGE"
+    ],
+    [
+      10,
+      11,
+      0,
+      20,
+      0,
+      "IMAGE"
+    ],
+    [
+      11,
+      11,
+      1,
+      20,
+      4,
+      "NAI_CONTEXT"
+    ],
+    [
+      12,
+      20,
+      0,
+      21,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.57,
+      "offset": [
+        45,
+        75
+      ]
+    }
+  },
+  "version": 0.4
+}

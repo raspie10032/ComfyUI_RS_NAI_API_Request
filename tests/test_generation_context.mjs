@@ -12,12 +12,12 @@ for (const order of [["combined_detailer", "generation_context"], ["generation_c
         node.widgets.push(w); return { widget: w };
     } };
     for (const file of order) vm.runInNewContext(readFileSync(new URL(`../web/${file}.js`, import.meta.url), "utf8").replace(/^import .*;\n/gm, ""), { app, ComfyWidgets });
-    for (const name of ["NAIImg2ImgNode", "NAICombinedFaceDetailerTest"]) {
+    for (const name of ["NAIImg2ImgNode", "NAIMultiCharacterDetailer"]) {
         class Node {
             constructor() {
                 this.widgets = Object.entries({ prompt: "keep me", model: "NAI Diffusion V5 Full", seed: 222,
                     width: 768, strength: .3, sampler: "k_euler", show_advanced: false,
-                    limit_opus_free: true, use_context_settings: true, preview_only: true }).map(([k, v]) => widget(k, v));
+                    limit_opus_free: true, use_context_settings: true }).map(([k, v]) => widget(k, v));
                 this.inputs = [{ name: "nai_context", link: null }]; this.size = [300, 200];
             }
             computeSize() { return [300, 100]; }
@@ -44,32 +44,24 @@ for (const order of [["combined_detailer", "generation_context"], ["generation_c
         assert.deepEqual(n.widgets.filter(w => w.serialize !== false).map(w => w.value), values);
         assert.equal(get("rs_nai_context_status").serializeValue(), undefined);
         assert.equal(n.widgets.filter(w => w.name === "rs_nai_context_status").length, 1);
-        if (name === "NAICombinedFaceDetailerTest") {
+        if (name === "NAIMultiCharacterDetailer") {
             n.inputs[0].link = 42;
-            const expected = {en: [/preview only/, /NovelAI detailing/], ko: [/미리보기만/, /NAI 보정/], ja: [/プレビューのみ/, /NAIで補正/]};
+            const expected = {en: /NovelAI correction/, ko: /NAI로 보정/, ja: /NAIで補正/};
             for (const code of ["ko", "en", "ja"]) {
                 locale = code;
-                for (const enabled of [true, false]) for (const preview of [true, false]) {
+                for (const enabled of [true, false]) {
                     get("use_context_settings").value = enabled;
                     get("use_context_settings").callback();
-                    get("preview_only").value = preview;
-                    get("preview_only").callback();
-                    assert.match(get("rs_nai_context_status").value, expected[code][preview ? 0 : 1]);
+                    assert.match(get("rs_nai_context_status").value, expected[code]);
                     assert.equal(get("prompt").hidden, enabled);
-                    assert.equal(get("preview_only").hidden, false);
+                    assert.equal(get("preview_only"), undefined);
                     const saved = n.widgets.filter(w => w.serialize !== false).map(w => w.value);
                     n.onConfigure();
                     assert.deepEqual(n.widgets.filter(w => w.serialize !== false).map(w => w.value), saved);
-                    assert.match(get("rs_nai_context_status").value, expected[code][preview ? 0 : 1]);
+                    assert.match(get("rs_nai_context_status").value, expected[code]);
                 }
             }
-            locale = "en";
-            n.inputs.push({ name: "preview_only", link: 99 }); n.onConnectionsChange();
-            assert.match(get("rs_nai_context_status").value, /determined by the connected/);
-            get("preview_only").value = true; get("preview_only").callback();
-            get("use_context_settings").value = true; get("use_context_settings").callback();
-            assert.equal(get("preview_only").value, true, "Context toggle must never enable paid generation");
         }
     }
 }
-console.log("PASS: context folding, seeds, manual fallback, preview/generation mode independence in three languages, extension load order");
+console.log("PASS: context folding, seeds, manual fallback, correction in both context modes in three languages, extension load order");

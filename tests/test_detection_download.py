@@ -73,10 +73,10 @@ class DownloadTests(unittest.TestCase):
         with mock.patch.object(bundle, 'installed_models', return_value=([], [])), \
              mock.patch.object(bundle, 'installed_sams', return_value=[]), \
              mock.patch.object(bundle, 'ensure_detection_model', side_effect=AssertionError('download')):
-            schema = bundle.NAIDetectorCombineLoaderTest.INPUT_TYPES()
+            schema = bundle.NAIDetectionCombineLoader.INPUT_TYPES()
             self.assertEqual(schema['required']['face_segm_model'][1]['default'], models.DEFAULT_SEGM)
-            self.assertIs(bundle.NAIDetectorCombineLoaderTest.VALIDATE_INPUTS(models.DEFAULT_SEGM), True)
-            self.assertEqual(bundle.NAIDetectorCombineLoaderTest().load('OFF')[0], bundle.DetectionBundle())
+            self.assertIs(bundle.NAIDetectionCombineLoader.VALIDATE_INPUTS(models.DEFAULT_SEGM), True)
+            self.assertEqual(bundle.NAIDetectionCombineLoader().load('OFF')[0], bundle.DetectionBundle())
 
     def test_default_download_before_loading_and_ignored_selections_need_no_sam(self):
         yolo = mock.Mock(); yolo.return_value.doit.return_value = ('bbox', 'segm')
@@ -85,7 +85,7 @@ class DownloadTests(unittest.TestCase):
              mock.patch.object(bundle, 'provider', return_value=yolo) as provider, \
              mock.patch.object(bundle, 'ensure_detection_model') as download:
             yolo.return_value.doit.side_effect = lambda name: (download.assert_called_once(), 'segm')
-            result = bundle.NAIDetectorCombineLoaderTest().load(
+            result = bundle.NAIDetectionCombineLoader().load(
                 face_bbox_model='missing bbox.pt', sam_model='missing sam.pth')[0]
         self.assertEqual(result, bundle.DetectionBundle(segm_detector='segm'))
         provider.assert_called_once_with('UltralyticsDetectorProvider')
@@ -108,15 +108,15 @@ class DownloadTests(unittest.TestCase):
         with mock.patch.object(bundle, 'installed_models', side_effect=lambda: values), \
              mock.patch.object(bundle, 'installed_sams', return_value=['custom/sam_vit_b.pth']), \
              mock.patch.object(models, 'urlopen', side_effect=AssertionError('network')):
-            before = bundle.NAIDetectorCombineLoaderTest.INPUT_TYPES()
+            before = bundle.NAIDetectionCombineLoader.INPUT_TYPES()
             values = ([models.DEFAULT_SEGM, 'segm/custom/new.pt'], ['bbox/custom/new.pt'])
-            after = bundle.NAIDetectorCombineLoaderTest.INPUT_TYPES()
+            after = bundle.NAIDetectionCombineLoader.INPUT_TYPES()
             self.assertNotIn('segm/custom/new.pt', before['required']['face_segm_model'][0])
             self.assertIn('segm/custom/new.pt', after['required']['face_segm_model'][0])
             self.assertIn('bbox/custom/new.pt', after['optional']['face_bbox_model'][0])
             self.assertIn('custom/sam_vit_b.pth', after['optional']['sam_model'][0])
             self.assertEqual(after['required']['face_segm_model'][0].count(models.DEFAULT_SEGM), 1)
-            self.assertIs(bundle.NAIDetectorCombineLoaderTest.VALIDATE_INPUTS('segm/custom/new.pt'), True)
+            self.assertIs(bundle.NAIDetectionCombineLoader.VALIDATE_INPUTS('segm/custom/new.pt'), True)
             self.assertIsNone(models.ensure_detection_model('segm/custom/new.pt', self.progress))
 
     def test_catalog_entries_have_target_hash_and_specific_artifact_urls(self):
@@ -133,7 +133,7 @@ class DownloadTests(unittest.TestCase):
     def test_notice_wrapper_preserves_node_id_for_download_progress(self):
         from ComfyUI_RS_NAI_API_Request.diagnostics import node_notices
         @node_notices
-        class Loader(bundle.NAIDetectorCombineLoaderTest):
+        class Loader(bundle.NAIDetectionCombineLoader):
             pass
         with mock.patch.object(bundle, 'TaggerProgress') as progress:
             result = Loader().load('OFF', unique_id='loader-2')

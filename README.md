@@ -4,11 +4,21 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The Detailer can use bbox+SAM, native SEGM masks, or a standard ComfyUI `MASK` from SAM3 or another mask node, and can process multiple regions sequentially. An optional **local PyTorch tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads only the selected model when the loader executes, after the optional dependencies are installed.
 
-> Current version: **2.7.1**
+> Current version: **2.8.0**
 
-## Experimental branch
+## What's New in 2.8.0
 
-This branch adds a detection-only combine loader and a SEGM-first **NovelAI** face detailer test node, with hole/notch filling and dilation enabled by default. Its detector catalog covers faces, eyes, hands, clothes, skin, hair and whole people; active selections download on first execution and additional models are discovered in the existing model folders. SEGM takes priority and skips BBOX/SAM loading. See the [test node guide](docs/experimental-detection-combine.md). These nodes are not part of the published 2.7.1 release.
+- **NAI Multi-Character Detailer:** detect regions, match each to its original character prompt and correct it with NovelAI. Hole/notch filling and mask expansion are enabled by default. Execution performs correction; there is no preview-only switch. The resulting image, mask visualization and matching report remain available.
+- **NAI Detection Combine Loader:** select SEGM, BBOX and SAM on one loader. SEGM takes priority and skips BBOX/SAM. OFF models are never loaded. Active catalog detectors download on first execution with visible progress; additional weights appear from the existing model folders.
+- **Generation context:** connect T2I `image` + `nai_context` → I2I → detailer. Prompts, characters and effective sampling settings carry through; each stage keeps its own seed. Bypassing I2I forwards both connections. Context OFF uses manual settings and still performs correction.
+- **Up to 22 characters / 64 regions. Quality cannot be guaranteed as the number of processed regions increases.** The default maximum is five regions; uncertain character matches are skipped.
+- Prototype workflows migrate automatically, preserving later widget values and connections. The removed preview setting no longer suppresses correction. Review Anlas protection before running: it remains local to each node, and strict protection blocks potentially paid inpainting.
+
+**[Usage / 사용법 / 使い方](docs/multi-character-detailer.md)** · **[Normal context workflow](examples/multi-character-detailer/NAI_context_normal.json)** · **[I2I bypass workflow](examples/multi-character-detailer/NAI_context_I2I_bypass.json)**
+
+**한국어:** **NAI 멀티 캐릭터 디테일러**는 실행하면 바로 감지·매칭·보정합니다. **미리보기만 실행은 제거**했습니다. 생성 노드에서 이미지와 NAI 컨텍스트를 함께 연결하고, 디테일러에 감지 모델 콤바인 로더와 태거를 연결하세요. 시드는 단계마다 독립이며 I2I 바이패스도 지원합니다. **처리수가 많을수록 품질을 보장하지 못합니다.** 예제는 Anlas 보호가 켜져 있어, 실제 I2I/보정을 하려면 해당 노드에서 보호 설정을 검토해야 합니다.
+
+**日本語:** **NAIマルチキャラクターディテーラー**は実行時に検出・照合・補正を行います。「プレビューのみ」は削除しました。生成ノードの画像とNAIコンテキストを接続し、ディテーラーへ検出モデル結合ローダーとタガーを接続してください。シードは各段階で独立し、I2IのBypassにも対応します。**処理領域数が増えるほど品質は保証できません。** サンプルはAnlas保護が有効です。I2I・補正の実行前に各ノードの保護設定を確認してください。
 
 ## What's New in 2.7.1
 
@@ -325,9 +335,13 @@ Face Detailer outputs the composited image, a mask visualization, and a JSON mat
 ### 5b. Detailer (`NAIFaceDetailerSegmNode`)
 Same pipeline as NAI Face Detailer, but `segm_detector` remains the **required** primary detector. With no SAM model, its native `cropped_mask` supplies the editable pixels (threshold and overlap ownership still apply). Connecting `sam_model` with `mask_source=auto` preserves the previous behavior: SEGM boxes guide SAM and optional `bbox_detector` boxes are assigned to those regions. `detail_mask` can instead receive a same-size standard MASK from SAM3 or another node when `mask_source=external_mask`. `eye_bbox_detector` and `limit_opus_free` behave identically to the Face Detailer node. Displayed in ComfyUI as **Detailer**.
 
-### 5c. Automatic character matching (native PyTorch)
+### 5c. Multi-Character Detailer and Detection Combine Loader
 
-Both Detailer nodes accept the original `CharacterPromptSelect` output through
+See the [2.8.0 guide](docs/multi-character-detailer.md) for the combined loader, T2I/I2I context, independent seeds and I2I bypass. The Multi-Character Detailer always corrects eligible regions when executed. The `preview_only` descriptions below apply to the older Face Detailer nodes.
+
+### 5d. Automatic character matching (native PyTorch)
+
+The detailers accept the original `CharacterPromptSelect` output through
 `characterPrompts`. Connect `NAI WD Tagger Loader (PyTorch)` to `tagger`, select
 `detail_mode=all` and `matching_mode=wd14` to process several characters.
 The `wd14` mode and `RS_WD_TAGGER` socket accept all models in the loader's selection menu, preserving existing workflows.

@@ -11,7 +11,7 @@ import torch
 import test_medium_nodes as generation
 import test_detailer as detailing
 from ComfyUI_RS_NAI_API_Request import generators as g, detailer
-from ComfyUI_RS_NAI_API_Request.combined_detailer import NAICombinedFaceDetailerTest
+from ComfyUI_RS_NAI_API_Request.combined_detailer import NAIMultiCharacterDetailer
 from ComfyUI_RS_NAI_API_Request.detector_bundle import DetectionBundle
 from ComfyUI_RS_NAI_API_Request.generation_context import inherit_context
 
@@ -58,7 +58,7 @@ class ContextTests(unittest.TestCase):
                       prompt="unused manual", negative_prompt="unused negative",
                       model="NAI Diffusion V4.5 Full", seed=789, nai_context=updated,
                       tagger=tagger, preview_only=False, limit_opus_free=False)
-        _, mask, report = NAICombinedFaceDetailerTest().detail(**kwargs)
+        _, mask, report = NAIMultiCharacterDetailer().detail(**kwargs)
         self.assertEqual([r["status"] for r in json.loads(report)], ["edited", "edited"])
         self.assertEqual([p["parameters"]["seed"] for p in pipeline.payloads], [789, 790])
         for i, payload in enumerate(pipeline.payloads):
@@ -68,15 +68,9 @@ class ContextTests(unittest.TestCase):
             self.assertEqual(payload["parameters"]["sampler"], source.sampler)
             self.assertEqual(payload["parameters"]["cfg_rescale"], source.cfg_rescale)
             self.assertNotIn("invented tag", payload["input"])
-        count = len(pipeline.payloads)
-        kwargs.update(preview_only=True)
-        with mock.patch.object(detailer, "get_nai_token", side_effect=AssertionError("token read")):
-            _, preview, _ = NAICombinedFaceDetailerTest().detail(**kwargs)
-        self.assertTrue(torch.equal(mask, preview))
-        self.assertEqual(len(pipeline.payloads), count)
         kwargs.pop("tagger")
         with self.assertRaisesRegex(ValueError, "Tagger|tagger"):
-            NAICombinedFaceDetailerTest().detail(**kwargs)
+            NAIMultiCharacterDetailer().detail(**kwargs)
 
     def test_medium_snapshots_effective_values_and_local_random_seed(self):
         image, source = self.source(model=generation.MEDIUM, seed=-1, steps=50)
@@ -89,7 +83,7 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(updated.negative_prompt, source.negative_prompt)
         self.assertEqual(updated.model, source.model)
 
-    def test_detailer_context_toggle_never_switches_preview_or_bypasses_generation(self):
+    def test_detailer_context_toggle_always_corrects_with_selected_settings(self):
         _, source = self.source()
         pipeline = detailing.PipelineTests()
         pipeline.setUp()
@@ -99,16 +93,14 @@ class ContextTests(unittest.TestCase):
             {"blonde_hair": .99, "black_hair": .01},
             {"blonde_hair": .01, "black_hair": .99},
         ][:len(images)])
-        # Same connected context, all four combinations, then restore inherited mode.
+        # Both context modes correct, even with a stale prototype preview value.
         for enabled, preview in ((True, True), (False, True), (False, False), (True, False), (True, True)):
             with self.subTest(use_context_settings=enabled, preview_only=preview):
                 pipeline.payloads.clear()
                 pipeline.post.reset_mock()
                 token = mock.Mock(return_value="test")
-                if preview:
-                    token.side_effect = AssertionError("preview read a token")
                 with mock.patch.object(detailer, "get_nai_token", token):
-                    result = NAICombinedFaceDetailerTest().detail(
+                    result = NAIMultiCharacterDetailer().detail(
                         image=pipeline.image, detectors=DetectionBundle(bbox_detector=pipeline.detector),
                         prompt="manual style", negative_prompt="manual negative",
                         model="NAI Diffusion V4.5 Full", seed=789, nai_context=source,
@@ -117,21 +109,17 @@ class ContextTests(unittest.TestCase):
                         steps=17, sampler="k_euler", unique_id="toggle-test")
                 records = json.loads(result["result"][2])
                 self.assertEqual(len(records), 2)
-                self.assertEqual(len(pipeline.payloads), 0 if preview else 2)
+                self.assertEqual(len(pipeline.payloads), 2)
                 notices = "\n".join(result["ui"]["rs_nai_notice"])
-                self.assertEqual("Preview only: no NovelAI request" in notices, preview)
-                if preview:
-                    pipeline.post.assert_not_called()
-                    token.assert_not_called()
-                else:
-                    self.assertTrue(all(r["status"] == "edited" for r in records))
-                    for index, payload in enumerate(pipeline.payloads):
-                        self.assertEqual(payload["action"], "infill")
-                        self.assertEqual(payload["model"], "nai-diffusion-5-full-inpainting" if enabled else "nai-diffusion-4-5-full-inpainting")
-                        self.assertEqual(payload["input"], source.prompt + ", " + source.characters[index].prompt if enabled else "manual style, manual green hair")
-                        self.assertEqual(payload["parameters"]["negative_prompt"], source.negative_prompt + ", " + source.characters[index].uc if enabled else "manual negative, manual character negative")
-                        self.assertEqual(payload["parameters"]["seed"], 789 + index)
-                        self.assertEqual(payload["parameters"]["steps"], source.steps if enabled else 17)
+                self.assertNotIn("Preview only: no NovelAI request", notices)
+                self.assertTrue(all(r["status"] == "edited" for r in records))
+                for index, payload in enumerate(pipeline.payloads):
+                    self.assertEqual(payload["action"], "infill")
+                    self.assertEqual(payload["model"], "nai-diffusion-5-full-inpainting" if enabled else "nai-diffusion-4-5-full-inpainting")
+                    self.assertEqual(payload["input"], source.prompt + ", " + source.characters[index].prompt if enabled else "manual style, manual green hair")
+                    self.assertEqual(payload["parameters"]["negative_prompt"], source.negative_prompt + ", " + source.characters[index].uc if enabled else "manual negative, manual character negative")
+                    self.assertEqual(payload["parameters"]["seed"], 789 + index)
+                    self.assertEqual(payload["parameters"]["steps"], source.steps if enabled else 17)
 
     def test_manual_detailer_with_connected_context_still_enforces_matching_and_payment_guards(self):
         _, source = self.source()
@@ -143,9 +131,9 @@ class ContextTests(unittest.TestCase):
                     nai_context=source, use_context_settings=False, preview_only=False)
         with mock.patch.object(detailer, "get_nai_token", side_effect=AssertionError("token")):
             with self.assertRaisesRegex(RuntimeError, "(?i)(free|anlas)"):
-                NAICombinedFaceDetailerTest().detail(**args, limit_opus_free=True, references=[object()])
+                NAIMultiCharacterDetailer().detail(**args, limit_opus_free=True, references=[object()])
             with self.assertRaisesRegex(ValueError, "CharacterPromptSelect"):
-                NAICombinedFaceDetailerTest().detail(**args, matching_mode="wd14", limit_opus_free=False)
+                NAIMultiCharacterDetailer().detail(**args, matching_mode="wd14", limit_opus_free=False)
         pipeline.post.assert_not_called()
 
     def test_five_three_five_updates_requests_and_context_without_stale_characters(self):
@@ -210,7 +198,7 @@ class ContextTests(unittest.TestCase):
     def test_existing_image_slot_and_widget_order_are_preserved(self):
         for cls in (g.NovelAIGenerator, g.NAIImg2ImgNode):
             self.assertEqual(cls.RETURN_TYPES, ("IMAGE", "NAI_CONTEXT"))
-        for cls in (g.NAIImg2ImgNode, NAICombinedFaceDetailerTest):
+        for cls in (g.NAIImg2ImgNode, NAIMultiCharacterDetailer):
             fields = list(cls.INPUT_TYPES()["optional"])
             self.assertEqual(fields[-1], "use_context_settings")
             self.assertLess(fields.index("request_delay_seconds"), fields.index("use_context_settings"))

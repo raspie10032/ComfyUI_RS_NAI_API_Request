@@ -7,7 +7,7 @@ app.registerExtension({
     setup() {
         api.addEventListener("rs_nai_tagger_progress", ({ detail }) => {
             const node = app.graph?.getNodeById(detail.node);
-            if (!["RSWDTaggerLoader", "NAIDetectorCombineLoaderTest"].includes(node?.comfyClass)) return;
+            if (!["RSWDTaggerLoader", "NAIDetectionCombineLoader"].includes(node?.comfyClass)) return;
             let widget = node.widgets?.find(w => w.name === "rs_tagger_status");
             if (!widget) {
                 widget = ComfyWidgets.STRING(node, "rs_tagger_status", ["STRING", { multiline: true }], app).widget;

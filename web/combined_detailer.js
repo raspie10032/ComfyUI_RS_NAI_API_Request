@@ -41,8 +41,8 @@ function updateLoader(node, clearProgress = false) {
 }
 
 const targets = {
-    NAIDetectorCombineLoaderTest: ["show_optional_models", new Set(["face_segm_model", "face_bbox_model", "sam_model", "show_optional_models"])],
-    NAICombinedFaceDetailerTest: ["show_advanced", new Set(["prompt", "negative_prompt", "model", "strength", "seed", "control_after_generate", "preview_only", "show_advanced", "limit_opus_free", "use_context_settings"])],
+    NAIDetectionCombineLoader: ["show_optional_models", new Set(["face_segm_model", "face_bbox_model", "sam_model", "show_optional_models"])],
+    NAIMultiCharacterDetailer: ["show_advanced", new Set(["prompt", "negative_prompt", "model", "strength", "seed", "control_after_generate", "show_advanced", "limit_opus_free", "use_context_settings"])],
 };
 
 function update(node, toggle, basic) {
@@ -82,7 +82,7 @@ app.registerExtension({
             const previous = nodeType.prototype[hook];
             nodeType.prototype[hook] = function () {
                 const result = previous?.apply(this, arguments);
-                if (nodeData.name === "NAIDetectorCombineLoaderTest" && hook === "onConfigure") {
+                if (nodeData.name === "NAIDetectionCombineLoader" && hook === "onConfigure") {
                     for (const widget of this.widgets ?? []) {
                         if (["face_segm_model", "face_bbox_model", "sam_model", "eye_bbox_model"].includes(widget.name) && widget.value === "None") {
                             widget.value = "OFF";
@@ -90,19 +90,19 @@ app.registerExtension({
                     }
                 }
                 if (hook === "onNodeCreated") {
-                    for (const name of [toggle, "save_format", "use_context_settings", ...(nodeData.name === "NAIDetectorCombineLoaderTest" ? modelFields : [])]) {
+                    for (const name of [toggle, "save_format", "use_context_settings", ...(nodeData.name === "NAIDetectionCombineLoader" ? modelFields : [])]) {
                         const widget = this.widgets?.find(w => w.name === name);
                         if (widget) {
                             const callback = widget.callback;
                             widget.callback = (...args) => {
                                 callback?.apply(widget, args);
-                                if (nodeData.name === "NAIDetectorCombineLoaderTest") updateLoader(this, modelFields.includes(name));
+                                if (nodeData.name === "NAIDetectionCombineLoader") updateLoader(this, modelFields.includes(name));
                                 update(this, toggle, basic);
                             };
                         }
                     }
                 }
-                if (nodeData.name === "NAIDetectorCombineLoaderTest") updateLoader(this, hook === "onConfigure");
+                if (nodeData.name === "NAIDetectionCombineLoader") updateLoader(this, hook === "onConfigure");
                 update(this, toggle, basic);
                 return result;
             };
@@ -111,7 +111,7 @@ app.registerExtension({
             const previous = nodeType.prototype.onConnectionsChange;
             nodeType.prototype.onConnectionsChange = function () {
                 const result = previous?.apply(this, arguments);
-                if (nodeData.name === "NAIDetectorCombineLoaderTest") updateLoader(this, true);
+                if (nodeData.name === "NAIDetectionCombineLoader") updateLoader(this, true);
                 update(this, toggle, basic);
                 return result;
             };

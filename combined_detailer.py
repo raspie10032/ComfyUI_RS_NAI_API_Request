@@ -76,7 +76,7 @@ class RepairedDetector:
         return (height, width), result
 
 
-class NAICombinedFaceDetailerTest:
+class NAIMultiCharacterDetailer:
     @classmethod
     def INPUT_TYPES(cls):
         old = NAIFaceDetailerNode.INPUT_TYPES()
@@ -86,7 +86,6 @@ class NAICombinedFaceDetailerTest:
             "image": req["image"], "detectors": ("NAI_DETECTION_BUNDLE",),
             **{key: req[key] for key in ("prompt", "negative_prompt", "model", "strength", "seed")},
             "model": (model_choices, {**model_options, "default": "NAI Diffusion V5 Full"}),
-            "preview_only": ("BOOLEAN", {"default": True, "tooltip": "On: detection and matching only, with no NovelAI request. Off: generate eligible regions with NovelAI. Independent of use_context_settings, which only selects inherited or manual settings."}),
         }, "optional": {
             "show_advanced": ("BOOLEAN", {"default": False}),
             **{key: value for key, value in old["optional"].items()
@@ -100,24 +99,26 @@ class NAICombinedFaceDetailerTest:
             "dilation": ("INT", {"default": 8, "min": 0, "max": 128, "tooltip": "Extra editing room in original-image pixels, after hole/notch filling."}),
             "mask_feather": ("INT", {"default": 8, "min": 0, "max": 64, "tooltip": "Blend inside the expanded mask. Separate from crop context and dilation."}),
             **context_inputs(),
-            "use_context_settings": ("BOOLEAN", {"default": True, "tooltip": "On: inherit prompts, characters, model and sampling settings from connected NAI context. Off: use this node's manual values. Does not switch preview_only or bypass detailing. Turn off preview_only to generate; the seed stays local."}),
+            "use_context_settings": ("BOOLEAN", {"default": True, "tooltip": "On: inherit prompts, characters, model and sampling settings from connected NAI context. Off: use this node's manual values. Both modes perform NovelAI correction; the seed stays local."}),
         }}
 
     RETURN_TYPES = ("IMAGE", "IMAGE", "STRING")
     RETURN_NAMES = ("image", "mask_visualization", "matching_report")
     FUNCTION = "detail"
-    CATEGORY = "RS_NovelAI_API/Experimental"
-    DESCRIPTION = "NovelAI face detailer test: image + detection bundle. Fills holes/notches, expands the mask, then uses NovelAI inpainting. Optional character matching and references use the existing NAI pipeline. Quality cannot be guaranteed as the number of processed regions increases."
+    CATEGORY = "RS_NovelAI_API"
+    DESCRIPTION = "Detect regions, match original character prompts and correct them with NovelAI inpainting. Connect image + detection bundle, and optionally NAI context from T2I or img2img. Fills holes/notches and expands masks by default. Up to 22 characters and 64 regions; quality cannot be guaranteed as the number of processed regions increases. Execution performs correction, with no preview-only mode."
 
     def detail(self, image, detectors, prompt, negative_prompt, model, strength=0.55, seed=-1,
-               preview_only=True, show_advanced=False, closing=True, fill_holes=True,
+               show_advanced=False, closing=True, fill_holes=True,
                dilation=8, mask_feather=8, sampler="k_euler", steps=28, cfg_scale=6.0,
                scheduler="karras", threshold=0.3, bbox_threshold=0.3, crop_factor=3.0,
                detail_mode="all", max_regions=5, nai_context=None, use_context_settings=True, **options):
         from .detailer import run_face_detail
         from .errors import user_error
+        # Old API graphs may still send this removed prototype setting.
+        options.pop("preview_only", None)
         if not isinstance(detectors, DetectionBundle):
-            raise ValueError("Connect NAI Detection Combine Loader (Test). / NAI 감지 모델 콤바인 로더(시험)를 연결해 주세요.")
+            raise ValueError("Connect NAI Detection Combine Loader. / NAI 감지 모델 콤바인 로더를 연결해 주세요. / NAI検出モデル結合ローダーを接続してください。")
         if detectors.segm_detector is None and detectors.bbox_detector is None:
             raise user_error("DETECTION_MODEL_SELECTION", ValueError, "Select a primary SEGM or BBOX model in the combine loader.")
         inherited = inherit_context(nai_context, use_context_settings)
@@ -138,5 +139,5 @@ class NAICombinedFaceDetailerTest:
         return run_face_detail(image, detector, None, None, prompt, negative_prompt, model,
             strength, threshold, sampler, steps, cfg_scale, bbox_threshold, 0, crop_factor,
             scheduler, seed, primary_uses_native_mask=True, mask_source="segm",
-            eye_bbox_detector=detectors.eye_bbox_detector, preview_only=preview_only,
+            eye_bbox_detector=detectors.eye_bbox_detector, preview_only=False,
             detail_mode=detail_mode, max_regions=max_regions, mask_feather=mask_feather, **options)

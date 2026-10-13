@@ -29,7 +29,7 @@ assert.equal(node.widgets.length, 2);
 assert.equal(node.widgets[0].value, "WD ViT v3");
 console.log("PASS: loader progress updates, routing, read-only and excluded from workflow values");
 
-node.comfyClass = "NAIDetectorCombineLoaderTest";
+node.comfyClass = "NAIDetectionCombineLoader";
 update({ detail: { node: "7", text: "Downloading face SEGM: 50% (3.3 / 6.6 MiB)" } });
 assert.match(widget.value, /50%/);
 update({ detail: { node: "7", text: "Ready: SEGM (face BBOX / SAM skipped)" } });

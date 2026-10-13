@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Detection-only loader for the experimental NovelAI face detailer."""
+"""Detection-only loader for the NovelAI multi-character detailer."""
 from dataclasses import dataclass
 
 from .detection_models import CATALOG, DEFAULT_SEGM, ensure_detection_model
@@ -54,7 +54,7 @@ class DetectionBundle:
     eye_bbox_detector: object = None
 
 
-class NAIDetectorCombineLoaderTest:
+class NAIDetectionCombineLoader:
     @classmethod
     def INPUT_TYPES(cls):
         segms, boxes = available_models()
@@ -70,7 +70,7 @@ class NAIDetectorCombineLoaderTest:
     RETURN_TYPES = ("NAI_DETECTION_BUNDLE",)
     RETURN_NAMES = ("detectors",)
     FUNCTION = "load"
-    CATEGORY = "RS_NovelAI_API/Experimental"
+    CATEGORY = "RS_NovelAI_API"
     DESCRIPTION = "SEGM is the default and takes priority. With SEGM selected, BBOX and SAM are not loaded or run, even if selected. With SEGM OFF, BBOX alone or BBOX + SAM is used. OFF disables a model. Select face, eye, hand, clothing, skin or whole-person detectors. Missing catalog models download on execution with progress. Models added to the existing ultralytics/segm, ultralytics/bbox and sams folders appear when lists are refreshed. SAM must already be installed."
 
     @classmethod

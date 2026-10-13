@@ -1,7 +1,7 @@
 import { app } from "../../scripts/app.js";
 import { ComfyWidgets } from "../../scripts/widgets.js";
 
-const consumers = new Set(["NAIImg2ImgNode", "NAICombinedFaceDetailerTest"]);
+const consumers = new Set(["NAIImg2ImgNode", "NAIMultiCharacterDetailer"]);
 const inheritedFields = new Set(["prompt", "negative_prompt", "model", "sampler", "steps", "cfg_scale", "scheduler", "cfg_rescale", "prefer_brownian", "variety_boost"]);
 const labels = {
     en: ["Using connected prompts, characters, model and sampling settings. Seed, size, strength and Anlas protection stay local. Multiple characters in the detailer require a tagger.", "Using this node's manual settings. Connect NAI context and enable its settings to inherit them."],
@@ -9,9 +9,9 @@ const labels = {
     ja: ["接続元のプロンプト・キャラクター・モデル・サンプリング設定を使用します。シード・サイズ・強度・Anlas保護はこのノードで設定します。複数キャラクターの補正にはタガーが必要です。", "このノードの手動設定を使用します。NAIコンテキストを接続して設定の使用を有効にすると引き継げます。"],
 };
 const detailerModes = {
-    en: ["Next run: preview only. Detection / matching only; no NovelAI request. Turn off 'preview_only' to generate.", "Next run: NovelAI detailing for eligible regions. Anlas protection still applies.", "Preview / generation mode is determined by the connected preview_only input at execution."],
-    ko: ["다음 실행: 미리보기만. 감지·매칭만 확인하며 NAI 생성 요청은 보내지 않습니다. 보정하려면 ‘미리보기만 실행’을 끄세요.", "다음 실행: NAI 보정. 감지·매칭을 통과한 영역을 생성합니다. Anlas 보호도 적용됩니다.", "미리보기·생성 여부는 연결된 ‘미리보기만 실행’ 입력값으로 실행할 때 결정됩니다."],
-    ja: ["次の実行：プレビューのみ。検出・照合だけ行い、NAIへ生成リクエストを送りません。補正するには「プレビューのみ」を無効にしてください。", "次の実行：NAIで補正。検出・照合を通過した領域を生成します。Anlas保護も適用されます。", "プレビュー・生成の選択は、接続されたpreview_only入力の値で実行時に決まります。"],
+    en: "Next run: NovelAI correction for eligible regions. Anlas protection applies. Quality cannot be guaranteed as the number of processed regions increases.",
+    ko: "다음 실행: 감지·매칭을 통과한 영역을 NAI로 보정합니다. Anlas 보호가 적용됩니다. 처리수가 많을수록 품질을 보장하지 못합니다.",
+    ja: "次の実行：検出・照合を通過した領域をNAIで補正します。Anlas保護が適用されます。処理領域数が増えるほど品質は保証できません。",
 };
 
 function update(node, isImg2Img) {
@@ -43,9 +43,7 @@ function update(node, isImg2Img) {
     const locale = String(app.ui?.settings?.getSettingValue("Comfy.Locale") ?? "en").slice(0, 2);
     status.value = (labels[locale] ?? labels.en)[active ? 0 : 1];
     if (!isImg2Img) {
-        const connected = node.inputs?.some(i => i.name === "preview_only" && i.link != null);
-        const preview = node.widgets?.find(w => w.name === "preview_only")?.value !== false;
-        status.value = (detailerModes[locale] ?? detailerModes.en)[connected ? 2 : preview ? 0 : 1] + "\n\n" + status.value;
+        status.value = (detailerModes[locale] ?? detailerModes.en) + "\n\n" + status.value;
     }
     const size = node.computeSize();
     node.setSize([Math.max(node.size[0], size[0]), size[1]]);
@@ -61,7 +59,7 @@ app.registerExtension({
             nodeType.prototype[hook] = function () {
                 const result = previous?.apply(this, arguments);
                 if (hook === "onNodeCreated") {
-                    for (const name of ["use_context_settings", "preview_only"]) {
+                    for (const name of ["use_context_settings"]) {
                         const mode = this.widgets?.find(w => w.name === name);
                         if (!mode) continue;
                         const callback = mode.callback;

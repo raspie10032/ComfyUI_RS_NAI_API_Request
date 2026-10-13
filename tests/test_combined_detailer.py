@@ -11,8 +11,8 @@ import torch
 
 import test_detailer as fixtures
 from ComfyUI_RS_NAI_API_Request import detailer
-from ComfyUI_RS_NAI_API_Request.combined_detailer import NAICombinedFaceDetailerTest, RepairedDetector
-from ComfyUI_RS_NAI_API_Request.detector_bundle import DetectionBundle, NAIDetectorCombineLoaderTest
+from ComfyUI_RS_NAI_API_Request.combined_detailer import NAIMultiCharacterDetailer, RepairedDetector
+from ComfyUI_RS_NAI_API_Request.detector_bundle import DetectionBundle, NAIDetectionCombineLoader
 from ComfyUI_RS_NAI_API_Request.detection_models import CATALOG, DEFAULT_SEGM
 
 
@@ -34,15 +34,29 @@ class CombinedTests(unittest.TestCase):
                         negative_prompt='low quality', model='NAI Diffusion V5 Full',
                         seed=42, matching_mode='shared', limit_opus_free=False)
         settings.update(kwargs)
-        return NAICombinedFaceDetailerTest().detail(**settings)
+        return NAIMultiCharacterDetailer().detail(**settings)
 
-    def test_preview_fills_hole_notch_expands_crop_and_never_reads_token(self):
-        with mock.patch.object(detailer, 'get_nai_token', side_effect=AssertionError('token')):
-            _, mask, report = self.run_node(crop_factor=1)
+    def test_default_corrects_and_fills_hole_notch_expands_crop(self):
+        _, mask, report = self.run_node(crop_factor=1)
         mask = mask[0,:,:,0].numpy()>0
         self.assertTrue(mask[31,51] and mask[31,21] and mask[6,50])
         self.assertEqual(json.loads(report)[0]['mask_repair']['source'], 'segm')
-        self.pipeline.post.assert_not_called()
+        self.assertEqual(json.loads(report)[0]['status'], 'edited')
+        self.pipeline.post.assert_called_once()
+
+    def test_legacy_preview_flag_cannot_suppress_correction(self):
+        from ComfyUI_RS_NAI_API_Request import NODE_CLASS_MAPPINGS
+        legacy = NODE_CLASS_MAPPINGS['NAICombinedFaceDetailerTest']
+        self.assertTrue(legacy.DEPRECATED)
+        self.assertNotIn('preview_only', legacy.INPUT_TYPES()['required'])
+        for flag in (True, False):
+            self.pipeline.post.reset_mock()
+            out, mask, report = legacy().detail(
+                image=self.pipeline.image, detectors=self.bundle, prompt='eye detail',
+                negative_prompt='low quality', model='NAI Diffusion V5 Full', seed=42,
+                limit_opus_free=False, preview_only=flag)
+            self.assertEqual(json.loads(report)[0]['status'], 'edited')
+            self.pipeline.post.assert_called_once()
 
     def test_generation_is_nai_infill_and_feather_stays_inside_the_same_preview_mask(self):
         source=torch.full_like(self.pipeline.image,128/255)
@@ -84,10 +98,11 @@ class CombinedTests(unittest.TestCase):
         self.detector.detect.assert_not_called()
 
     def test_schema_has_no_local_generation_sockets(self):
-        inputs=NAICombinedFaceDetailerTest.INPUT_TYPES()
+        inputs=NAIMultiCharacterDetailer.INPUT_TYPES()
         types=[x[0] for part in ('required','optional') for x in inputs[part].values() if isinstance(x[0],str)]
         self.assertFalse(set(types)&{'MODEL','CLIP','VAE','CONDITIONING'})
         self.assertEqual(inputs['optional']['dilation'][1]['default'],8)
+        self.assertNotIn('preview_only', inputs['required'] | inputs['optional'])
 
     def test_segm_bypasses_bbox_and_sam_even_with_all_three_in_bundle(self):
         class SAM:
@@ -115,7 +130,7 @@ class CombinedTests(unittest.TestCase):
             for segm, bbox, sam, eye in itertools.product((False, True), repeat=4):
                 with self.subTest(segm=segm,bbox=bbox,sam=sam,eye=eye):
                     yolo_cls.reset_mock(); yolo_instance.doit.reset_mock(); sam_cls.reset_mock()
-                    bundle=NAIDetectorCombineLoaderTest().load(
+                    bundle=NAIDetectionCombineLoader().load(
                         'segm/face.pt' if segm else 'OFF',
                         face_bbox_model='bbox/face.pt' if bbox else 'OFF',
                         sam_model='sam_vit_b.pth' if sam else 'OFF',
@@ -129,20 +144,20 @@ class CombinedTests(unittest.TestCase):
                     if sam and bbox and not segm: sam_cls.return_value.load_model.assert_called_once_with('sam_vit_b.pth','CPU')
             for kw in ({'face_segm_model':'missing.pt'}, {'sam_model':'ESAM'}, {'face_bbox_model':'segm/face.pt'}, {'eye_bbox_model':'missing.pt'}):
                 yolo_cls.reset_mock(); sam_cls.reset_mock()
-                with self.assertRaises(ValueError): NAIDetectorCombineLoaderTest().load(**({'face_segm_model':'OFF','face_bbox_model':'bbox/face.pt'}|kw))
+                with self.assertRaises(ValueError): NAIDetectionCombineLoader().load(**({'face_segm_model':'OFF','face_bbox_model':'bbox/face.pt'}|kw))
                 yolo_cls.assert_not_called(); sam_cls.assert_not_called()
             yolo_instance.doit.reset_mock()
-            NAIDetectorCombineLoaderTest().load('OFF',face_bbox_model='bbox/eyes.pt',eye_bbox_model='bbox/eyes.pt')
+            NAIDetectionCombineLoader().load('OFF',face_bbox_model='bbox/eyes.pt',eye_bbox_model='bbox/eyes.pt')
             yolo_instance.doit.assert_called_once_with('bbox/eyes.pt')
 
     def test_all_off_needs_no_provider_and_legacy_none_remains_valid(self):
         with mock.patch('ComfyUI_RS_NAI_API_Request.detector_bundle.provider', side_effect=AssertionError('provider')):
             for off in ('OFF','None'):
-                self.assertEqual(NAIDetectorCombineLoaderTest().load(off,sam_model=off,face_bbox_model=off,eye_bbox_model=off)[0], DetectionBundle())
+                self.assertEqual(NAIDetectionCombineLoader().load(off,sam_model=off,face_bbox_model=off,eye_bbox_model=off)[0], DetectionBundle())
 
     def test_schema_allows_off_without_installed_models(self):
         with mock.patch.dict(sys.modules,{'nodes':SimpleNamespace(NODE_CLASS_MAPPINGS={})}):
-            schema=NAIDetectorCombineLoaderTest.INPUT_TYPES()
+            schema=NAIDetectionCombineLoader.INPUT_TYPES()
         for key in ('face_segm_model','face_bbox_model','sam_model','eye_bbox_model'):
             item=(schema['required']|schema['optional'])[key]
             self.assertEqual(item[0][0], 'OFF')
@@ -157,7 +172,7 @@ class CombinedTests(unittest.TestCase):
             def predict(inner, **kwargs): return self.mask[None]>0,None,None
         # No cropped_mask: a standalone BBOX detector only needs coordinates.
         bbox=SimpleNamespace(detect=mock.Mock(return_value=((64,128),[SimpleNamespace(bbox=self.seg.bbox,crop_region=self.seg.crop_region)])))
-        with mock.patch.dict(sys.modules,{'segment_anything':SimpleNamespace(SamPredictor=SAM)}), mock.patch.object(detailer,'get_nai_token',side_effect=AssertionError('token')):
+        with mock.patch.dict(sys.modules,{'segment_anything':SimpleNamespace(SamPredictor=SAM)}):
             for segm, box, sam in itertools.product((False,True),repeat=3):
                 with self.subTest(segm=segm,bbox=box,sam=sam):
                     self.detector.detect.reset_mock(); bbox.detect.reset_mock()
@@ -176,7 +191,7 @@ class CombinedTests(unittest.TestCase):
                     if not sam and not segm:
                         expected=np.zeros((64,128),bool); expected[8:56,16:100]=True
                         np.testing.assert_array_equal(mask[0,:,:,0].numpy()>0,expected)
-        self.pipeline.post.assert_not_called()
+        self.assertEqual(len(self.pipeline.payloads), 6)
 
     def test_bbox_only_generation_uses_nai_and_preserves_outside_mask(self):
         source=torch.full_like(self.pipeline.image,128/255)
