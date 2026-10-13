@@ -4,7 +4,17 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The Detailer can use bbox+SAM, native SEGM masks, or a standard ComfyUI `MASK` from SAM3 or another mask node, and can process multiple regions sequentially. An optional **local PyTorch tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads only the selected model when the loader executes, after the optional dependencies are installed.
 
-> Current version: **2.7.0**
+> Current version: **2.7.1**
+
+## What's New in 2.7.1
+
+- **Request delay (seconds):** set `request_delay_seconds` directly on generation, img2img, inpainting, both detailers and inset generation. The default **0** keeps existing pacing; **5** waits at least five seconds before each request. No separate delay node is needed.
+- The timer starts when a prepared request reaches its turn in this ComfyUI process. The existing two-second gap runs concurrently (5 seconds does not become 7); longer server `Retry-After` waits still apply. Detailers wait for every region actually sent, and uncached Vibe encoding requests also wait. Local preparation, previews, skipped regions and cached nodes do not trigger a countdown.
+- A live countdown appears on the node in English, Korean or Japanese. **Stop** cancels the wait before a request is sent. This option does not change Anlas protection or guarantee that NovelAI will avoid rate limits when other clients also send requests.
+
+**한국어:** 생성 노드의 **요청 전 대기 시간(초)**을 설정하면 됩니다. 기본은 **0초**, **5초**면 각 요청을 보내기 전에 5초 기다립니다. 디테일러는 실제로 요청하는 얼굴마다 적용하며, 미리보기나 건너뛴 영역은 기다리지 않습니다. 노드에 남은 시간이 표시되고 **중지**로 취소할 수 있습니다. 기본 2초 간격과 겹쳐 계산하므로 5초 설정이 7초가 되지는 않습니다.
+
+**日本語:** 生成ノードの**リクエスト前の待機時間（秒）**を設定します。既定は**0秒**、**5秒**なら各リクエストの送信前に5秒待機します。ディテーラーでは実際に送信する領域ごとに適用し、プレビューやスキップした領域では待機しません。ノードに残り時間を表示し、**停止**でキャンセルできます。既定の2秒間隔と同時に計算するため、5秒の設定が7秒になることはありません。
 
 ## What's New in 2.7.0
 

@@ -150,7 +150,7 @@ class NativeMaskTests(unittest.TestCase):
         for node in (NAIFaceDetailerNode, NAIFaceDetailerSegmNode):
             names = [name for group in ("required", "optional") for name, spec in node.INPUT_TYPES()[group].items()
                      if isinstance(spec[0], list) or spec[0] in {"STRING", "INT", "FLOAT", "BOOLEAN"}]
-            self.assertEqual(names, old + ["mask_source", "save_format", "webp_quality"])
+            self.assertEqual(names, old + ["mask_source", "save_format", "webp_quality", "request_delay_seconds"])
 
 
 if __name__ == "__main__":

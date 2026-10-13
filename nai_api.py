@@ -15,6 +15,7 @@ import requests
 from dotenv import load_dotenv
 
 from .runtime_control import check_interrupted, wait_until
+from .request_delay import current_timer
 
 load_dotenv()
 
@@ -278,8 +279,13 @@ def post_nai(
     while not _request_lock.acquire(timeout=0.1):
         check_interrupted()
     try:
+        timer = current_timer.get()
         for attempt in range(2):
-            wait_until(_next_request_at)
+            if timer is not None and timer.seconds > 0:
+                delay_until = time.monotonic() + timer.seconds
+                timer.wait(max(_next_request_at, delay_until), retry=attempt > 0)
+            else:
+                wait_until(_next_request_at)
             if limit_opus_free:
                 _verify_opus_subscription(token, payload.get("model", ""))
                 check_interrupted()

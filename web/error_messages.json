@@ -203,6 +203,10 @@
     "METADATA_IMAGE": [
       "Could not load the image or its metadata.",
       "Choose a readable image in the ComfyUI input folder. Damaged or missing metadata does not prevent loading a valid image."
+    ],
+    "REQUEST_DELAY": [
+      "The request delay is invalid.",
+      "Set the request delay to 0 or a positive number of seconds. 0 keeps the existing request pacing."
     ]
   },
   "ko": {
@@ -409,6 +413,10 @@
     "METADATA_IMAGE": [
       "이미지 또는 메타데이터를 불러오지 못했습니다.",
       "ComfyUI 입력 폴더의 정상 이미지 파일을 선택하세요. 메타데이터가 없거나 손상되어도 정상 이미지는 불러올 수 있습니다."
+    ],
+    "REQUEST_DELAY": [
+      "요청 전 대기 시간이 올바르지 않습니다.",
+      "대기 시간을 0 이상의 초 단위 숫자로 입력하세요. 0이면 기존 요청 간격만 적용됩니다."
     ]
   },
   "ja": {
@@ -615,6 +623,10 @@
     "METADATA_IMAGE": [
       "画像またはメタデータを読み込めません。",
       "ComfyUI入力フォルダーの正常な画像を選択してください。メタデータがなくても正常な画像は読み込めます。"
+    ],
+    "REQUEST_DELAY": [
+      "リクエスト前の待機時間が正しくありません。",
+      "待機時間は0以上の秒数で指定してください。0では既定のリクエスト間隔のみ適用されます。"
     ]
   }
 }
