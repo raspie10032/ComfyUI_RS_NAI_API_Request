@@ -7,6 +7,20 @@ This branch adds two **test nodes** under `RS_NovelAI_API/Experimental`:
 
 Connect `Load Image → image` and `NAI Detection Combine Loader (Test) → detectors` on the detailer. There are no local checkpoint, CLIP, VAE or conditioning inputs.
 
+## Required before the stable release
+
+The current test node still has `preview_only` for experimental comparisons. The stable **NAI Multi-Character Detailer** must remove that control: executing the node detects regions, matches characters when enabled, and sends eligible regions to NovelAI for correction. The following items are release requirements, not completed changes:
+
+- Remove the preview-only input and execution switch from the stable node, including its basic/advanced UI, translations, help text and distributed examples. Hiding the widget or only changing its default is insufficient.
+- Keep `use_context_settings` as the choice between inherited and manual generation settings. Both settings paths must perform correction. Existing Anlas protection, input validation and matching skips still apply.
+- Keep the resulting mask visualization and matching report outputs available after correction.
+- Verify migration of saved test workflows, including `preview_only=true`: removing the old widget must not shift later widget values, corrupt connections or leave an invisible preview-only state. Document that the stable node performs correction when executed.
+- Verify both T2I → I2I → detailer and I2I-bypassed paths, with context settings on and off. Include actual NovelAI correction evidence, not only detection or mocked requests.
+
+**한국어:** 정식 **NAI 멀티 캐릭터 디테일러**에서는 **`미리보기만 실행` 옵션을 제거**합니다. 실행하면 감지·매칭 후 조건을 통과한 영역을 바로 보정합니다. 컨텍스트 사용 여부는 설정 출처만 바꾸며 보정을 끄지 않습니다. 보정 결과의 마스크·매칭 보고서는 유지합니다. 현재 시험판에는 옵션이 남아 있으며, 정식화할 때 기존 워크플로의 저장값·연결과 실제 보정까지 검증해야 합니다.
+
+**日本語:** 正式版の **NAI マルチキャラクターディテイラー**では **「プレビューのみ」を削除**します。実行すると検出・照合後、条件を満たした領域を補正します。コンテキストの使用設定は設定の取得元だけを切り替えます。補正後のマスクと照合レポート出力は維持します。現在の試験版にはこの設定が残っており、正式化時に既存ワークフローの保存値・接続と実際の補正を検証する必要があります。
+
 **Quality cannot be guaranteed as the number of processed regions increases.** Higher region counts may reduce detection, character matching, and correction quality. Check the preview and start with a small number of regions.
 
 ## Start with SEGM
