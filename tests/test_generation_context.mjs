@@ -11,7 +11,7 @@ for (const order of [["combined_detailer", "generation_context"], ["generation_c
         const w = { ...widget(name, ""), inputEl: {} };
         node.widgets.push(w); return { widget: w };
     } };
-    for (const file of order) vm.runInNewContext(readFileSync(new URL(`../web/${file}.js`, import.meta.url), "utf8").replace(/^import .*;\n/gm, ""), { app, ComfyWidgets });
+    for (const file of order) vm.runInNewContext(readFileSync(new URL("../web/context_controls.js", import.meta.url), "utf8").replace(/^export /gm, "") + "\n" + readFileSync(new URL(`../web/${file}.js`, import.meta.url), "utf8").replace(/^import .*;\n/gm, ""), { app, ComfyWidgets });
     for (const name of ["NAIImg2ImgNode", "NAIMultiCharacterDetailer"]) {
         class Node {
             constructor() {

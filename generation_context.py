@@ -12,6 +12,23 @@ INHERITED_FIELDS = (
     "prompt", "negative_prompt", "model", "sampler", "steps", "cfg_scale",
     "scheduler", "cfg_rescale", "prefer_brownian", "variety_boost", "characterPrompts",
 )
+CONTEXT_MODES = ("inherit_all", "override_selected")
+
+
+def context_override_inputs():
+    """Append controls so older positional widget values retain their meaning."""
+    return {
+        "context_mode": (list(CONTEXT_MODES), {"default": "inherit_all", "tooltip": "With context enabled, inherit everything or replace only checked fields with this node's values. Unchecked fields still come from context."}),
+        **{f"override_{name}": ("BOOLEAN", {"default": False, "tooltip":
+            ("Replace the complete character list with characterPrompts, including negatives and positions. No connection clears the list."
+             if name == "characterPrompts" else f"Use this node's {name} in override_selected mode. An empty string, zero or False is an intentional replacement.")})
+           for name in INHERITED_FIELDS},
+    }
+
+
+def take_context_overrides(options):
+    # Do not pass UI controls to the generation/detailing pipeline.
+    return {name: options.pop(f"override_{name}", False) for name in INHERITED_FIELDS}
 
 
 @dataclass(frozen=True)
@@ -57,16 +74,33 @@ def context_inputs():
     }
 
 
-def inherit_context(context, enabled):
+def inherit_context(context, enabled, *, mode="inherit_all", manual=None, overrides=None):
     if context is None or not enabled:
         return None
     if not isinstance(context, NAIContext):
         raise ValueError("Connect NAI context from NAI Image Generator or NAI Img2Img. / NAI 생성 또는 I2I 노드의 NAI 컨텍스트 출력을 연결해 주세요. / NAI生成またはI2Iノードのコンテキスト出力を接続してください。")
-    notice(f"NAI context: {context.model} · {len(context.characters)} character(s) · "
-           "using connected generation settings. Seed, size, strength and Anlas protection use this node's settings.")
+    if mode not in CONTEXT_MODES:
+        raise ValueError("Choose inherit_all or override_selected for context mode. / 컨텍스트 모드를 전체 사용 또는 선택 항목 변경으로 설정해 주세요. / コンテキストモードを全項目継承または選択項目変更にしてください。")
+    settings = context.settings()
+    selected = []
+    if mode == "override_selected":
+        for name, enabled_field in (overrides or {}).items():
+            if name not in INHERITED_FIELDS or not isinstance(enabled_field, bool):
+                raise ValueError("Invalid context override selection. / 변경 항목은 제공된 스위치로 선택해 주세요. / 変更項目は用意されたスイッチで選択してください。")
+            if enabled_field:
+                if manual is None or name not in manual:
+                    raise ValueError(f"Missing manual value for {name}. / 선택한 항목의 직접 입력값이 없습니다. / 選択項目の手動値がありません。")
+                settings[name] = manual[name]
+                selected.append(name)
+        # None explicitly means no characters, never fallback to the original list.
+        settings["characterPrompts"] = list(settings["characterPrompts"] or [])
+    notice(f"NAI context: {settings['model']} · {len(settings['characterPrompts'])} character(s) · "
+           "Seed, size, strength and Anlas protection use this node's settings.")
+    if selected:
+        notice("Manual context replacements / 직접 변경 항목 / 手動変更項目: " + ", ".join(selected))
     if context.references_omitted:
         notice("Reference images are not carried by NAI context. Connect Vibe / Precise Reference separately if needed.")
-    return context.settings()
+    return settings
 
 
 def context_from_payload(payload):

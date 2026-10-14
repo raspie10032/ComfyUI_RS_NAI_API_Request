@@ -21,7 +21,7 @@ from .image_utils import (
 )
 from .metadata import autosave, save_inputs, validate_save_options
 from .diagnostics import notice
-from .generation_context import context_inputs, context_from_payload, inherit_context, INHERITED_FIELDS
+from .generation_context import context_inputs, context_override_inputs, context_from_payload, inherit_context, take_context_overrides, INHERITED_FIELDS
 from .nai_api import (
     MODEL_DISPLAY_LIST,
     MODEL_SELECTION_TOOLTIP,
@@ -286,6 +286,7 @@ class NAIImg2ImgNode:
                 **reference_inputs(),
                 **save_inputs(),
                 **context_inputs(),
+                **context_override_inputs(),
             }
         }
 
@@ -297,10 +298,17 @@ class NAIImg2ImgNode:
     def generate(self, image, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, strength, seed,
                  scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, noise=0.0, variety_boost=True, characterPrompts=None,
                  limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True, save_format="PNG", webp_quality=90,
-                 nai_context=None, use_context_settings=True):
+                 nai_context=None, use_context_settings=True, context_mode="inherit_all", **context_options):
         if limit_opus_free:
             raise user_error("PAID_BLOCKED", RuntimeError, "limit_opus_free blocks image-to-image because it can spend Anlas. Set it to False to allow paid requests.")
-        inherited = inherit_context(nai_context, use_context_settings)
+        overrides = take_context_overrides(context_options)
+        if context_options:
+            raise TypeError("Unknown context input: " + ", ".join(context_options))
+        manual = {name: value for name, value in zip(INHERITED_FIELDS, (
+            prompt, negative_prompt, model, sampler, steps, cfg_scale, scheduler,
+            cfg_rescale, prefer_brownian, variety_boost, characterPrompts))}
+        inherited = inherit_context(nai_context, use_context_settings, mode=context_mode,
+                                    manual=manual, overrides=overrides)
         if inherited is not None:
             (prompt, negative_prompt, model, sampler, steps, cfg_scale, scheduler,
              cfg_rescale, prefer_brownian, variety_boost, characterPrompts) = (

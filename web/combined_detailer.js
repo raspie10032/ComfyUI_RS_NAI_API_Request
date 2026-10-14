@@ -1,5 +1,6 @@
 import { app } from "../../scripts/app.js";
 import { ComfyWidgets } from "../../scripts/widgets.js";
+import { contextControls, contextState, contextWidgetHidden } from "./context_controls.js";
 
 const modelFields = ["face_segm_model", "face_bbox_model", "sam_model", "eye_bbox_model"];
 const labels = {
@@ -47,12 +48,10 @@ const targets = {
 
 function update(node, toggle, basic) {
     const expanded = Boolean(node.widgets?.find(w => w.name === toggle)?.value);
-    const inherited = node.inputs?.some(i => i.name === "nai_context" && i.link != null) &&
-        node.widgets?.find(w => w.name === "use_context_settings")?.value !== false;
-    const fields = new Set(["prompt", "negative_prompt", "model", "sampler", "steps", "cfg_scale", "scheduler", "cfg_rescale", "prefer_brownian", "variety_boost"]);
+    const state = contextState(node);
     for (const widget of node.widgets ?? []) {
         if (widget.options?.serialize === false) continue;
-        const hide = (inherited && fields.has(widget.name)) || (!basic.has(widget.name) &&
+        const hide = contextWidgetHidden(widget.name, state) ?? (!basic.has(widget.name) &&
             (!expanded || (widget.name === "webp_quality" &&
             node.widgets.find(w => w.name === "save_format")?.value !== "WebP lossy")));
         if (hide && !widget.rsNaiDetectionVisible && !widget.type?.startsWith("converted-widget")) {
@@ -90,7 +89,7 @@ app.registerExtension({
                     }
                 }
                 if (hook === "onNodeCreated") {
-                    for (const name of [toggle, "save_format", "use_context_settings", ...(nodeData.name === "NAIDetectionCombineLoader" ? modelFields : [])]) {
+                    for (const name of [toggle, "save_format", ...contextControls, ...(nodeData.name === "NAIDetectionCombineLoader" ? modelFields : [])]) {
                         const widget = this.widgets?.find(w => w.name === name);
                         if (widget) {
                             const callback = widget.callback;

@@ -221,7 +221,7 @@ class ContextTests(unittest.TestCase):
             self.assertEqual(cls.RETURN_TYPES, ("IMAGE", "NAI_CONTEXT"))
         for cls in (g.NAIImg2ImgNode, NAIMultiCharacterDetailer):
             fields = list(cls.INPUT_TYPES()["optional"])
-            self.assertEqual(fields[-1], "use_context_settings")
+            self.assertGreater(fields.index("context_mode"), fields.index("use_context_settings"))
             self.assertLess(fields.index("request_delay_seconds"), fields.index("use_context_settings"))
 
 

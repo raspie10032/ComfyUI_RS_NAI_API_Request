@@ -7,7 +7,7 @@ import numpy as np
 
 from .detector_bundle import DetectionBundle
 from .diagnostics import notice
-from .generation_context import context_inputs, inherit_context
+from .generation_context import context_inputs, context_override_inputs, inherit_context, take_context_overrides
 from .generators import NAIFaceDetailerNode
 from .image_utils import tensor_to_pil, validate_single_image
 from .mask_repair import bounds, plan_masks
@@ -100,6 +100,10 @@ class NAIMultiCharacterDetailer:
             "mask_feather": ("INT", {"default": 8, "min": 0, "max": 64, "tooltip": "Blend inside the expanded mask. Separate from crop context and dilation."}),
             **context_inputs(),
             "use_context_settings": ("BOOLEAN", {"default": True, "tooltip": "On: inherit prompts, characters, model and sampling settings from connected NAI context. Off: use this node's manual values. Both modes perform NovelAI correction; the seed stays local."}),
+            "cfg_rescale": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
+            "prefer_brownian": ("BOOLEAN", {"default": False}),
+            "variety_boost": ("BOOLEAN", {"default": True}),
+            **context_override_inputs(),
         }}
 
     RETURN_TYPES = ("IMAGE", "IMAGE", "STRING")
@@ -112,7 +116,8 @@ class NAIMultiCharacterDetailer:
                show_advanced=False, closing=True, fill_holes=True,
                dilation=8, mask_feather=8, sampler="k_euler", steps=28, cfg_scale=6.0,
                scheduler="karras", threshold=0.3, bbox_threshold=0.3, crop_factor=3.0,
-               detail_mode="all", max_regions=5, nai_context=None, use_context_settings=True, **options):
+               detail_mode="all", max_regions=5, nai_context=None, use_context_settings=True,
+               context_mode="inherit_all", **options):
         from .detailer import run_face_detail
         from .errors import user_error
         # Old API graphs may still send this removed prototype setting.
@@ -121,7 +126,15 @@ class NAIMultiCharacterDetailer:
             raise ValueError("Connect NAI Detection Combine Loader. / NAI 감지 모델 콤바인 로더를 연결해 주세요. / NAI検出モデル結合ローダーを接続してください。")
         if detectors.segm_detector is None and detectors.bbox_detector is None:
             raise user_error("DETECTION_MODEL_SELECTION", ValueError, "Select a primary SEGM or BBOX model in the combine loader.")
-        inherited = inherit_context(nai_context, use_context_settings)
+        overrides = take_context_overrides(options)
+        manual = dict(prompt=prompt, negative_prompt=negative_prompt, model=model,
+                      sampler=sampler, steps=steps, cfg_scale=cfg_scale, scheduler=scheduler,
+                      cfg_rescale=options.get("cfg_rescale", 0.0),
+                      prefer_brownian=options.get("prefer_brownian", False),
+                      variety_boost=options.get("variety_boost", True),
+                      characterPrompts=options.get("characterPrompts"))
+        inherited = inherit_context(nai_context, use_context_settings, mode=context_mode,
+                                    manual=manual, overrides=overrides)
         if inherited is not None:
             prompt, negative_prompt, model, sampler, steps, cfg_scale, scheduler = (
                 inherited.pop(key) for key in ("prompt", "negative_prompt", "model", "sampler", "steps", "cfg_scale", "scheduler"))

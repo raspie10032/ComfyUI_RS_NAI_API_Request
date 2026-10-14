@@ -232,7 +232,10 @@ class MetadataTests(unittest.TestCase):
         for value in (0, 101, True, 2.5):
             with self.assertRaises(ValueError): meta.validate_save_options('WebP lossy', value)
         for cls in (generators.NovelAIGenerator, generators.NAIImg2ImgNode, generators.NAIInpaintNode, generators.NAIFaceDetailerNode, generators.NAIFaceDetailerSegmNode):
-            legacy_fields = [key for key in cls.INPUT_TYPES()['optional'] if key not in {'nai_context', 'use_context_settings'}]
+            legacy_fields = list(cls.INPUT_TYPES()['optional'])
+            if 'use_context_settings' in legacy_fields:
+                legacy_fields = legacy_fields[:legacy_fields.index('use_context_settings')]
+            legacy_fields = [key for key in legacy_fields if key != 'nai_context']
             self.assertEqual(legacy_fields[-3:], ['save_format','webp_quality','request_delay_seconds'])
 
 

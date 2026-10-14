@@ -9,7 +9,7 @@ const ComfyWidgets = { STRING(node, name) {
     node.widgets.push(value);
     return { widget: value };
 } };
-vm.runInNewContext(readFileSync(new URL("../web/combined_detailer.js", import.meta.url), "utf8")
+vm.runInNewContext(readFileSync(new URL("../web/context_controls.js", import.meta.url), "utf8").replace(/^export /gm, "") + "\n" + readFileSync(new URL("../web/combined_detailer.js", import.meta.url), "utf8")
     .replace(/^import .*;\n/gm, ""), { app, ComfyWidgets });
 
 function widget(name, value, type = "combo") {

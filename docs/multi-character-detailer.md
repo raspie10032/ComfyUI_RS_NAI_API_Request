@@ -4,6 +4,20 @@ Available in **2.8.0**, under `RS_NovelAI_API`. Execution detects regions, match
 
 **Quality cannot be guaranteed as the number of processed regions increases.**
 
+## Selective context settings
+
+**English:** On **NAI Img2Img** and **NAI Multi-Character Detailer**, keep `use_context_settings` ON and set `context_mode` to `override_selected`. Turn on only the `override_*` switches you need, then edit the revealed values. For example, enable `override_steps` and `override_cfg_scale` to change steps/CFG while retaining the original prompts, characters and model. Unchecked fields inherit from context. `inherit_all` restores full inheritance without erasing manual values; context OFF or disconnected uses manual settings. Seeds, dimensions, strength, references and Anlas protection remain local in every mode.
+
+You can replace the common prompt, common negative, model, sampler, steps, CFG, scheduler, CFG rescale, Brownian preference, Variety Boost, or the complete character list. A character-list replacement includes its negatives and positions; with no `characterPrompts` connection it **clears all inherited characters**. Empty text, 0 and OFF are valid replacements. Existing model restrictions still apply: Medium uses its fixed steps/sampler/UC/CFG rescale, and unsupported character/model combinations fail before a request. I2I's output context records the effective generated settings. The detailer's autosave retains the incoming whole-image context and records changed inpainting settings in the per-region history.
+
+**한국어:** **NAI Img2Img·NAI 멀티 캐릭터 디테일러**에서 **컨텍스트 설정 사용 ON → 컨텍스트 파라미터 ‘선택 항목만 변경’**을 고르세요. 바꿀 항목의 **직접 변경** 스위치만 켜고 펼쳐진 값을 수정하면 됩니다. 예를 들어 스텝·CFG만 켜면 프롬프트·캐릭터·모델은 그대로 이어받습니다. 체크를 끄거나 ‘전체 컨텍스트 사용’으로 돌아가도 직접 입력값은 보관됩니다. 컨텍스트 OFF 또는 연결 해제 시에는 수동 설정을 사용합니다. 시드·크기·강도·참조 이미지·Anlas 보호는 항상 각 노드에서 설정합니다.
+
+공통 프롬프트·네거티브·모델·샘플러·스텝·CFG·스케줄러·CFG 리스케일·브라운 운동·다양성 강화·캐릭터 목록을 각각 바꿀 수 있습니다. **캐릭터 목록 교체는 네거티브·좌표를 포함한 전체 교체**이며, 입력 연결이 없으면 기존 캐릭터를 모두 비웁니다. 빈 문장·0·OFF도 실제 변경값입니다. Medium 고정값과 모델별 지원 제한은 계속 적용됩니다. I2I는 변경 후 실제 적용값을 다음 컨텍스트로 보내며, 디테일러 자동 저장은 들어온 원본 전체 컨텍스트를 유지하고 변경된 보정값을 영역별 이력에 기록합니다.
+
+**日本語:** **NAI Img2Img・NAI マルチキャラクターディテーラー**でコンテキスト使用をオンにし、コンテキストのパラメーターを **「選択項目のみ変更」** にします。変更したい項目の手動変更スイッチだけをオンにして、表示された値を編集してください。ステップとCFGだけを選ぶと、プロンプト・キャラクター・モデルは継承されます。「全項目を継承」に戻しても手動値は保持されます。コンテキストをオフまたは切断すると手動設定を使います。シード・サイズ・強度・参照画像・Anlas保護は常に各ノードで設定します。
+
+共通プロンプト・ネガティブ・モデル・サンプラー・ステップ・CFG・スケジューラー・CFGリスケール・ブラウン運動・多様性強化・キャラクター一覧を個別に変更できます。一覧の置換はネガティブと座標も含み、**入力が未接続なら継承したキャラクターをすべて消去**します。空文字・0・OFFも変更値として扱います。Mediumの固定値とモデル別の制限は適用されます。I2Iは実際に適用した値を次のコンテキストに渡します。ディテーラーの自動保存は入力した画像全体のコンテキストを保持し、補正に使った値を領域ごとの履歴に記録します。
+
 ## English
 
 1. Install ComfyUI-Impact-Pack and ComfyUI-Impact-Subpack for detectors, plus the optional tagger dependencies described in the repository README for character matching. Restart ComfyUI and refresh the page after updating.

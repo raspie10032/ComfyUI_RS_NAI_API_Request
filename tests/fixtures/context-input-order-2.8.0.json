@@ -1,0 +1,76 @@
+{
+  "NAIImg2ImgNode": {
+    "required": [
+      "image",
+      "prompt",
+      "negative_prompt",
+      "model",
+      "width",
+      "height",
+      "sampler",
+      "steps",
+      "cfg_scale",
+      "strength",
+      "seed"
+    ],
+    "optional": [
+      "scheduler",
+      "cfg_rescale",
+      "prefer_brownian",
+      "noise",
+      "variety_boost",
+      "characterPrompts",
+      "limit_opus_free",
+      "vibes",
+      "references",
+      "normalize_vibe_strengths",
+      "save_format",
+      "webp_quality",
+      "nai_context",
+      "request_delay_seconds",
+      "use_context_settings"
+    ]
+  },
+  "NAIMultiCharacterDetailer": {
+    "required": [
+      "image",
+      "detectors",
+      "prompt",
+      "negative_prompt",
+      "model",
+      "strength",
+      "seed"
+    ],
+    "optional": [
+      "show_advanced",
+      "limit_opus_free",
+      "detail_mode",
+      "matching_mode",
+      "characterPrompts",
+      "tagger",
+      "match_min_score",
+      "match_min_margin",
+      "match_crop_factor",
+      "max_regions",
+      "vibes",
+      "references",
+      "normalize_vibe_strengths",
+      "save_format",
+      "webp_quality",
+      "sampler",
+      "steps",
+      "cfg_scale",
+      "scheduler",
+      "threshold",
+      "crop_factor",
+      "bbox_threshold",
+      "closing",
+      "fill_holes",
+      "dilation",
+      "mask_feather",
+      "nai_context",
+      "request_delay_seconds",
+      "use_context_settings"
+    ]
+  }
+}
