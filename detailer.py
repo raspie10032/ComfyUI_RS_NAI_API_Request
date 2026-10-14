@@ -17,7 +17,7 @@ from .image_utils import (
     tensor_to_pil,
     validate_single_image,
 )
-from .metadata import autosave, request_record, read_fields, validate_save_options
+from .metadata import autosave, request_record, read_fields, validate_save_options, context_record
 from .diagnostics import notice
 from .nai_api import (
     apply_opus_free_limits,
@@ -313,10 +313,12 @@ def run_face_detail(
     cfg_rescale=0.0,
     prefer_brownian=False,
     variety_boost=True,
+    nai_context=None,
 ):
     from .generators import NovelAIGenerator, mask_to_grid_boxes
 
     validate_save_options(save_format, webp_quality)
+    base_generation = context_record(nai_context) if nai_context is not None else None
 
     if limit_opus_free and not preview_only and (vibes or references):
         raise user_error("PAID_BLOCKED", RuntimeError,
@@ -705,7 +707,8 @@ def run_face_detail(
             "NAI_face", NovelAIGenerator._get_output_directory(), subfolder="face"
         )
         autosave(out, folder / filename, source_image=metadata_source, operation="detailer",
-                 extra={"base_generation_available": False, "edits": edit_history},
+                 extra={"base_generation_available": base_generation is not None, "edits": edit_history,
+                        **({"base_generation": base_generation} if base_generation is not None else {})},
                  save_format=save_format, webp_quality=webp_quality)
     return (
         pil_to_tensor(out),

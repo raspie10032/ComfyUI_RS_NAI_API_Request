@@ -12,7 +12,8 @@ from PIL import Image, features
 from PIL.PngImagePlugin import PngInfo
 
 from .errors import user_error
-from .nai_api import MODEL_ID_MAP
+from .nai_api import MODEL_ID_MAP, build_common_parameters, build_v4_prompt
+from .generation_context import NAIContext
 
 MAX_METADATA = 4 * 1024 * 1024
 NAI_FIELDS = ('Title', 'Description', 'Software', 'Source', 'Generation time', 'Generation_time', 'Comment', 'Artist', 'Copyright', 'rs_nai', 'rs_nai_inset', 'rs_detailer_regions')
@@ -110,6 +111,45 @@ def request_record(payload):
     })
 
 
+def context_record(context):
+    """Serialize the connected whole-image context, not the last inpaint crop.
+
+    This is a settings snapshot, not a replayable request: input images,
+    references and img2img strength are not carried by NAI_CONTEXT.
+    """
+    if not isinstance(context, NAIContext):
+        raise ValueError('Connect a valid NAI context. / 올바른 NAI 컨텍스트를 연결해 주세요. / 有効なNAIコンテキストを接続してください。')
+    model_id = MODEL_ID_MAP[context.model]
+    p = build_common_parameters(
+        *context.source_size, context.source_seed, context.sampler, context.steps,
+        context.cfg_scale, context.negative_prompt, scheduler=context.scheduler,
+        cfg_rescale=context.cfg_rescale, prefer_brownian=context.prefer_brownian,
+        variety_boost=context.variety_boost, model_id=model_id,
+    )
+    if model_id.startswith(('nai-diffusion-4', 'nai-diffusion-5')):
+        p.update(build_v4_prompt(context.prompt, context.negative_prompt,
+                                 character_prompts=context.characters))
+    record = request_record({'input': context.prompt, 'model': model_id,
+                             'action': context.source_action, 'parameters': p})
+    record['references_omitted'] = context.references_omitted
+    return record
+
+
+def _detailer_base(record):
+    """Accept only an explicitly stored base; never fall back to crop metadata."""
+    base = record.get('base_generation')
+    if record.get('operation') != 'detailer' or record.get('base_generation_available') is not True:
+        return None
+    if not isinstance(base, dict) or not isinstance(base.get('input'), str):
+        return None
+    if base.get('model') not in tuple(MODEL_ID_MAP.values()):
+        return None
+    p = base.get('parameters')
+    if not isinstance(p, dict) or not isinstance(p.get('negative_prompt'), str):
+        return None
+    return base
+
+
 def autosave(image, path, *, source_image=None, payload=None, operation=None, extra=None, save_format='PNG', webp_quality=90):
     validate_save_options(save_format, webp_quality)
     fields, _ = read_fields(source_image if source_image is not None else image)
@@ -118,6 +158,17 @@ def autosave(image, path, *, source_image=None, payload=None, operation=None, ex
         record['request'] = request_record(payload)
     if extra:
         record.update(extra)
+    base = _detailer_base(record)
+    if base is not None:
+        # Ordinary NAI fields also work in readers that do not understand rs_nai.
+        # Do not retain a crop's signature/response fields on a composite image.
+        fields = {key: value for key, value in fields.items() if key == 'rs_detailer_regions'}
+        fields.update(
+            Description=base['input'], Source=base['model'],
+            Software='ComfyUI_RS_NAI_API_Request',
+            Comment=json.dumps({**base['parameters'], 'prompt': base['input'],
+                                'uc': base['parameters']['negative_prompt']}, ensure_ascii=True),
+        )
     fields['rs_nai'] = json.dumps(record, ensure_ascii=True)
     fields = {k: json.dumps(v, ensure_ascii=True) if isinstance(v, dict) else str(v) for k, v in fields.items() if k in NAI_FIELDS}
     path = path.with_suffix('.png' if save_format == 'PNG' else '.webp')
@@ -172,10 +223,17 @@ def inspect_metadata(image):
     operation = record.get('operation', request.get('action', 'unknown'))
     # Legacy composites hold the LAST crop's Comment, never the source image's prompt.
     legacy_detail = 'rs_detailer_regions' in fields and not record
-    if operation == 'detailer' or legacy_detail:
+    base = _detailer_base(record)
+    if (operation == 'detailer' or legacy_detail) and base is None:
         return {'status': 'partial', 'operation': 'detailer', 'settings': {}, 'characters': [],
                 'warnings': warnings + ['detailer_not_base'], 'size': list(image.size), 'record': record,
                 'detailer_regions': fields.get('rs_detailer_regions'), 'missing': []}
+    if base is not None:
+        request = base
+        parameters = base['parameters']
+        # Ignore any stale crop Comment completely, including crop-only fields.
+        data = dict(parameters)
+        warnings.append('detailer_base_context')
     positive = _structured(data, 'v4_prompt')
     negative = _structured(data, 'v4_negative_prompt')
     settings = {}
@@ -222,4 +280,5 @@ def inspect_metadata(image):
     if request.get('action') in ('infill', 'img2img'):
         warnings.append('source_image_required')
     missing = [k for k in ('prompt', 'negative_prompt', 'model', 'seed', 'steps', 'cfg_scale', 'sampler') if k not in settings]
-    return {'status': 'ok' if settings else 'empty', 'operation': operation, 'size': list(image.size), 'settings': settings, 'characters': characters, 'characters_present': 'char_captions' in positive, 'warnings': list(dict.fromkeys(warnings)), 'missing': missing, 'record': record}
+    return {'status': 'ok' if settings else 'empty', 'operation': operation, 'size': list(image.size), 'settings': settings, 'characters': characters, 'characters_present': 'char_captions' in positive, 'warnings': list(dict.fromkeys(warnings)), 'missing': missing, 'record': record,
+            **({'settings_origin': 'nai_context', 'detailer_regions': fields.get('rs_detailer_regions')} if base is not None else {})}

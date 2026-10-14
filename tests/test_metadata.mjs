@@ -39,6 +39,10 @@ t=target();data=fixture();data.warnings=['automatic_coordinates'];assert.equal(c
 t=target();t.widgets.find(w=>w.name==='model').value='NAI Diffusion V4 Full';data=fixture();data.characters=Array(7).fill(data.characters[0]);assert.equal(context.testApply(data,t).characters,false);
 t=target();t.inputs.push({name:'prompt',link:4});data=fixture();assert.ok(context.testApply(data,t).skipped.includes('prompt'));assert.equal(value(t,'prompt'),'old');
 for(const operation of ['detailer','inset']){t=target();context.testApply({...fixture(),operation},t);assert.equal(value(t,'prompt'),'old');assert.equal(t.inputs[0].link,null);}
+// Only the backend's explicit whole-image context allows composite restoration.
+t=target();data={...fixture(),operation:'detailer',settings_origin:'nai_context'};
+context.testApply(data,t);assert.equal(value(t,'prompt'),data.settings.prompt);assert.equal(value(t,'seed'),123);assert.equal(t.inputs[0].link,99);
+t=target();context.testApply({...data,operation:'inset'},t);assert.equal(value(t,'prompt'),'old');
 t=target();const q=t.widgets.find(w=>w.name==='webp_quality');q.type='number';context.testQuality(t);assert.equal(q.hidden,true);t.widgets.find(w=>w.name==='save_format').value='WebP lossy';context.testQuality(t);assert.equal(q.type,'number');assert.ok(!q.hidden);assert.equal(q.value,90);
 console.log('PASS: metadata apply, fixed seed, spending/save preservation, character connection, shared/linked/missing inputs, unsupported coordinates/count, composite/inset exclusion, quality toggle');
 // Context-owned values must not be falsely reported as applied by the image loader.

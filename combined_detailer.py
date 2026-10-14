@@ -140,4 +140,5 @@ class NAIMultiCharacterDetailer:
             strength, threshold, sampler, steps, cfg_scale, bbox_threshold, 0, crop_factor,
             scheduler, seed, primary_uses_native_mask=True, mask_source="segm",
             eye_bbox_detector=detectors.eye_bbox_detector, preview_only=False,
-            detail_mode=detail_mode, max_regions=max_regions, mask_feather=mask_feather, **options)
+            detail_mode=detail_mode, max_regions=max_regions, mask_feather=mask_feather,
+            nai_context=nai_context, **options)

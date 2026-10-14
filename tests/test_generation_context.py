@@ -2,11 +2,13 @@
 import copy
 from dataclasses import FrozenInstanceError
 import json
+from pathlib import Path
 from types import SimpleNamespace
 import unittest
 from unittest import mock
 
 import torch
+from PIL import Image
 
 import test_medium_nodes as generation
 import test_detailer as detailing
@@ -14,6 +16,7 @@ from ComfyUI_RS_NAI_API_Request import generators as g, detailer
 from ComfyUI_RS_NAI_API_Request.combined_detailer import NAIMultiCharacterDetailer
 from ComfyUI_RS_NAI_API_Request.detector_bundle import DetectionBundle
 from ComfyUI_RS_NAI_API_Request.generation_context import inherit_context
+from ComfyUI_RS_NAI_API_Request.metadata import inspect_metadata
 
 
 class ContextTests(unittest.TestCase):
@@ -61,6 +64,14 @@ class ContextTests(unittest.TestCase):
         _, mask, report = NAIMultiCharacterDetailer().detail(**kwargs)
         self.assertEqual([r["status"] for r in json.loads(report)], ["edited", "edited"])
         self.assertEqual([p["parameters"]["seed"] for p in pipeline.payloads], [789, 790])
+        saved_files = list(Path(pipeline.temp.name).rglob('*.png'))
+        self.assertEqual(len(saved_files), 1)
+        with Image.open(saved_files[0]) as saved:
+            restored = inspect_metadata(saved)
+        self.assertEqual(restored['record']['base_generation']['action'], 'img2img')
+        self.assertEqual(restored['settings']['seed'], 456)
+        self.assertEqual((restored['settings']['width'], restored['settings']['height']), updated.source_size)
+        self.assertEqual([c['prompt'] for c in restored['characters']], [c.prompt for c in updated.characters])
         for i, payload in enumerate(pipeline.payloads):
             self.assertEqual(payload["input"], source.prompt + ", " + source.characters[i].prompt)
             self.assertEqual(payload["parameters"]["negative_prompt"], source.negative_prompt + ", " + source.characters[i].uc)
@@ -99,6 +110,7 @@ class ContextTests(unittest.TestCase):
                 pipeline.payloads.clear()
                 pipeline.post.reset_mock()
                 token = mock.Mock(return_value="test")
+                before_files = set(Path(pipeline.temp.name).rglob('*.png'))
                 with mock.patch.object(detailer, "get_nai_token", token):
                     result = NAIMultiCharacterDetailer().detail(
                         image=pipeline.image, detectors=DetectionBundle(bbox_detector=pipeline.detector),
@@ -108,6 +120,15 @@ class ContextTests(unittest.TestCase):
                         matching_mode="shared", characterPrompts=[manual], tagger=tagger,
                         steps=17, sampler="k_euler", unique_id="toggle-test")
                 records = json.loads(result["result"][2])
+                new_files = set(Path(pipeline.temp.name).rglob('*.png')) - before_files
+                self.assertEqual(len(new_files), 1)
+                with Image.open(new_files.pop()) as saved:
+                    metadata = inspect_metadata(saved)
+                self.assertEqual(metadata['settings_origin'], 'nai_context')
+                self.assertEqual(metadata['settings']['prompt'], source.prompt)
+                self.assertEqual(metadata['settings']['seed'], source.source_seed)
+                self.assertEqual([c['prompt'] for c in metadata['characters']], [c.prompt for c in source.characters])
+                self.assertEqual([e['request']['parameters']['seed'] for e in metadata['record']['edits']], [789, 790])
                 self.assertEqual(len(records), 2)
                 self.assertEqual(len(pipeline.payloads), 2)
                 notices = "\n".join(result["ui"]["rs_nai_notice"])

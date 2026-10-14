@@ -1,5 +1,7 @@
 """Offline round trips and bounds; no API calls or paid requests."""
 import gzip
+import copy
+from dataclasses import replace
 import io
 import json
 from pathlib import Path
@@ -14,6 +16,7 @@ from PIL.PngImagePlugin import PngInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from ComfyUI_RS_NAI_API_Request import metadata as meta, metadata_loader, generators, nai_api
+from ComfyUI_RS_NAI_API_Request.generation_context import context_from_payload
 import test_medium_nodes as medium_fixtures
 import test_inset_assets as inset_fixtures
 import test_detailer as detail_fixtures
@@ -143,6 +146,83 @@ class MetadataTests(unittest.TestCase):
             self.assertEqual(len(data['record']['edits']), 1)
         self.image.info['rs_nai_inset'] = '{}'
         self.assertIn('inset_canvas_coordinates', meta.inspect_metadata(self.image)['warnings'])
+
+    def test_detailer_context_roundtrip_all_formats_and_model_families(self):
+        for model in ('NAI Diffusion V5 Full', 'NAI Diffusion V5 Full — Medium Effort', 'NAI Diffusion V4.5 Full', 'NAI Diffusion V3'):
+            model_id = nai_api.MODEL_ID_MAP[model]
+            payload = copy.deepcopy(self.payload)
+            payload['model'] = model_id
+            p = payload['parameters']
+            p.pop('v4_prompt'); p.pop('v4_negative_prompt')
+            chars = [generators.CharacterPrompt(f'人物 {i}, 새', f'UC {i}', i / 22, .7)
+                     for i in range(nai_api.character_limit(model_id))]
+            nai_api.apply_v4_parameters(p, model_id, payload['input'], '元のネガティブ', chars)
+            p['reference_image_multiple'] = ['PRIVATE_REF']
+            source = context_from_payload(payload)
+            base = meta.context_record(source)
+            (self.root / model).mkdir()
+            for format in meta.SAVE_FORMATS:
+                with self.subTest(model=model, format=format):
+                    history = [{'region': 1, 'request': {'input': 'FACE ONLY', 'parameters': {'seed': 987}}}]
+                    path = meta.autosave(self.image, self.root / model / format, operation='detailer',
+                                        extra={'base_generation_available': True, 'base_generation': base, 'edits': history},
+                                        save_format=format)
+                    with Image.open(path) as saved:
+                        data = meta.inspect_metadata(saved)
+                        fields, _ = meta.read_fields(saved)
+                        self.assertEqual(data['settings_origin'], 'nai_context')
+                        self.assertEqual(data['settings']['model'], model)
+                        self.assertEqual(data['settings']['seed'], source.source_seed)
+                        self.assertEqual(data['settings']['prompt'], source.prompt)
+                        self.assertEqual(data['settings']['negative_prompt'], source.negative_prompt)
+                        self.assertEqual(len(data['characters']), len(chars))
+                        self.assertEqual([c['prompt'] for c in data['characters']], [c.prompt for c in source.characters])
+                        self.assertEqual([c['negative_prompt'] for c in data['characters']], [c.uc for c in source.characters])
+                        self.assertEqual([c['centers'][0] for c in data['characters']], [c.center for c in source.characters])
+                        restored = replace(context_from_payload(data['record']['base_generation']), references_omitted=True)
+                        self.assertEqual(restored, source)
+                        self.assertEqual(data['record']['edits'], history)
+                        self.assertIn('detailer_base_context', data['warnings'])
+                        self.assertNotIn('detailer_not_base', data['warnings'])
+                        self.assertIn('references_omitted', data['warnings'])
+                        comment = json.loads(fields['Comment'])
+                        self.assertEqual(comment['prompt'], source.prompt)
+                        self.assertEqual(comment['uc'], source.negative_prompt)
+                        self.assertEqual(comment['seed'], source.source_seed)
+                        self.assertNotIn('workflow', fields)
+                        self.assertNotIn(b'DO NOT SAVE', path.read_bytes())
+                        self.assertNotIn(b'PRIVATE_REF', path.read_bytes())
+
+    def test_explicit_base_wins_over_conflicting_crop_fields_and_bad_base_is_not_used(self):
+        source = context_from_payload(self.payload)
+        record = {'schema': 1, 'operation': 'detailer', 'base_generation_available': True,
+                  'base_generation': meta.context_record(source), 'edits': []}
+        # Even crop-only fields not present in the context must not leak through.
+        self.image.info['Comment'] = json.dumps({'prompt': 'FACE ONLY', 'seed': 987, 'strength': .9, 'noise': .8})
+        self.image.info['rs_nai'] = json.dumps(record)
+        data = meta.inspect_metadata(self.image)
+        self.assertEqual(data['settings']['prompt'], source.prompt)
+        self.assertEqual(data['settings']['seed'], 123)
+        self.assertNotIn('strength', data['settings'])
+        self.assertNotIn('noise', data['settings'])
+        for base in (None, [], 'broken', {}, {'input': 'bad', 'model': source.model, 'parameters': {}}):
+            record['base_generation'] = base
+            self.image.info['rs_nai'] = json.dumps(record)
+            data = meta.inspect_metadata(self.image)
+            self.assertEqual(data['settings'], {})
+            self.assertNotIn('settings_origin', data)
+            self.assertIn('detailer_not_base', data['warnings'])
+
+    def test_invalid_connected_context_fails_before_auth_or_generation(self):
+        case = detail_fixtures.PipelineTests(); case.setUp()
+        try:
+            with mock.patch.object(detail_fixtures.detailer, 'get_nai_token') as token:
+                with self.assertRaisesRegex(ValueError, 'valid NAI context'):
+                    case.run_detail(nai_context={'prompt': 'not a context'})
+                token.assert_not_called()
+                self.assertEqual(case.payloads, [])
+        finally:
+            case.doCleanups()
 
     def test_save_preflight_no_api_and_old_widget_prefixes(self):
         with mock.patch.object(meta.features, 'check', return_value=False), mock.patch.object(generators, 'get_nai_token') as token:
