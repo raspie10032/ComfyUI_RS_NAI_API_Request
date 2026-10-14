@@ -15,6 +15,12 @@ INHERITED_FIELDS = (
 CONTEXT_MODES = ("inherit_all", "override_selected")
 
 
+@dataclass(frozen=True)
+class UnavailableNAIContext:
+    """Keep IMAGE usable while rejecting incomplete context before any request."""
+    reasons: tuple
+
+
 def context_override_inputs():
     """Append controls so older positional widget values retain their meaning."""
     return {
@@ -77,8 +83,11 @@ def context_inputs():
 def inherit_context(context, enabled, *, mode="inherit_all", manual=None, overrides=None):
     if context is None or not enabled:
         return None
+    if isinstance(context, UnavailableNAIContext):
+        from .errors import user_error
+        raise user_error("METADATA_CONTEXT", ValueError, "; ".join(context.reasons))
     if not isinstance(context, NAIContext):
-        raise ValueError("Connect NAI context from NAI Image Generator or NAI Img2Img. / NAI 생성 또는 I2I 노드의 NAI 컨텍스트 출력을 연결해 주세요. / NAI生成またはI2Iノードのコンテキスト出力を接続してください。")
+        raise ValueError("Connect NAI context from NAI Load Image, NAI Image Generator or NAI Img2Img. / NAI 이미지 불러오기·생성·I2I 노드의 NAI 컨텍스트 출력을 연결해 주세요. / NAI画像読み込み・生成・I2Iノードのコンテキスト出力を接続してください。")
     if mode not in CONTEXT_MODES:
         raise ValueError("Choose inherit_all or override_selected for context mode. / 컨텍스트 모드를 전체 사용 또는 선택 항목 변경으로 설정해 주세요. / コンテキストモードを全項目継承または選択項目変更にしてください。")
     settings = context.settings()

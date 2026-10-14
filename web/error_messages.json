@@ -215,6 +215,10 @@
     "DETECTION_MODEL_SELECTION": [
       "No region detection model is selected.",
       "Choose a SEGM or BBOX model in the combine loader. SAM and the optional eye context model cannot define the editing regions alone."
+    ],
+    "METADATA_CONTEXT": [
+      "NAI context could not be restored from this image.",
+      "Check the context status in NAI Load Image. Select the original model if it is unknown. For missing or unsupported metadata, use another image or turn off context settings and enter values yourself. No request was sent."
     ]
   },
   "ko": {
@@ -433,6 +437,10 @@
     "DETECTION_MODEL_SELECTION": [
       "수정 영역을 감지할 모델이 선택되지 않았습니다.",
       "콤바인 로더에서 SEGM 또는 BBOX 모델을 선택해 주세요. SAM과 보조 눈 감지 모델만으로는 수정 영역을 정할 수 없습니다."
+    ],
+    "METADATA_CONTEXT": [
+      "이미지에서 NAI 컨텍스트를 복원하지 못했습니다.",
+      "NAI 이미지 불러오기의 컨텍스트 상태를 확인하세요. 모델을 알 수 없으면 원래 모델을 선택하세요. 누락되거나 지원하지 않는 정보는 다른 이미지를 사용하거나 컨텍스트 사용을 끄고 직접 입력해 주세요. 요청은 전송되지 않았습니다."
     ]
   },
   "ja": {
@@ -651,6 +659,10 @@
     "DETECTION_MODEL_SELECTION": [
       "補正領域の検出モデルが選択されていません。",
       "結合ローダーで SEGM または BBOX を選択してください。SAM と補助の目検出モデルだけでは補正領域を決定できません。"
+    ],
+    "METADATA_CONTEXT": [
+      "画像からNAIコンテキストを復元できませんでした。",
+      "NAI画像読み込みのコンテキスト状態を確認してください。モデル不明の場合は元のモデルを選択します。情報不足や未対応の場合は別の画像を使うか、コンテキストを無効にして手動入力してください。リクエストは送信されていません。"
     ]
   }
 }

@@ -5,18 +5,31 @@ const targets = new Set(["NovelAIGenerator", "NAIImg2ImgNode", "NAIInpaintNode"]
 const saveNodes = new Set([...targets, "NAIReferenceInsetGenerate", "NAIFaceDetailerNode", "NAIFaceDetailerSegmNode"]);
 const labels = {
     en: { select: "Select an image to read its NAI information.", loading: "Reading image…", empty: "No NAI generation information found. The image can still be loaded.", fail: "Could not read this image. Check the file and ComfyUI connection.", prompt: "Prompt", negative: "Negative prompt", characters: "Characters", settings: "Generation settings", history: "Detailing history", missing: "Missing", target: "Apply to…", refresh: "Refresh targets", apply: "Apply settings", applied: "Applied", skipped: "Not applied", copy: "Copy", copied: "Copied", copyFail: "Select the text and copy it manually.", choose: "Choose a generation node first.", detail: "This is a composite of face edits. The original image's generation information is unavailable. Crop prompts are shown in the history, not applied as whole-image prompts.", charSkip: "Characters were not applied: linked/shared inputs, automatic or unsupported coordinates, or the model's character limit. You can copy the text below.", insetSkip: "Inset metadata uses canvas coordinates. Recreate the reference canvas first; automatic application is unavailable.", warnings: {
-        detailer_base_context: "The displayed whole-image settings come from the connected NAI context. Seed and dimensions describe that source, not the face corrections. Each correction is listed in the history.", unknown_model: "The model could not be identified. Choose it yourself.", automatic_coordinates: "NAI used automatic character positions; this node uses explicit positions.", invalid_exif: "Some EXIF information is damaged.", invalid_hidden_metadata: "Hidden metadata is damaged.", invalid_comment: "Generation information is not valid JSON.", invalid_record: "Additional generation information is damaged.", invalid_characters: "Some character information could not be read.", references_omitted: "Reference images are not embedded. Reconnect them yourself.", source_image_required: "The original source image and mask are not included.", inset_canvas_coordinates: "Character coordinates and requested size refer to the full reference canvas.", detailer_not_base: "The final face request does not describe the whole image."
+        detailer_base_context: "The displayed whole-image settings come from the connected NAI context. Seed and dimensions describe that source, not the face corrections. Each correction is listed in the history.", unknown_model: "The model could not be identified. Choose it yourself.", automatic_coordinates: "NAI used automatic character positions; this node uses explicit positions.", invalid_exif: "Some EXIF information is damaged.", invalid_hidden_metadata: "Hidden metadata is damaged.", invalid_comment: "Generation information is not valid JSON.", invalid_record: "Additional generation information is damaged.", invalid_settings: "Some generation settings are invalid.", invalid_characters: "Some character information could not be read.", references_omitted: "Reference images are not embedded. Reconnect them yourself.", source_image_required: "The original source image and mask are not included.", inset_canvas_coordinates: "Character coordinates and requested size refer to the full reference canvas.", detailer_not_base: "The final face request does not describe the whole image."
     } },
     ko: { select: "이미지를 선택하면 NAI 정보를 읽습니다.", loading: "이미지 정보 읽는 중…", empty: "NAI 생성 정보가 없습니다. 이미지는 그대로 불러올 수 있어요.", fail: "이미지를 읽지 못했습니다. 파일과 ComfyUI 연결을 확인하세요.", prompt: "공통 프롬프트", negative: "네거티브", characters: "캐릭터", settings: "생성 설정", history: "얼굴 보정 이력", missing: "없는 정보", target: "적용할 노드 선택", refresh: "대상 목록 새로고침", apply: "설정 적용", applied: "적용됨", skipped: "적용하지 못함", copy: "복사", copied: "복사됨", copyFail: "텍스트를 선택해서 직접 복사하세요.", choose: "적용할 생성 노드를 먼저 선택하세요.", detail: "여러 얼굴을 보정한 합성 이미지입니다. 원본 이미지의 생성 정보는 없습니다. 얼굴별 프롬프트는 보정 이력에서 확인하며 전체 그림 설정으로 적용하지 않습니다.", charSkip: "캐릭터를 적용하지 못했습니다: 입력 연결·공유, 자동 또는 지원하지 않는 좌표, 모델의 캐릭터 수 제한을 확인하세요. 아래 텍스트는 복사할 수 있습니다.", insetSkip: "인셋 정보는 전체 캔버스 기준입니다. 참조 캔버스를 다시 준비해야 하므로 자동 적용은 지원하지 않습니다.", warnings: {
-        detailer_base_context: "연결된 NAI 컨텍스트의 전체 그림 설정입니다. 시드·해상도는 원본 컨텍스트 기준이며, 얼굴별 보정 설정은 보정 이력에서 확인하세요.", unknown_model: "모델을 식별하지 못했습니다. 직접 선택하세요.", automatic_coordinates: "NAI에서 캐릭터 자동 배치를 사용했습니다. 현재 캐릭터 노드는 명시적 좌표를 사용합니다.", invalid_exif: "EXIF 정보 일부가 손상되었습니다.", invalid_hidden_metadata: "숨김 메타데이터가 손상되었습니다.", invalid_comment: "생성 정보의 JSON 형식이 올바르지 않습니다.", invalid_record: "추가 생성 정보가 손상되었습니다.", invalid_characters: "일부 캐릭터 정보를 읽지 못했습니다.", references_omitted: "참조 이미지 원본은 파일에 없습니다. 다시 연결하세요.", source_image_required: "원본 입력 이미지와 마스크는 포함되어 있지 않습니다.", inset_canvas_coordinates: "캐릭터 좌표와 요청 크기는 참조 이미지를 포함한 전체 캔버스 기준입니다.", detailer_not_base: "마지막 얼굴 보정 요청은 전체 그림의 생성 정보가 아닙니다."
+        detailer_base_context: "연결된 NAI 컨텍스트의 전체 그림 설정입니다. 시드·해상도는 원본 컨텍스트 기준이며, 얼굴별 보정 설정은 보정 이력에서 확인하세요.", unknown_model: "모델을 식별하지 못했습니다. 직접 선택하세요.", automatic_coordinates: "NAI에서 캐릭터 자동 배치를 사용했습니다. 현재 캐릭터 노드는 명시적 좌표를 사용합니다.", invalid_exif: "EXIF 정보 일부가 손상되었습니다.", invalid_hidden_metadata: "숨김 메타데이터가 손상되었습니다.", invalid_comment: "생성 정보의 JSON 형식이 올바르지 않습니다.", invalid_record: "추가 생성 정보가 손상되었습니다.", invalid_settings: "일부 생성 설정의 값이 올바르지 않습니다.", invalid_characters: "일부 캐릭터 정보를 읽지 못했습니다.", references_omitted: "참조 이미지 원본은 파일에 없습니다. 다시 연결하세요.", source_image_required: "원본 입력 이미지와 마스크는 포함되어 있지 않습니다.", inset_canvas_coordinates: "캐릭터 좌표와 요청 크기는 참조 이미지를 포함한 전체 캔버스 기준입니다.", detailer_not_base: "마지막 얼굴 보정 요청은 전체 그림의 생성 정보가 아닙니다."
     } },
     ja: { select: "画像を選ぶとNAI情報を読み取ります。", loading: "画像情報を読み込み中…", empty: "NAI生成情報がありません。画像は読み込めます。", fail: "画像を読み取れません。ファイルとComfyUIの接続を確認してください。", prompt: "共通プロンプト", negative: "ネガティブ", characters: "キャラクター", settings: "生成設定", history: "顔補正の履歴", missing: "不足情報", target: "適用先を選択", refresh: "適用先を更新", apply: "設定を適用", applied: "適用済み", skipped: "適用できなかった項目", copy: "コピー", copied: "コピー済み", copyFail: "テキストを選択してコピーしてください。", choose: "先に生成ノードを選択してください。", detail: "複数の顔を補正した合成画像です。元画像の生成情報はありません。顔ごとのプロンプトは履歴に表示し、全体の設定には適用しません。", charSkip: "キャラクターを適用できません。入力の接続・共有、自動または未対応の座標、モデルの人数制限を確認してください。テキストはコピーできます。", insetSkip: "インセット情報は全体キャンバス基準です。参照キャンバスの再準備が必要なため、自動適用には対応していません。", warnings: {
-        detailer_base_context: "接続されたNAIコンテキストの画像全体の設定です。シードとサイズは元コンテキストの値です。各補正の設定は履歴で確認できます。", unknown_model: "モデルを識別できません。手動で選んでください。", automatic_coordinates: "NAIの自動配置が使われています。現在のノードは明示的な座標を使います。", invalid_exif: "EXIF情報の一部が破損しています。", invalid_hidden_metadata: "隠しメタデータが破損しています。", invalid_comment: "生成情報のJSONが不正です。", invalid_record: "追加の生成情報が破損しています。", invalid_characters: "一部のキャラクター情報を読み取れません。", references_omitted: "参照画像は含まれません。接続し直してください。", source_image_required: "元の入力画像とマスクは含まれません。", inset_canvas_coordinates: "座標と要求サイズは参照画像を含む全体キャンバス基準です。", detailer_not_base: "最後の顔補正リクエストは画像全体の生成情報ではありません。"
+        detailer_base_context: "接続されたNAIコンテキストの画像全体の設定です。シードとサイズは元コンテキストの値です。各補正の設定は履歴で確認できます。", unknown_model: "モデルを識別できません。手動で選んでください。", automatic_coordinates: "NAIの自動配置が使われています。現在のノードは明示的な座標を使います。", invalid_exif: "EXIF情報の一部が破損しています。", invalid_hidden_metadata: "隠しメタデータが破損しています。", invalid_comment: "生成情報のJSONが不正です。", invalid_record: "追加の生成情報が破損しています。", invalid_settings: "生成設定に不正な値があります。", invalid_characters: "一部のキャラクター情報を読み取れません。", references_omitted: "参照画像は含まれません。接続し直してください。", source_image_required: "元の入力画像とマスクは含まれません。", inset_canvas_coordinates: "座標と要求サイズは参照画像を含む全体キャンバス基準です。", detailer_not_base: "最後の顔補正リクエストは画像全体の生成情報ではありません。"
     } },
 };
 function text() {
     const locale = String(app.extensionManager?.setting?.get("Comfy.Locale") ?? "en");
     return labels[locale.startsWith("ko") ? "ko" : locale.startsWith("ja") ? "ja" : "en"];
+}
+const contextLabels = {
+    en: {ready: "NAI context ready", unavailable: "NAI context unavailable — IMAGE/MASK can still be used. Enabled context consumers stop before requests.", missing: "Missing", invalid: "Invalid", single_center_required: "Each character requires one explicit position", character_limit: "Too many characters for the selected model", model: "Model", local: "The next node uses its own seed, size and Anlas protection.", selected: "Source model selected manually"},
+    ko: {ready: "NAI 컨텍스트 준비 완료", unavailable: "NAI 컨텍스트 복원 불가 — 이미지·마스크는 사용할 수 있습니다. 컨텍스트를 사용하는 다음 노드는 요청 전에 중단합니다.", missing: "없는 정보", invalid: "잘못된 값", single_center_required: "캐릭터마다 명시적 좌표 한 개가 필요합니다", character_limit: "선택한 모델의 캐릭터 수 제한 초과", model: "모델", local: "다음 노드의 시드·크기·Anlas 보호 설정을 사용합니다.", selected: "원본 모델 직접 지정"},
+    ja: {ready: "NAIコンテキスト準備完了", unavailable: "NAIコンテキスト復元不可 — 画像・マスクは利用できます。使用する次のノードはリクエスト前に停止します。", missing: "不足情報", invalid: "不正な値", single_center_required: "各キャラクターに明示的な座標が1個必要です", character_limit: "選択モデルの人数制限を超えています", model: "モデル", local: "シード・サイズ・Anlas保護は次のノードで指定します。", selected: "元のモデルを手動指定"},
+};
+function contextText(data, t) {
+    const locale = String(app.extensionManager?.setting?.get("Comfy.Locale") ?? "en").slice(0, 2);
+    const c = contextLabels[locale] ?? contextLabels.en;
+    if (!data) return "";
+    const status = data.status === "ready" ? `${c.ready} · ${c.model}: ${data.model} · ${data.character_count}` : c.unavailable;
+    return [status, ...(data.issues ?? []).map(i => `${c[i.code] ?? t.warnings[i.code] ?? i.code}${i.field ? `: ${i.field}` : ""}`),
+        ...(data.model_choice !== "from_metadata" ? [`${c.selected}: ${data.model_choice}`] : []), c.local].join("\n");
 }
 function setValue(node, name, value) {
     const widget = node.widgets?.find(w => w.name === name);
@@ -128,6 +141,10 @@ function panel(node) {
         data = value; root.replaceChildren();
         const t = text();
         if (!data) { element("p", t.select, root); return; }
+        if (data.context) {
+            const status = element("p", contextText(data.context, t), root);
+            status.style.cssText = "white-space:pre-line;border-left:3px solid #719dba;padding-left:8px;";
+        }
         if (data.status === "empty") element("p", t.empty, root);
         if (data.operation === "detailer" && data.settings_origin !== "nai_context") element("p", t.detail, root);
         for (const code of data.warnings ?? []) element("p", t.warnings[code] ?? code, root);
@@ -175,15 +192,18 @@ function panel(node) {
         const file = node.widgets?.find(w => w.name === "image")?.value;
         if (!file) { render(null); return; }
         try {
-            const response = await api.fetchApi(`/rs_nai/metadata?image=${encodeURIComponent(file)}`, { cache: "no-store" });
+            const model = node.widgets?.find(w => w.name === "context_model")?.value ?? "from_metadata";
+            const response = await api.fetchApi(`/rs_nai/metadata?image=${encodeURIComponent(file)}&context_model=${encodeURIComponent(model)}`, { cache: "no-store" });
             if (!response.ok) throw new Error("metadata");
             const value = await response.json();
             if (current === sequence) render(value);
         } catch { if (current === sequence) { root.replaceChildren(); element("p", text().fail, root); } }
     }
     node.rsReadMetadata = read;
-    const image = node.widgets?.find(w => w.name === "image");
-    if (image) { const callback = image.callback; image.callback = function () { const result = callback?.apply(this, arguments); read(); return result; }; }
+    for (const name of ["image", "context_model"]) {
+        const widget = node.widgets?.find(w => w.name === name);
+        if (widget) { const callback = widget.callback; widget.callback = function () { const result = callback?.apply(this, arguments); read(); return result; }; }
+    }
     render(null);
     setTimeout(read, 0);
 }

@@ -7,7 +7,7 @@ import numpy as np
 
 from .detector_bundle import DetectionBundle
 from .diagnostics import notice
-from .generation_context import context_inputs, context_override_inputs, inherit_context, take_context_overrides
+from .generation_context import NAIContext, context_inputs, context_override_inputs, inherit_context, take_context_overrides
 from .generators import NAIFaceDetailerNode
 from .image_utils import tensor_to_pil, validate_single_image
 from .mask_repair import bounds, plan_masks
@@ -154,4 +154,4 @@ class NAIMultiCharacterDetailer:
             scheduler, seed, primary_uses_native_mask=True, mask_source="segm",
             eye_bbox_detector=detectors.eye_bbox_detector, preview_only=False,
             detail_mode=detail_mode, max_regions=max_regions, mask_feather=mask_feather,
-            nai_context=nai_context, **options)
+            nai_context=nai_context if isinstance(nai_context, NAIContext) else None, **options)

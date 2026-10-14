@@ -107,8 +107,14 @@ def request_record(payload):
     return copy.deepcopy({
         'input': payload.get('input', ''), 'model': payload.get('model'), 'action': payload.get('action'),
         'parameters': {k: parameters[k] for k in PARAMETERS if k in parameters},
-        'references_omitted': any(k.startswith(('reference_', 'director_reference_')) for k in parameters),
+        'references_omitted': references_used(parameters),
     })
+
+
+def references_used(parameters):
+    # Official responses contain these keys even when the arrays are empty.
+    return any(bool(value) for key, value in parameters.items()
+               if key.startswith(('reference_', 'director_reference_')))
 
 
 def context_record(context):
@@ -234,6 +240,13 @@ def inspect_metadata(image):
         # Ignore any stale crop Comment completely, including crop-only fields.
         data = dict(parameters)
         warnings.append('detailer_base_context')
+    for key in ('v4_prompt', 'v4_negative_prompt'):
+        if key in data:
+            value = data[key]
+            caption = value.get('caption') if isinstance(value, dict) else None
+            if (not isinstance(caption, dict) or not isinstance(caption.get('base_caption'), str)
+                    or ('use_coords' in value and type(value['use_coords']) is not bool)):
+                warnings.append('invalid_characters')
     positive = _structured(data, 'v4_prompt')
     negative = _structured(data, 'v4_negative_prompt')
     settings = {}
@@ -248,8 +261,12 @@ def inspect_metadata(image):
         v = data.get(source)
         if isinstance(v, (str, bool, int, float)) and (not isinstance(v, float) or math.isfinite(v)):
             settings[target] = v
-    if "skip_cfg_above_sigma" in data or parameters:
-        settings['variety_boost'] = bool(data.get('skip_cfg_above_sigma'))
+    if data:
+        sigma = data.get('skip_cfg_above_sigma')
+        if sigma is not None and (type(sigma) not in (int, float) or not math.isfinite(sigma) or sigma < 0):
+            warnings.append('invalid_settings')
+        else:
+            settings['variety_boost'] = bool(sigma)
     model = request.get('model') or data.get('model') or fields.get('Source', '')
     reverse = {v: k for k, v in MODEL_ID_MAP.items()}
     if isinstance(model, str) and model.removesuffix('-inpainting') in reverse:
@@ -262,12 +279,18 @@ def inspect_metadata(image):
     if not isinstance(pos_chars, list) or not isinstance(neg_chars, list):
         warnings.append('invalid_characters')
         pos_chars, neg_chars = [], []
+    if neg_chars and len(neg_chars) != len(pos_chars):
+        warnings.append('invalid_characters')
     for i, char in enumerate(pos_chars):
         if not isinstance(char, dict) or not isinstance(char.get('char_caption'), str):
             warnings.append('invalid_characters')
             continue
         neg = neg_chars[i] if i < len(neg_chars) and isinstance(neg_chars[i], dict) else {}
         centers = char.get('centers')
+        if i < len(neg_chars) and (not isinstance(neg_chars[i], dict)
+                or not isinstance(neg.get('char_caption'), str)
+                or ('centers' in neg and neg['centers'] != centers)):
+            warnings.append('invalid_characters')
         characters.append({'prompt': char['char_caption'], 'negative_prompt': neg.get('char_caption', ''), 'centers': centers if isinstance(centers, list) else []})
     structured = data.get('v4_prompt', {})
     if isinstance(structured, dict) and structured.get('use_coords') is False and characters:
@@ -275,7 +298,7 @@ def inspect_metadata(image):
     if operation == 'inset' or 'rs_nai_inset' in fields:
         warnings.append('inset_canvas_coordinates')
         # Inspect the canvas prompts but do not apply canvas coordinates to a crop.
-    if request.get('references_omitted') or any(k.startswith(('reference_', 'director_reference_')) for k in data):
+    if request.get('references_omitted') or references_used(data):
         warnings.append('references_omitted')
     if request.get('action') in ('infill', 'img2img'):
         warnings.append('source_image_required')

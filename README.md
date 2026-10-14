@@ -6,6 +6,14 @@ The Detailer can use bbox+SAM, native SEGM masks, or a standard ComfyUI `MASK` f
 
 > Current version: **2.8.0**
 
+## Context loader candidate (not released)
+
+**NAI Load Image → NAI context → T2I / I2I / Multi-Character Detailer** restores prompts, character positions and generation settings from PNG/WebP. Unknown models require explicit selection; incomplete context is explained and blocks enabled consumers before requests. Seed and dimensions stay local to each consumer. Selective overrides change only checked fields. [English / 한국어 / 日本語](docs/image-metadata.md)
+
+**한국어:** 이미지 로더의 **NAI 컨텍스트** 출력을 연결하면 공통·캐릭터 프롬프트와 생성 설정을 이어받습니다. 다음 노드에서 원하는 항목만 변경할 수 있고, 시드·크기는 각 노드 값을 사용합니다. 미출시 시험 기능입니다.
+
+**日本語:** 画像ローダーの **NAIコンテキスト**出力でプロンプト・キャラクター・生成設定を引き継ぎ、接続先で選んだ項目だけ変更できます。シード・サイズは各ノードの値を使用します。未リリースの試験機能です。
+
 ## What's New in 2.8.0
 
 - **NAI Multi-Character Detailer:** detect regions, match each to its original character prompt and correct it with NovelAI. Hole/notch filling and mask expansion are enabled by default. Execution performs correction; there is no preview-only switch. The resulting image, mask visualization and matching report remain available.

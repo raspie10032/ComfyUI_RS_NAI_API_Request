@@ -7,6 +7,8 @@ from PIL import Image
 
 from .errors import user_error
 from .metadata import inspect_metadata
+from .metadata_context import AUTO_MODEL, restore_context
+from .nai_api import MODEL_DISPLAY_LIST
 
 
 def image_path(filename):
@@ -20,40 +22,46 @@ def image_path(filename):
     return path
 
 
-def inspect_file(filename):
+def inspect_file(filename, context_model=AUTO_MODEL):
     with Image.open(image_path(filename)) as image:
-        return inspect_metadata(image)
+        metadata = inspect_metadata(image)
+    _, metadata['context'] = restore_context(metadata, context_model)
+    return metadata
 
 
 class NAILoadImage:
-    DESCRIPTION = 'Load an image and inspect NovelAI prompts, characters and settings immediately in this node. Apply recovered values to a chosen generation node without extra metadata wires. Missing reference images and unsupported settings are reported. Local operation; no Anlas.'
-    RETURN_TYPES = ('IMAGE', 'MASK')
-    RETURN_NAMES = ('image', 'mask')
+    DESCRIPTION = 'Load an image, inspect NovelAI metadata and output NAI context to T2I, img2img or the multi-character detailer. Choose the source model if metadata cannot identify it. Missing or unsupported context is explained in this node and stops enabled consumers before requests; IMAGE/MASK remain usable. Seed, size, references and Anlas protection stay local to the next node. Local operation; no Anlas.'
+    RETURN_TYPES = ('IMAGE', 'MASK', 'NAI_CONTEXT')
+    RETURN_NAMES = ('image', 'mask', 'nai_context')
     FUNCTION = 'load_image'
     CATEGORY = 'RS_NovelAI_API/Image'
 
     @classmethod
     def INPUT_TYPES(cls):
         from nodes import LoadImage
-        return LoadImage.INPUT_TYPES()
+        inputs = LoadImage.INPUT_TYPES()
+        return {**inputs, 'optional': {**inputs.get('optional', {}),
+            'context_model': ([AUTO_MODEL, *MODEL_DISPLAY_LIST], {'default': AUTO_MODEL,
+                'tooltip': 'Use the recorded model, or explicitly choose the original model when only an unknown hash was saved. Other missing/unsupported settings are reported, never guessed.'})}}
 
-    def load_image(self, image):
+    def load_image(self, image, context_model=AUTO_MODEL):
         from nodes import LoadImage
         try:
-            metadata = inspect_file(image)
+            metadata = inspect_file(image, context_model)
+            context, _ = restore_context(metadata, context_model)
             result = LoadImage().load_image(image)
         except (ValueError, OSError) as error:
             raise user_error('METADATA_IMAGE', type(error), str(error)) from error
-        return {'ui': {'rs_nai_metadata': [metadata]}, 'result': result}
+        return {'ui': {'rs_nai_metadata': [metadata]}, 'result': (*result, context)}
 
     @classmethod
-    def IS_CHANGED(cls, image):
+    def IS_CHANGED(cls, image, context_model=AUTO_MODEL, unique_id=None):
         from nodes import LoadImage
         image_path(image)
-        return LoadImage.IS_CHANGED(image)
+        return (LoadImage.IS_CHANGED(image), context_model)
 
     @classmethod
-    def VALIDATE_INPUTS(cls, image):
+    def VALIDATE_INPUTS(cls, image, context_model=AUTO_MODEL):
         try:
             image_path(image)
             return True
@@ -73,7 +81,7 @@ def register_routes():
     @PromptServer.instance.routes.get('/rs_nai/metadata')
     async def metadata(request):
         try:
-            data = await asyncio.to_thread(inspect_file, request.query.get('image', ''))
+            data = await asyncio.to_thread(inspect_file, request.query.get('image', ''), request.query.get('context_model', AUTO_MODEL))
             return web.json_response(data)
         except (ValueError, OSError):
             return web.json_response({'error': 'METADATA_IMAGE'}, status=400)
