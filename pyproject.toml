@@ -1,7 +1,7 @@
 [project]
 name = "comfyui_rs_nai_api_request"
-description = "NovelAI image generation for ComfyUI with V5 and Full Medium Effort, img2img, inpainting, multi-character prompts, multi-character detailing with a combined SEGM/BBOX/SAM loader, local tagger matching, hole/notch filling, and T2I-to-img2img-to-detailer context, Vibe Transfer, Precise Reference, reference insets, character assets, prompt weight conversion, PNG/WebP autosave with NovelAI metadata, an integrated image metadata loader, and cancellable request timers."
-version = "2.8.0"
+description = "NovelAI image generation for ComfyUI with V5 and Full Medium Effort, img2img, inpainting, multi-character prompts and detailing, combined SEGM/BBOX/SAM detection, local tagger matching, hole/notch filling, image-restored NAI context with selective settings in T2I/img2img/detailer, Vibe Transfer, Precise Reference, reference insets, character assets, prompt weight conversion, PNG/WebP autosave preserving whole-image context and correction history, an integrated metadata loader, and cancellable request timers."
+version = "2.9.0"
 license = { file = "LICENSE" }
 dependencies = [
     "python-dotenv>=0.21.0",

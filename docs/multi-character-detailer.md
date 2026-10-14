@@ -6,11 +6,11 @@ Available in **2.8.0**, under `RS_NovelAI_API`. Execution detects regions, match
 
 ## Selective context settings
 
-These controls are currently on the development branch; the released 2.8.0 does not include them. The image loader's context output is a separate pending feature.
+Available in **2.9.0**. Connect context from **NAI Load Image**, T2I or I2I. The image loader restores validated settings from PNG/WebP; see [metadata reuse and restoration limits](image-metadata.md#connect-the-recovered-context).
 
-이 설정은 현재 개발 브랜치 기능이며 배포된 2.8.0에는 포함되지 않습니다. 이미지 로더의 컨텍스트 출력은 별도 구현 예정입니다.
+**2.9.0**부터 사용할 수 있습니다. **NAI 이미지 불러오기**, T2I 또는 I2I의 컨텍스트 출력을 연결하세요. 이미지 로더는 PNG·WebP에서 확인 가능한 설정을 복원합니다. [연결 방법과 복원 제한](image-metadata.md#복원한-컨텍스트-연결하기)을 확인하세요.
 
-これらの設定は開発ブランチの機能で、公開済みの2.8.0には含まれません。画像ローダーのコンテキスト出力は別途実装予定です。
+**2.9.0**から利用できます。**NAI画像を読み込む**、T2IまたはI2Iのコンテキスト出力を接続してください。画像ローダーはPNG・WebPから検証済みの設定を復元します。[接続方法と復元の制限](image-metadata.md#日本語)を確認してください。
 
 **English:** On **NAI Image Generator (T2I)**, **NAI Img2Img** and **NAI Multi-Character Detailer**, keep `use_context_settings` ON and set `context_mode` to `override_selected`. Turn on only the `override_*` switches you need, then edit the revealed values. For example, enable `override_steps` and `override_cfg_scale` to change steps/CFG while retaining the original prompts, characters and model. Unchecked fields inherit from context. `inherit_all` restores full inheritance without erasing manual values; context OFF or disconnected uses manual settings. Seeds, dimensions, strength, references and Anlas protection remain local in every mode.
 

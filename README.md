@@ -4,21 +4,25 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The Detailer can use bbox+SAM, native SEGM masks, or a standard ComfyUI `MASK` from SAM3 or another mask node, and can process multiple regions sequentially. An optional **local PyTorch tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads only the selected model when the loader executes, after the optional dependencies are installed.
 
-> Current version: **2.8.0**
+> Current version: **2.9.0**
 
-## Context loader candidate (not released)
+## What's New in 2.9.0
 
 **NAI Load Image → NAI context → T2I / I2I / Multi-Character Detailer** restores prompts, character positions and generation settings from PNG/WebP. Unknown models require explicit selection; incomplete context is explained and blocks enabled consumers before requests. Seed and dimensions stay local to each consumer. Selective overrides change only checked fields. [English / 한국어 / 日本語](docs/image-metadata.md)
 
-**한국어:** 이미지 로더의 **NAI 컨텍스트** 출력을 연결하면 공통·캐릭터 프롬프트와 생성 설정을 이어받습니다. 다음 노드에서 원하는 항목만 변경할 수 있고, 시드·크기는 각 노드 값을 사용합니다. 미출시 시험 기능입니다.
+- **Selective settings in T2I, I2I and the multi-character detailer:** enable context, choose `override_selected`, then turn on only the fields to replace. T2I/I2I forward the effective settings. [Available controls](docs/multi-character-detailer.md#selective-context-settings)
+- **Detailer metadata:** autosave preserves the connected whole-image context separately from each region's actual inpainting request. Reload PNG or either WebP format to reuse the full character list, including when correction used manual settings.
+- **Compatibility and cache:** existing IMAGE/MASK output positions and generation input order are preserved. Repeated loads reuse the ComfyUI cache when the image and source-model selection have not changed.
 
-**日本語:** 画像ローダーの **NAIコンテキスト**出力でプロンプト・キャラクター・生成設定を引き継ぎ、接続先で選んだ項目だけ変更できます。シード・サイズは各ノードの値を使用します。未リリースの試験機能です。
+**한국어:** 이미지 로더의 **NAI 컨텍스트** 출력을 연결하면 공통·캐릭터 프롬프트와 생성 설정을 이어받습니다. T2I·I2I·멀티 캐릭터 디테일러에서 **선택 항목만 변경**으로 원하는 값만 바꿀 수 있고, 시드·크기는 각 노드 값을 사용합니다. 디테일러 자동 저장에는 원본 전체 컨텍스트와 얼굴별 보정 이력이 구분되어 남습니다.
+
+**日本語:** 画像ローダーの **NAIコンテキスト**出力でプロンプト・キャラクター・生成設定を引き継ぎ、T2I・I2I・マルチキャラクターディテーラーの **「選択項目のみ変更」** で必要な値だけ変更できます。シード・サイズは各ノードの値を使用します。ディテーラーの自動保存では画像全体の元コンテキストと領域ごとの補正履歴を分けて保持します。
 
 ## What's New in 2.8.0
 
 - **NAI Multi-Character Detailer:** detect regions, match each to its original character prompt and correct it with NovelAI. Hole/notch filling and mask expansion are enabled by default. Execution performs correction; there is no preview-only switch. The resulting image, mask visualization and matching report remain available.
 - **NAI Detection Combine Loader:** select SEGM, BBOX and SAM on one loader. SEGM takes priority and skips BBOX/SAM. OFF models are never loaded. Active catalog detectors download on first execution with visible progress; additional weights appear from the existing model folders.
-- **Generation context:** connect T2I `image` + `nai_context` → I2I → detailer. Prompts, characters and effective sampling settings carry through; each stage keeps its own seed. Bypassing I2I forwards both connections. Context OFF uses manual settings and still performs correction. T2I also accepts `nai_context` for a new generation with inherited settings. With context ON in T2I, I2I or the detailer, `context_mode=override_selected` replaces only checked fields with this node's values (for example, steps and CFG); T2I/I2I forward the effective result. [Selective context settings](docs/multi-character-detailer.md#selective-context-settings)
+- **Generation context:** connect T2I `image` + `nai_context` → I2I → detailer. Prompts, characters and effective sampling settings carry through; each stage keeps its own seed. Bypassing I2I forwards both connections. Context OFF uses manual settings and still performs correction.
 - **Up to 22 characters / 64 regions. Quality cannot be guaranteed as the number of processed regions increases.** The default maximum is five regions; uncertain character matches are skipped.
 - Prototype workflows migrate automatically, preserving later widget values and connections. The removed preview setting no longer suppresses correction. Review Anlas protection before running: it remains local to each node, and strict protection blocks potentially paid inpainting.
 
