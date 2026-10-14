@@ -72,5 +72,32 @@
       "request_delay_seconds",
       "use_context_settings"
     ]
+  },
+  "NovelAIGenerator": {
+    "required": [
+      "prompt",
+      "negative_prompt",
+      "model",
+      "width",
+      "height",
+      "sampler",
+      "steps",
+      "cfg_scale",
+      "seed"
+    ],
+    "optional": [
+      "scheduler",
+      "cfg_rescale",
+      "prefer_brownian",
+      "variety_boost",
+      "characterPrompts",
+      "limit_opus_free",
+      "vibes",
+      "references",
+      "normalize_vibe_strengths",
+      "save_format",
+      "webp_quality",
+      "request_delay_seconds"
+    ]
   }
 }

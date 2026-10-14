@@ -160,7 +160,7 @@ class CharacterPromptSelect:
         return (character_prompts,)
 
 class NovelAIGenerator:
-    DESCRIPTION = "Generates one image. Opus limits and fixed Medium settings appear as execution notices. V3/Furry cannot use characterPrompts. Autosaves retain NovelAI metadata. NAI context outputs the effective prompts, characters and generation settings for Img2Img or the combined detailer. Each stage keeps its own seed."
+    DESCRIPTION = "Generates one image. Connect NAI context to inherit prompts, characters and generation settings, or override only selected fields. Seed, size, references and Anlas protection stay local. The output context and autosave record the effective generated settings after Opus limits and fixed Medium settings. V3/Furry cannot use characterPrompts."
     def __init__(self):
         self.output_dir = self._get_output_directory()
 
@@ -207,6 +207,8 @@ class NovelAIGenerator:
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **reference_inputs(),
                 **save_inputs(),
+                **context_inputs(),
+                **context_override_inputs(),
             }
         }
 
@@ -217,12 +219,25 @@ class NovelAIGenerator:
 
     def generate(self, prompt, negative_prompt, model, width, height, sampler, steps, cfg_scale, seed,
                  scheduler="karras", cfg_rescale=0.0, prefer_brownian=False, variety_boost=True, characterPrompts=None,
-                 limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True, save_format="PNG", webp_quality=90):
+                 limit_opus_free=True, vibes=None, references=None, normalize_vibe_strengths=True, save_format="PNG", webp_quality=90,
+                 nai_context=None, use_context_settings=True, context_mode="inherit_all", **context_options):
         if limit_opus_free and (vibes or references):
             raise user_error("PAID_BLOCKED", RuntimeError,
                 "limit_opus_free blocks Vibe and Precise Reference because they can spend Anlas. "
                 "Set it to False to allow paid requests."
             )
+        overrides = take_context_overrides(context_options)
+        if context_options:
+            raise TypeError("Unknown context input: " + ", ".join(context_options))
+        manual = {name: value for name, value in zip(INHERITED_FIELDS, (
+            prompt, negative_prompt, model, sampler, steps, cfg_scale, scheduler,
+            cfg_rescale, prefer_brownian, variety_boost, characterPrompts))}
+        inherited = inherit_context(nai_context, use_context_settings, mode=context_mode,
+                                    manual=manual, overrides=overrides)
+        if inherited is not None:
+            (prompt, negative_prompt, model, sampler, steps, cfg_scale, scheduler,
+             cfg_rescale, prefer_brownian, variety_boost, characterPrompts) = (
+                inherited[key] for key in INHERITED_FIELDS)
         validate_save_options(save_format, webp_quality)
         model_id = get_model_id(model)
         validate_character_prompts(model_id, characterPrompts)

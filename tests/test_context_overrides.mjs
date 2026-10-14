@@ -11,7 +11,7 @@ for (const order of [["combined_detailer", "generation_context"], ["generation_c
         const widget = (name, value) => ({ name, value, type: "number", hidden: false, options: {}, inputEl: {}, computeSize: () => [100, 20] });
         const ComfyWidgets = { STRING(node, name) { const w = widget(name, ""); node.widgets.push(w); return { widget: w }; } };
         for (const file of order) vm.runInNewContext(helper + "\n" + readFileSync(new URL(`../web/${file}.js`, import.meta.url), "utf8").replace(/^import .*;\n/gm, ""), { app, ComfyWidgets });
-        for (const name of ["NAIImg2ImgNode", "NAIMultiCharacterDetailer"]) {
+        for (const name of ["NovelAIGenerator", "NAIImg2ImgNode", "NAIMultiCharacterDetailer"]) {
             class Node {
                 constructor() {
                     this.widgets = Object.entries({ prompt: "original", negative_prompt: "bad", model: "NAI Diffusion V5 Full", sampler: "k_euler", steps: 17, cfg_scale: 3.5, scheduler: "native", cfg_rescale: 0, prefer_brownian: false, variety_boost: false, seed: 789, strength: .3, limit_opus_free: true, show_advanced: false, use_context_settings: true, context_mode: "inherit_all", ...Object.fromEntries(fields.map(k => [`override_${k}`, false])) }).map(([k,v]) => widget(k,v));

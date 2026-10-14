@@ -219,7 +219,7 @@ class ContextTests(unittest.TestCase):
     def test_existing_image_slot_and_widget_order_are_preserved(self):
         for cls in (g.NovelAIGenerator, g.NAIImg2ImgNode):
             self.assertEqual(cls.RETURN_TYPES, ("IMAGE", "NAI_CONTEXT"))
-        for cls in (g.NAIImg2ImgNode, NAIMultiCharacterDetailer):
+        for cls in (g.NovelAIGenerator, g.NAIImg2ImgNode, NAIMultiCharacterDetailer):
             fields = list(cls.INPUT_TYPES()["optional"])
             self.assertGreater(fields.index("context_mode"), fields.index("use_context_settings"))
             self.assertLess(fields.index("request_delay_seconds"), fields.index("use_context_settings"))

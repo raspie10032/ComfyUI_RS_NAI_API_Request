@@ -1,4 +1,4 @@
-// Shared by the I2I controls and the detailer's advanced-panel folding.
+// Shared by the T2I/I2I controls and the detailer's advanced-panel folding.
 export const contextFields = ["prompt", "negative_prompt", "model", "sampler", "steps", "cfg_scale", "scheduler", "cfg_rescale", "prefer_brownian", "variety_boost", "characterPrompts"];
 export const contextControls = ["use_context_settings", "context_mode", ...contextFields.map(name => `override_${name}`)];
 export const contextFieldLabels = {

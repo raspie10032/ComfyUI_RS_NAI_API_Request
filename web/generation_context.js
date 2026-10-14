@@ -2,7 +2,7 @@ import { app } from "../../scripts/app.js";
 import { ComfyWidgets } from "../../scripts/widgets.js";
 import { contextFields, contextControls, contextFieldLabels, contextState, contextWidgetHidden } from "./context_controls.js";
 
-const consumers = new Set(["NAIImg2ImgNode", "NAIMultiCharacterDetailer"]);
+const consumers = new Set(["NovelAIGenerator", "NAIImg2ImgNode", "NAIMultiCharacterDetailer"]);
 const labels = {
     en: ["Using connected prompts, characters, model and sampling settings. Seed, size, strength and Anlas protection stay local. Multiple characters in the detailer require a tagger.", "Using this node's manual settings. Connect NAI context and enable its settings to inherit them."],
     ko: ["이전 단계의 프롬프트·캐릭터·모델·샘플링 설정을 사용합니다. 시드·크기·강도·Anlas 보호는 이 노드에서 설정합니다. 여러 캐릭터의 보정에는 태거가 필요합니다.", "이 노드의 직접 입력값을 사용합니다. NAI 컨텍스트를 연결하고 설정 사용을 켜면 이전 단계의 값을 가져옵니다."],
@@ -14,11 +14,11 @@ const detailerModes = {
     ja: "次の実行：検出・照合を通過した領域をNAIで補正します。Anlas保護が適用されます。処理領域数が増えるほど品質は保証できません。",
 };
 
-function update(node, isImg2Img) {
+function update(node, isGenerator) {
     const state = contextState(node);
     const { active, selective, selected } = state;
     // Combined detailer owns its fold logic; never overwrite that widget state.
-    if (isImg2Img) for (const widget of node.widgets ?? []) {
+    if (isGenerator) for (const widget of node.widgets ?? []) {
         if (!contextFields.includes(widget.name) && !contextControls.includes(widget.name)) continue;
         const hide = contextWidgetHidden(widget.name, state) ?? false;
         if (hide && !widget.rsNaiContextVisible && !widget.type?.startsWith("converted-widget")) {
@@ -69,7 +69,7 @@ function update(node, isImg2Img) {
             status.value += "\n" + (characterText[locale] ?? characterText.en);
         }
     }
-    if (!isImg2Img) {
+    if (!isGenerator) {
         status.value = (detailerModes[locale] ?? detailerModes.en) + "\n\n" + status.value;
     }
     const size = node.computeSize();
@@ -92,11 +92,11 @@ app.registerExtension({
                         const callback = mode.callback;
                         mode.callback = (...args) => {
                             callback?.apply(mode, args);
-                            update(this, nodeData.name === "NAIImg2ImgNode");
+                            update(this, nodeData.name !== "NAIMultiCharacterDetailer");
                         };
                     }
                 }
-                update(this, nodeData.name === "NAIImg2ImgNode");
+                update(this, nodeData.name !== "NAIMultiCharacterDetailer");
                 return result;
             };
         }

@@ -61,11 +61,12 @@ def node_request_delay(cls):
     @classmethod
     def inputs(subclass):
         schema = input_types()
-        # Keep the entire context suffix after the legacy timer. Moving only
-        # use_context_settings would shift it when new override widgets appear.
+        # T2I had no context input in 2.8.0; append its entire context suffix.
+        # I2I/detailer already placed nai_context before the legacy timer.
         optional = schema.get("optional", {})
         keys = list(optional)
-        tail = keys[keys.index("use_context_settings"):] if "use_context_settings" in optional else []
+        suffix_start = "nai_context" if cls.__name__ == "NovelAIGenerator" else "use_context_settings"
+        tail = keys[keys.index(suffix_start):] if suffix_start in optional else []
         context_tail = {name: optional.pop(name) for name in tail}
         schema["optional"] = {**schema.get("optional", {}), "request_delay_seconds": (
             "FLOAT", {"default": 0.0, "min": 0.0, "max": 3600.0, "step": 0.5,

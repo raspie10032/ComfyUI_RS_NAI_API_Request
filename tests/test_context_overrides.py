@@ -127,7 +127,7 @@ class ContextOverrideTests(unittest.TestCase):
 
     def test_old_schema_is_an_unchanged_prefix(self):
         old = json.loads((Path(__file__).parent / "fixtures/context-input-order-2.8.0.json").read_text())
-        for cls in (g.NAIImg2ImgNode, combined.NAIMultiCharacterDetailer):
+        for cls in (g.NovelAIGenerator, g.NAIImg2ImgNode, combined.NAIMultiCharacterDetailer):
             current = cls.INPUT_TYPES()
             for group in ("required", "optional"):
                 self.assertEqual(list(current[group])[:len(old[cls.__name__][group])], old[cls.__name__][group])
