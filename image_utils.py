@@ -10,7 +10,6 @@ import io
 import numpy as np
 import torch
 from PIL import Image
-from PIL.PngImagePlugin import PngInfo
 
 
 def pil_to_base64(img):
@@ -55,18 +54,3 @@ def mask_to_pil(mask):
     if not array.any():
         raise user_error("MASK_EMPTY", ValueError, "Inpaint mask is empty. Paint the area to change white; no request was sent.")
     return Image.fromarray(array)
-
-
-def build_pnginfo_from_image(source_image):
-    pnginfo = PngInfo()
-    for key, value in source_image.info.items():
-        if isinstance(value, str):
-            pnginfo.add_text(key, value)
-    return pnginfo
-
-
-def save_png_preserving_metadata(image, save_path, source_image=None):
-    if source_image is None:
-        image.save(save_path)
-        return
-    image.save(save_path, pnginfo=build_pnginfo_from_image(source_image))

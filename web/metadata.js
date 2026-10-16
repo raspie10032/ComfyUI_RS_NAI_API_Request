@@ -128,7 +128,7 @@ function panel(node) {
     const widget = node.addDOMWidget("nai_metadata", "rs_nai_metadata", root, { serialize: false, getValue: () => undefined, setValue: () => {} });
     widget.serialize = false;
     widget.computeSize = () => [390, 380];
-    let data, sequence = 0;
+    let data, sequence = 0, initialRead, pendingRead;
     function block(title, value, parent = root) {
         element("strong", title, parent);
         const area = element("textarea", null, parent);
@@ -186,26 +186,42 @@ function panel(node) {
         };
     }
     async function read() {
+        // Configuration already supplies the saved filename. Do not read it
+        // again when the creation timer runs on the following browser tick.
+        clearTimeout(initialRead);
         const current = ++sequence;
+        pendingRead?.abort();
+        pendingRead = null;
         // Clear old data before awaiting: the Apply button cannot use the previous image.
         data = null; root.replaceChildren(); element("p", text().loading, root);
         const file = node.widgets?.find(w => w.name === "image")?.value;
         if (!file) { render(null); return; }
+        const controller = new AbortController();
+        pendingRead = controller;
         try {
             const model = node.widgets?.find(w => w.name === "context_model")?.value ?? "from_metadata";
-            const response = await api.fetchApi(`/rs_nai/metadata?image=${encodeURIComponent(file)}&context_model=${encodeURIComponent(model)}`, { cache: "no-store" });
+            const response = await api.fetchApi(`/rs_nai/metadata?image=${encodeURIComponent(file)}&context_model=${encodeURIComponent(model)}`, { cache: "no-store", signal: controller.signal });
             if (!response.ok) throw new Error("metadata");
             const value = await response.json();
             if (current === sequence) render(value);
         } catch { if (current === sequence) { root.replaceChildren(); element("p", text().fail, root); } }
+        finally { if (current === sequence) pendingRead = null; }
     }
     node.rsReadMetadata = read;
     for (const name of ["image", "context_model"]) {
         const widget = node.widgets?.find(w => w.name === name);
         if (widget) { const callback = widget.callback; widget.callback = function () { const result = callback?.apply(this, arguments); read(); return result; }; }
     }
+    const removed = node.onRemoved;
+    node.onRemoved = function () {
+        clearTimeout(initialRead);
+        ++sequence;
+        pendingRead?.abort();
+        pendingRead = null;
+        return removed?.apply(this, arguments);
+    };
     render(null);
-    setTimeout(read, 0);
+    initialRead = setTimeout(read, 0);
 }
 app.registerExtension({
     name: "RS.NovelAI.Metadata",

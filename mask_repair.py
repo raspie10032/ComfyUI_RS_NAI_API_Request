@@ -27,15 +27,16 @@ def repair_instance(mask, width_ratio, depth_ratio, max_added_ratio, fill_holes,
     result = mask.copy()
     components, count = ndimage.label(mask)
     rejected = 0
-    for index in range(1, count + 1):
-        part = components == index
-        x0, y0, x1, y1 = bounds(part)
+    # Locate components in one pass, then work only inside each bounding box.
+    # A noisy detector mask can contain hundreds of disconnected small pieces.
+    for index, (yslice, xslice) in enumerate(ndimage.find_objects(components, max_label=count), 1):
+        x0, y0, x1, y1 = xslice.start, yslice.start, xslice.stop, yslice.stop
         h, w = y1 - y0, x1 - x0
         span = min(h, w)
         gap = max(1, round(span * width_ratio))
         depth = max(1, round(span * depth_ratio))
         radius = max(1, math.ceil(gap / 2))
-        roi = part[y0:y1, x0:x1]
+        roi = components[yslice, xslice] == index
         padded = np.pad(roi.astype(np.uint8), radius + 1)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (radius * 2 + 1,) * 2)
         closed = cv2.morphologyEx(padded, cv2.MORPH_CLOSE, kernel)
@@ -82,10 +83,9 @@ def plan_masks(masks, repair_mode="closing", notch_width=0.12, notch_depth=0.25,
     original_distance = np.full((h, w), np.inf)
     added_distance = np.full((h, w), np.inf)
     yy, xx = np.ogrid[:h, :w]
-    repaired, reports = [], []
+    reports = []
     for index, mask in enumerate(masks):
         if not mask.any():
-            repaired.append(mask.copy())
             reports.append({"instance": index, "source_pixels": 0, "rejected_additions": 0,
                             "repair_added_pixels": 0, "dilation_candidate_pixels": 0})
             continue
@@ -100,7 +100,6 @@ def plan_masks(masks, repair_mode="closing", notch_width=0.12, notch_depth=0.25,
         expanded = dilate_mask(fixed, dilation)
         dilation_added = int((expanded & ~fixed).sum())
         fixed = expanded
-        repaired.append(fixed)
         claim = (fixed & ~mask) & (distance < added_distance)
         added_owners[claim] = index
         added_distance[claim] = distance[claim]

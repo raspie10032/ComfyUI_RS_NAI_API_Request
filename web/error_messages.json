@@ -66,7 +66,7 @@
     ],
     "FOCUSED_CROP": [
       "The detailer crop covers the entire source image.",
-      "Free focused inpainting requires a smaller crop. Check the detected region and crop_factor using preview_only before generation."
+      "Free focused inpainting requires a crop smaller than the source image. Reduce crop_factor or choose a detector for a smaller region, such as a face. If the detected region itself covers the entire image, reducing crop_factor alone will not help."
     ],
     "MODEL": [
       "The selected model is not supported by this node version.",
@@ -288,7 +288,7 @@
     ],
     "FOCUSED_CROP": [
       "디테일러 크롭이 원본 이미지 전체를 덮고 있습니다.",
-      "무료 Focused Inpainting에는 원본보다 작은 크롭이 필요합니다. preview_only로 검출 영역과 crop_factor를 확인하세요."
+      "무료 Focused Inpainting에는 원본보다 작은 크롭이 필요합니다. crop_factor를 줄이거나 얼굴처럼 더 작은 영역을 찾는 감지 모델을 선택하세요. 감지 영역 자체가 이미지 전체라면 crop_factor만 줄여서는 해결되지 않습니다."
     ],
     "MODEL": [
       "이 노드 버전에서 지원하지 않는 모델입니다.",
@@ -510,7 +510,7 @@
     ],
     "FOCUSED_CROP": [
       "ディテイラーの切り抜きが元画像全体を覆っています。",
-      "無料のFocused Inpaintingには元画像より小さい切り抜きが必要です。preview_onlyで検出領域とcrop_factorを確認してください。"
+      "無料のFocused Inpaintingには元画像より小さい切り抜きが必要です。crop_factorを下げるか、顔などの小さな領域を検出するモデルを選択してください。検出領域自体が画像全体の場合、crop_factorを下げるだけでは解決しません。"
     ],
     "MODEL": [
       "このノードのバージョンでは選択モデルに対応していません。",

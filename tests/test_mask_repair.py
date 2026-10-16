@@ -90,6 +90,40 @@ class RepairTests(unittest.TestCase):
             fixed,_=repair.repair_instance(m,.15,.3,.1,False)
             self.assertTrue(np.all(fixed[m]))
 
+    def test_disconnected_repairs_are_translation_invariant(self):
+        component = notch()
+        expected, rejected = repair.repair_instance(component, .15, .3, .1, True)
+        mask = np.zeros((240, 330), bool)
+        mask[5:105, 7:107] = component
+        mask[130:230, 220:320] = component
+        saved = mask.copy()
+        fixed, total_rejected = repair.repair_instance(mask, .15, .3, .1, True)
+        combined = np.zeros_like(mask)
+        combined[5:105, 7:107] = expected
+        combined[130:230, 220:320] = expected
+        np.testing.assert_array_equal(fixed, combined)
+        np.testing.assert_array_equal(mask, saved)
+        self.assertEqual(total_rejected, 2 * rejected)
+
+    def test_noise_components_do_not_change_face_repair(self):
+        mask = np.zeros((256, 320), bool)
+        mask[80:180, 100:200] = notch()
+        expected, rejected = repair.repair_instance(mask, .15, .3, .1, True)
+        noise = np.zeros_like(mask)
+        noise[::8, :80:8] = True
+        fixed, noisy_rejected = repair.repair_instance(mask | noise, .15, .3, .1, True)
+        np.testing.assert_array_equal(fixed, expected | noise)
+        self.assertEqual(noisy_rejected, rejected)
+
+    def test_nested_components_do_not_merge_when_repairs_are_disabled(self):
+        mask = np.zeros((100, 100), bool)
+        mask[10:90, 10:90] = True
+        mask[20:80, 20:80] = False
+        mask[40:60, 40:60] = True
+        fixed, rejected = repair.repair_instance(mask, .15, .3, .1, False, close_notches=False)
+        np.testing.assert_array_equal(fixed, mask)
+        self.assertEqual(rejected, 0)
+
     def test_empty_masks(self):
         for m in (np.zeros((0,20,30),bool),np.zeros((2,20,30),bool)):
             before,after,_=repair.plan_masks(m)
