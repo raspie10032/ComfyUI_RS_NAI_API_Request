@@ -6,6 +6,21 @@ The Detailer can use bbox+SAM, native SEGM masks, or a standard ComfyUI `MASK` f
 
 > Current version: **2.9.0**
 
+## Unreleased maintenance / 미출시 개선 사항 / 未リリースの改善
+
+These changes are on the maintenance branch and are not yet part of the published 2.9.0 release.
+
+- **Detailer mask processing:** repair each connected piece within its own bounds and release unused intermediate masks. This reduces work on fragmented masks and memory use when processing multiple regions.
+- **Image loader:** avoid duplicate metadata reads when reopening a saved workflow. Changing the image or source model cancels the previous read; removing the node cancels pending reads. Late responses cannot replace the current image's information.
+- **Clearer crop errors:** when a detailer crop covers the whole source image, the message explains how to adjust `crop_factor` or choose a smaller-region detector. It no longer recommends the removed Multi-Character Detailer preview control.
+- **Cleanup and compatibility:** remove unused PNG save helpers. Existing Face Detailer and converter nodes, old metadata support, and prototype node-ID aliases remain available for saved workflows. The old prototype preview flag does not suppress correction in the Multi-Character Detailer; see [workflow migration](docs/multi-character-detailer.md).
+
+Validation compared masks and reports against 2.9.0 across **180 conditions**, with identical results. In a synthetic 1152×768 mask containing a face and 600 scattered points, median repair time fell from **475.4 ms to 27.9 ms** over three warmed runs. This measures local mask repair, not total generation time. An isolated ComfyUI also restored a five-character V5 Full context from WebP and displayed the image. No new NovelAI generation or Anlas spending was involved in this maintenance validation.
+
+**한국어:** 아직 배포 전인 개선 사항입니다. 잘게 나뉜 마스크의 보정 연산과 메모리 사용을 줄이고, 저장한 워크플로를 열 때 이미지 로더가 메타데이터를 중복으로 읽던 문제를 수정했습니다. 이미지·모델 변경이나 노드 삭제 시 이전 읽기를 취소하며, 크롭 오류에는 현재 사용할 수 있는 해결 방법을 안내합니다. 사용하지 않는 PNG 저장 보조 함수는 제거했고, 기존 노드·옛 메타데이터·시험 노드 ID 호환은 유지합니다. 멀티 캐릭터 디테일러는 옛 시험 노드 ID로 불러와도 실행하면 보정하며, 예전 미리보기 설정으로 보정을 건너뛰지 않습니다. 마스크와 보고값은 180개 비교 조건에서 일치했고, 이번 검증의 새 NAI 생성 요청·Anlas 사용은 없습니다.
+
+**日本語:** まだ未リリースの改善です。細かく分かれたマスクの補正処理とメモリ使用を減らし、保存済みワークフローを開いた際のメタデータの二重読み込みを修正しました。画像・モデルの変更やノード削除時には前の読み込みをキャンセルし、切り抜きエラーでは現在利用できる対処方法を案内します。未使用のPNG保存補助関数を削除し、既存ノード・旧メタデータ・試験版ノードIDの互換性は維持します。マルチキャラクターディテーラーは旧試験版IDでも実行時に補正し、以前のプレビュー設定で補正をスキップしません。180条件の比較でマスクとレポート値が一致し、今回の検証で新たなNAI生成リクエスト・Anlas消費はありません。
+
 ## What's New in 2.9.0
 
 **NAI Load Image → NAI context → T2I / I2I / Multi-Character Detailer** restores prompts, character positions and generation settings from PNG/WebP. Unknown models require explicit selection; incomplete context is explained and blocks enabled consumers before requests. Seed and dimensions stay local to each consumer. Selective overrides change only checked fields. [English / 한국어 / 日本語](docs/image-metadata.md)
