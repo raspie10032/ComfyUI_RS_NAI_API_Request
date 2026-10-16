@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""SEGM-first test node using the established NovelAI request pipeline."""
+"""SEGM-first multi-character detailing through the NovelAI request pipeline."""
 import math
 from types import SimpleNamespace
 
