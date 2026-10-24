@@ -5,6 +5,24 @@ import math
 
 
 DISTANCE_TAGS = ("extreme close-up", "close-up", "medium shot", "full body", "wide shot")
+RANDOM_RANGES = {
+    "balanced": ((-90., 90.), (-35., 35.), (.25, .85), (-10., 10.)),
+    "full": ((-180., 180.), (-90., 90.), (0., 1.), (-45., 45.)),
+}
+
+
+def random_camera(mode, seed):
+    """Portable seeded PRNG, shared with the editor. Never changes image seed."""
+    if mode not in RANDOM_RANGES:
+        raise ValueError("Choose balanced/full random view. / 랜덤 구도 모드를 선택해 주세요.")
+    if type(seed) is not int or not 0 <= seed <= 0xffffffff:
+        raise ValueError("Camera random seed: use an integer from 0 to 4294967295. / 카메라 랜덤 시드는 0~4294967295 정수입니다.")
+    state = seed
+    result = {}
+    for name, (low, high) in zip(("azimuth", "elevation", "distance", "roll"), RANDOM_RANGES[mode]):
+        state = (1664525*state + 1013904223) & 0xffffffff
+        result[name] = low + (high-low)*(state/4294967296)
+    return result
 
 
 def blend_stops(value, positions, labels):
@@ -78,6 +96,8 @@ class RSCameraControl:
         }, "optional": {
             "context": ("RS_MC_CHARACTER_PIPE,NAI_CONTEXT", {"tooltip": "Final character pipe or NAI context. Character placements and model settings are preserved. / 최종 캐릭터 파이프 또는 NAI 컨텍스트. 캐릭터 배치는 유지됩니다."}),
             "base_prompt": ("STRING", {"forceInput": True, "tooltip": "Optional scene caption, in the context's syntax. Required when a connected pipe has no scene. / 연결 파이프에 공통 프롬프트가 없으면 장면 문장을 연결하세요."}),
+            "random_mode": (["off", "balanced", "full"], {"default": "off", "tooltip": "Random view overrides the four manual axes. Balanced avoids rear/pole/extreme framing; full uses all ranges. / 랜덤 구도는 수동 각도·거리·기울기를 대신합니다. balanced는 극단 시점을 피하고 full은 전체 범위입니다."}),
+            "random_seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffff, "control_after_generate": True, "tooltip": "Camera seed only. Fixed reproduces the view; randomize changes it after each queued generation. / 카메라 전용 시드. fixed는 구도 유지, randomize는 생성마다 변경합니다. 이미지 생성 시드는 바꾸지 않습니다."}),
         }}
 
     RETURN_TYPES = ("RS_MC_CHARACTER_PIPE", "STRING", "STRING")
@@ -87,7 +107,8 @@ class RSCameraControl:
     DESCRIPTION = "Camera captions for NAI and local workflows. Use context output for inherited prompts, or prompt output without a context. Character masks/coordinates are not rotated. / NAI·로컬 공용 시점 태그. 컨텍스트 상속에는 컨텍스트 출력을 연결하세요. 마스크·좌표 자체를 회전시키지 않습니다."
 
     def apply(self, azimuth=0., elevation=0., distance=.5, roll=0., strength=1.2,
-              weighting="weighted", prompt_syntax="ComfyUI", enabled=True, scope="scene_and_characters", context=None, base_prompt=None):
+              weighting="weighted", prompt_syntax="ComfyUI", enabled=True, scope="scene_and_characters", context=None, base_prompt=None,
+              random_mode="off", random_seed=0):
         if context is not None and (not is_dataclass(context) or not hasattr(context, "characters")
                 or not hasattr(context, "prompt") or not hasattr(context, "syntax")):
             raise ValueError("Connect a finalized RS character pipe or NAI context. / 최종 RS 캐릭터 파이프 또는 NAI 컨텍스트를 연결해 주세요.")
@@ -99,6 +120,11 @@ class RSCameraControl:
         if enabled and strength and scene is None:
             raise ValueError("This pipe has no scene caption. Connect base_prompt so the sampler's scene is not replaced by camera tags. / 공통 프롬프트가 없는 파이프입니다. base_prompt에 장면 문장을 연결하세요.")
         syntax = context.syntax if context is not None else prompt_syntax
+        if random_mode not in ("off", "balanced", "full"):
+            raise ValueError("Choose off/balanced/full random view. / 랜덤 구도 모드를 선택해 주세요.")
+        if enabled and strength and random_mode != "off":
+            view = random_camera(random_mode, random_seed)
+            azimuth, elevation, distance, roll = (view[k] for k in ("azimuth", "elevation", "distance", "roll"))
         weights = camera_weights(azimuth, elevation, distance, roll, strength)
         camera = camera_caption(weights, syntax, weighting) if enabled else ""
         prompt = ", ".join(part for part in (scene, camera) if part)
@@ -115,4 +141,6 @@ class RSCameraControl:
                 characters.append(replace(character, prompt=", ".join(p for p in (character.prompt, caption) if p)))
             changes["characters"] = tuple(characters)
         output = replace(context, **changes) if context is not None and (camera or base_prompt is not None) else context
-        return {"ui": {"camera_caption": [camera], "camera_syntax": [syntax]}, "result": (output, prompt, camera)}
+        return {"ui": {"camera_caption": [camera], "camera_syntax": [syntax],
+                       "camera_values": [{"azimuth": azimuth, "elevation": elevation, "distance": distance, "roll": roll}]},
+                "result": (output, prompt, camera)}

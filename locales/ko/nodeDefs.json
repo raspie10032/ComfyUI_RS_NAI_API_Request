@@ -1644,6 +1644,12 @@
       },
       "scope": {
         "name": "적용 범위"
+      },
+      "random_mode": {
+        "name": "랜덤 구도"
+      },
+      "random_seed": {
+        "name": "카메라 랜덤 시드"
       }
     }
   }

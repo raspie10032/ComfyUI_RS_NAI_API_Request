@@ -36,6 +36,38 @@ class SharedContext:
 
 
 class CameraTests(unittest.TestCase):
+    def test_random_reproducible_and_respects_ranges(self):
+        for mode, bounds in camera.RANDOM_RANGES.items():
+            for seed in range(1000):
+                view = camera.random_camera(mode, seed)
+                self.assertEqual(view, camera.random_camera(mode, seed))
+                for value, (low, high) in zip(view.values(), bounds):
+                    self.assertTrue(low <= value < high)
+                self.assertTrue(camera.camera_weights(**view))
+            self.assertNotEqual(camera.random_camera(mode, 100), camera.random_camera(mode, 101))
+        for seed in (-1, 2**32, 1.5, True, '4', float('nan')):
+            with self.assertRaisesRegex(ValueError, '시드'):
+                camera.random_camera('balanced', seed)
+
+    def test_random_matches_manual_and_preserves_image_seed(self):
+        node = camera.RSCameraControl()
+        for syntax in ('ComfyUI', 'NovelAI'):
+            source = SharedContext(syntax=syntax)
+            for mode in ('balanced', 'full'):
+                for seed in (0, 12345, 0xffffffff):
+                    view = camera.random_camera(mode, seed)
+                    manual = node.apply(context=source, **view)
+                    randomized = node.apply(context=source, random_mode=mode, random_seed=seed)
+                    self.assertEqual(manual, randomized)
+                    self.assertEqual(randomized['result'][0].source_seed, source.source_seed)
+                    self.assertEqual(randomized['ui']['camera_values'][0], view)
+        for mode in ('balanced', 'full'):
+            self.assertIs(node.apply(context=source, enabled=False, random_mode=mode)['result'][0], source)
+            self.assertIs(node.apply(context=source, strength=0, random_mode=mode)['result'][0], source)
+        self.assertEqual(node.apply(), node.apply(random_mode='off', random_seed=1234))
+        with self.assertRaisesRegex(ValueError, '랜덤'):
+            node.apply(random_mode='invalid')
+
     def test_continuous_weights_and_no_hidden_gain_at_knots(self):
         for field, knots in (("azimuth",[-180,-90,0,90,180]), ("elevation",[-90,-60,0,60,90]), ("distance",[0,.25,.5,.75,1])):
             low, high = {"azimuth":(-180,180), "elevation":(-90,90), "distance":(0,1)}[field]

@@ -38,7 +38,20 @@ export function cameraWeights({azimuth=0, elevation=0, distance=.5, roll=0, stre
 }
 
 function values(node) {
-    return Object.fromEntries(Object.entries(defaults).map(([k, v]) => [k, widget(node, k)?.value ?? v]));
+    const v = Object.fromEntries(Object.entries(defaults).map(([k, v]) => [k, widget(node, k)?.value ?? v]));
+    const mode = widget(node, "random_mode")?.value ?? "off";
+    return v.enabled && v.strength && mode !== "off" ? {...v, ...randomCamera(mode, widget(node, "random_seed")?.value ?? 0)} : v;
+}
+
+export function randomCamera(mode, seed) {
+    const ranges = {balanced:[[-90,90],[-35,35],[.25,.85],[-10,10]], full:[[-180,180],[-90,90],[0,1],[-45,45]]};
+    if (!ranges[mode] || !Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) return {};
+    let state = seed;
+    return Object.fromEntries(["azimuth","elevation","distance","roll"].map((name,i) => {
+        state = (Math.imul(1664525,state)+1013904223) >>> 0;
+        const [low, high] = ranges[mode][i];
+        return [name, low+(high-low)*(state/4294967296)];
+    }));
 }
 
 export function setCameraValues(node, changes) {
@@ -65,13 +78,20 @@ export function addCameraEditor(node) {
         [["Below", "아래서", "下から", "仰视", "仰視"], {azimuth:0,elevation:-45}],
         [["Close", "가까이", "近く", "近景"], {distance:.25}],
         [["Wide", "멀리", "遠く", "远景", "遠景"], {distance:1}],
-        [["Reset", "초기화", "リセット", "重置"], defaults],
+        [["Random", "랜덤 구도", "ランダム", "随机视角", "隨機視角"], null],
+        [["Reset", "초기화", "リセット", "重置"], {...defaults,random_mode:"off",random_seed:0}],
     ];
     const buttons = [];
     for (const [labels, changes] of presets) {
         const b = document.createElement("button"); b.type = "button";
         b.style.cssText = "color:#eee;background:#344257;border:1px solid #60758d;border-radius:3px;padding:4px 6px;cursor:pointer";
-        b.onclick = () => {setCameraValues(node, changes); render();};
+        b.onclick = () => {
+            setCameraValues(node, changes ? {...values(node),random_mode:"off", ...changes} : {
+                random_mode: widget(node,"random_mode")?.value === "full" ? "full" : "balanced",
+                random_seed: Math.floor(Math.random()*4294967296),
+            });
+            render();
+        };
         buttons.push([b, labels]); toolbar.append(b);
     }
     const canvas = document.createElement("canvas");
@@ -83,9 +103,9 @@ export function addCameraEditor(node) {
     output.style.cssText = "white-space:pre-wrap;word-break:break-word;line-height:1.4;color:#99d4e8;margin:7px 0";
     root.append(toolbar, canvas, notice, output);
     for (const event of ["pointerdown", "wheel", "keydown"]) root.addEventListener(event, e => e.stopPropagation());
-    let executed = null;
+    let executed = null, executedView = null;
     function render() {
-        const v = values(node), c = canvas.getContext("2d");
+        const v = {...values(node), ...executedView}, c = canvas.getContext("2d");
         for (const [b, labels] of buttons) b.textContent = text(...labels);
         c.clearRect(0,0,640,340);
         c.strokeStyle = "#526379"; c.lineWidth = 2;
@@ -119,45 +139,52 @@ export function addCameraEditor(node) {
             c.strokeStyle="#fff";c.beginPath();c.moveTo(current,233);c.lineTo(current,312);c.stroke();
             c.fillStyle="#dce7f4";c.fillText(axis,offset+12,333);
         }
-        const links=Object.keys(defaults).filter(k=>linked(node,k));
+        const links=[...Object.keys(defaults),"random_mode","random_seed"].filter(k=>linked(node,k));
         notice.textContent = links.length ? text("Linked controls resolve on execution: ","연결 항목은 실행 시 확정: ","接続項目は実行時に確定: ","连接项在执行时确定: ","連接項在執行時確定: ")+links.join(", ") :
             text("Drag: view · Wheel: distance · Shift+wheel: tilt. Diagram and curves are caption guides; positions/masks stay fixed.",
                 "드래그: 시점 · 휠: 거리 · Shift+휠: 기울기. 도식·곡선은 태그 안내이며 좌표·마스크는 유지됩니다.",
                 "ドラッグ:視点・ホイール:距離・Shift:傾き。図と曲線はタグの目安です。座標・マスクは固定です。",
                 "拖动:视角 · 滚轮:距离 · Shift+滚轮:倾斜。示意图和曲线用于提示标签，不改变坐标或蒙版。",
                 "拖曳:視角 · 滾輪:距離 · Shift+滾輪:傾斜。示意圖和曲線用於提示標籤，不改變座標或遮罩。");
+        if ((widget(node,"random_mode")?.value ?? "off") !== "off") notice.textContent += " " + text(
+            "Random view: fixed seed repeats; randomize changes each run. Drag/presets return to manual.",
+            "랜덤 구도: fixed는 유지, randomize는 매번 변경. 드래그·프리셋은 수동으로 전환합니다.",
+            "ランダム: fixedで再現、randomizeで毎回変更。ドラッグ・プリセットで手動に戻ります。",
+            "随机视角: fixed重复，randomize每次改变。拖动或预设切回手动。",
+            "隨機視角: fixed重複，randomize每次改變。拖曳或預設切回手動。");
         output.textContent = executed ?? (v.enabled ? Object.entries(cameraWeights(v)).filter(([,w])=>w>=.005).map(([tag,w])=>`${tag}  ${w.toFixed(2)}`).join("\n") : text("Camera OFF", "카메라 꺼짐", "カメラOFF", "相机已关闭", "相機已關閉"));
     }
     let drag=null;
     canvas.onpointerdown=e=>{if(e.button!==0)return;drag={x:e.clientX,y:e.clientY,...values(node)};canvas.setPointerCapture(e.pointerId);};
     canvas.onpointermove=e=>{
         if(!drag)return;
-        setCameraValues(node,{azimuth:drag.azimuth+(e.clientX-drag.x),elevation:drag.elevation-(e.clientY-drag.y)});
+        setCameraValues(node,{random_mode:"off",azimuth:drag.azimuth+(e.clientX-drag.x),elevation:drag.elevation-(e.clientY-drag.y),distance:drag.distance,roll:drag.roll});
         render();e.preventDefault();
     };
     canvas.onpointerup=canvas.onpointercancel=()=>{drag=null;};
     canvas.onlostpointercapture=()=>{drag=null;};
     canvas.addEventListener("wheel",e=>{
         e.preventDefault();const v=values(node),step=Math.sign(e.deltaY);
-        setCameraValues(node,e.shiftKey?{roll:v.roll+step*2}:{distance:v.distance+step*.025});render();
+        setCameraValues(node,{random_mode:"off",azimuth:v.azimuth,elevation:v.elevation,distance:v.distance,roll:v.roll,
+            ...(e.shiftKey?{roll:v.roll+step*2}:{distance:v.distance+step*.025})});render();
     },{passive:false});
     canvas.onkeydown=e=>{
         const v=values(node), change={ArrowLeft:{azimuth:v.azimuth-5},ArrowRight:{azimuth:v.azimuth+5},ArrowUp:{elevation:v.elevation+5},ArrowDown:{elevation:v.elevation-5}}[e.key];
-        if(change){e.preventDefault();setCameraValues(node,change);render();}
+        if(change){e.preventDefault();setCameraValues(node,{random_mode:"off",azimuth:v.azimuth,elevation:v.elevation,distance:v.distance,roll:v.roll,...change});render();}
     };
     for(const w of node.widgets ?? []){
-        if(![...Object.keys(defaults),"weighting","prompt_syntax","scope"].includes(w.name))continue;
+        if(![...Object.keys(defaults),"weighting","prompt_syntax","scope","random_mode","random_seed"].includes(w.name))continue;
         const previous=w.callback;
-        w.callback=function(...args){const result=previous?.apply(this,args);executed=null;render();return result;};
+        w.callback=function(...args){const result=previous?.apply(this,args);executed=null;executedView=null;render();return result;};
     }
     const custom=node.addDOMWidget("rs_camera_editor","rs_camera_editor",root,{serialize:false,hideOnZoom:false});
     custom.computeSize=()=>[360,410];custom.serialize=false;
     const previous=node.onExecuted;
-    node.onExecuted=function(message){const result=previous?.apply(this,arguments);executed=message.camera_caption?.[0] ?? null;render();return result;};
+    node.onExecuted=function(message){const result=previous?.apply(this,arguments);executed=message.camera_caption?.[0] ?? null;executedView=message.camera_values?.[0] ?? null;render();return result;};
     const configured=node.onConfigure;
-    node.onConfigure=function(){const result=configured?.apply(this,arguments);executed=null;render();return result;};
+    node.onConfigure=function(){const result=configured?.apply(this,arguments);executed=null;executedView=null;render();return result;};
     const connections=node.onConnectionsChange;
-    node.onConnectionsChange=function(){const result=connections?.apply(this,arguments);executed=null;render();return result;};
+    node.onConnectionsChange=function(){const result=connections?.apply(this,arguments);executed=null;executedView=null;render();return result;};
     node.rsCameraEditor={root,render};render();
 }
 
