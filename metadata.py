@@ -302,6 +302,23 @@ def inspect_metadata(image):
         warnings.append('references_omitted')
     if request.get('action') in ('infill', 'img2img'):
         warnings.append('source_image_required')
+    local = data.get('rs_multicharacter')
+    if local is not None:
+        # Captions are shared, but local sampler settings cannot form NAI_CONTEXT.
+        warnings.append('local_generation_settings')
+        if (not isinstance(local, dict) or local.get('version') != 1
+                or local.get('prompt_syntax') not in ('ComfyUI', 'NovelAI')):
+            warnings.append('invalid_characters')
+        elif local['prompt_syntax'] == 'ComfyUI':
+            from .local_bridge import comfy_to_nai
+            try:
+                for name in ('prompt', 'negative_prompt'):
+                    if name in settings:
+                        settings[name] = comfy_to_nai(settings[name])
+                characters = [{**c, 'prompt': comfy_to_nai(c['prompt']),
+                               'negative_prompt': comfy_to_nai(c['negative_prompt'])} for c in characters]
+            except (ValueError, TypeError):
+                warnings.append('invalid_characters')
     missing = [k for k in ('prompt', 'negative_prompt', 'model', 'seed', 'steps', 'cfg_scale', 'sampler') if k not in settings]
-    return {'status': 'ok' if settings else 'empty', 'operation': operation, 'size': list(image.size), 'settings': settings, 'characters': characters, 'characters_present': 'char_captions' in positive, 'warnings': list(dict.fromkeys(warnings)), 'missing': missing, 'record': record,
+    return {'status': 'ok' if settings else 'empty', 'operation': operation, 'size': list(image.size), 'settings': settings, 'characters': characters, 'prompt_syntax': 'NovelAI', 'characters_present': 'char_captions' in positive, 'warnings': list(dict.fromkeys(warnings)), 'missing': missing, 'record': record,
             **({'settings_origin': 'nai_context', 'detailer_regions': fields.get('rs_detailer_regions')} if base is not None else {})}

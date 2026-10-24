@@ -23,7 +23,7 @@ def restore_context(data, model_choice=AUTO_MODEL):
 
     blocked = {"detailer_not_base", "inset_canvas_coordinates", "automatic_coordinates",
                "invalid_characters", "invalid_comment", "invalid_record",
-               "invalid_exif", "invalid_hidden_metadata", "invalid_settings"}
+               "invalid_exif", "invalid_hidden_metadata", "invalid_settings", "local_generation_settings"}
     for warning in data.get("warnings", []):
         if warning in blocked:
             issue(warning)

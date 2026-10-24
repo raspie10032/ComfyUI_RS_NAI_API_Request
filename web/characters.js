@@ -1,4 +1,5 @@
 import { app } from "../../scripts/app.js";
+import { addCharacterEditor } from "./character_editor.js";
 
 // Keep widgets in their original order so saved workflows retain every value.
 function updateSlots(node) {
@@ -6,7 +7,7 @@ function updateSlots(node) {
     for (const widget of node.widgets ?? []) {
         const match = /^character(\d+)(?:_.*)?$/.exec(widget.name);
         if (!match) continue;
-        const hide = Number(match[1]) > count;
+        const hide = Number(match[1]) > count || (node.rsNaiEditor && !node.properties.rsNaiShowAll && Number(match[1]) !== node.properties.rsNaiCharacter);
         if (hide && !widget.rsNaiVisibleState && !widget.type?.startsWith("converted-widget")) {
             widget.rsNaiVisibleState = { type: widget.type, computeSize: widget.computeSize, hidden: widget.hidden };
             widget.type = "rs-nai-hidden";
@@ -21,6 +22,7 @@ function updateSlots(node) {
             delete widget.rsNaiVisibleState;
         }
     }
+    node.rsNaiEditor?.update();
     const needed = node.computeSize();
     node.setSize([Math.max(node.size[0], needed[0]), needed[1]]);
     node.setDirtyCanvas(true, true);
@@ -41,6 +43,7 @@ app.registerExtension({
                     updateSlots(this);
                 };
             }
+            if (typeof addCharacterEditor === "function") addCharacterEditor(this, updateSlots);
             updateSlots(this);
             return result;
         };

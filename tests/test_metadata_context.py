@@ -140,7 +140,7 @@ class MetadataContextTests(unittest.TestCase):
             self.assertNotEqual(original, fingerprint('image.png', context_model='NAI Diffusion V5 Full', unique_id='1'))
 
     def test_image_and_mask_slots_remain_first(self):
-        self.assertEqual(metadata_loader.NAILoadImage.RETURN_TYPES, ('IMAGE', 'MASK', 'NAI_CONTEXT'))
+        self.assertEqual(metadata_loader.NAILoadImage.RETURN_TYPES, ('IMAGE', 'MASK', 'NAI_CONTEXT', 'RS_MC_CHARACTER_PIPE'))
 
 
 class RestoredContextConsumerTests(unittest.TestCase):
@@ -149,7 +149,7 @@ class RestoredContextConsumerTests(unittest.TestCase):
     i2i = chains.ContextTests.i2i
 
     def test_loader_to_t2i_selective_override_to_i2i_and_file(self):
-        _, original = self.source()
+        _, original, _pipe = self.source()
         image = Image.new('RGB', original.source_size)
         path = meta.autosave(image, Path(self.transport.temp.name) / 'source',
                             payload=meta.context_record(original))
@@ -158,9 +158,9 @@ class RestoredContextConsumerTests(unittest.TestCase):
         opts = self.transport.options()
         opts.update(nai_context=loaded, seed=222, context_mode='override_selected',
                     override_cfg_scale=True, cfg_scale=4.5, override_negative_prompt=True, negative_prompt='')
-        img, generated = g.NovelAIGenerator().generate(**opts)
+        img, generated, _pipe = g.NovelAIGenerator().generate(**opts)
         self.assertEqual(generated, replace(original, cfg_scale=4.5, negative_prompt='', source_seed=222))
-        _, next_context = self.i2i(img, generated, context_mode='override_selected', override_steps=True, steps=19)
+        _, next_context, _pipe = self.i2i(img, generated, context_mode='override_selected', override_steps=True, steps=19)
         self.assertEqual(next_context.prompt, original.prompt)
         self.assertEqual((next_context.steps, next_context.cfg_scale, next_context.source_seed), (19, 4.5, 456))
         self.assertEqual(next_context.characters, original.characters)
@@ -180,7 +180,7 @@ class RestoredContextConsumerTests(unittest.TestCase):
 
     def test_disabling_context_explicitly_uses_manual_settings(self):
         invalid = UnavailableNAIContext(('missing: model',))
-        _, context = g.NovelAIGenerator().generate(**self.transport.options(), nai_context=invalid, use_context_settings=False)
+        _, context, _pipe = g.NovelAIGenerator().generate(**self.transport.options(), nai_context=invalid, use_context_settings=False)
         self.assertEqual(context.prompt, 'bird on a branch')
         from ComfyUI_RS_NAI_API_Request import detailer
         with mock.patch.object(detailer, 'run_face_detail', return_value=(None, None, '[]')) as run:

@@ -39,8 +39,8 @@ class ContextTests(unittest.TestCase):
         return g.NAIImg2ImgNode().generate(**args)
 
     def test_chain_uses_local_seeds_and_only_selected_original_character(self):
-        image, source = self.source()
-        _, updated = self.i2i(image, source)
+        image, source, _pipe = self.source()
+        _, updated, _pipe = self.i2i(image, source)
         p = self.transport.post.call_args.kwargs["json"]["parameters"]
         self.assertEqual(p["seed"], 456)
         self.assertEqual(p["extra_noise_seed"], 456)
@@ -84,18 +84,18 @@ class ContextTests(unittest.TestCase):
             NAIMultiCharacterDetailer().detail(**kwargs)
 
     def test_medium_snapshots_effective_values_and_local_random_seed(self):
-        image, source = self.source(model=generation.MEDIUM, seed=-1, steps=50)
+        image, source, _pipe = self.source(model=generation.MEDIUM, seed=-1, steps=50)
         self.assertGreaterEqual(source.source_seed, 0)
         self.assertEqual((source.steps, source.sampler, source.cfg_rescale), (14, "k_euler_ancestral", 0))
         self.assertTrue(all(c.uc == "" for c in source.characters))
         with mock.patch.object(g.np.random, "randint", return_value=901):
-            _, updated = self.i2i(image, source, seed=-1)
+            _, updated, _pipe = self.i2i(image, source, seed=-1)
         self.assertEqual(updated.source_seed, 901)
         self.assertEqual(updated.negative_prompt, source.negative_prompt)
         self.assertEqual(updated.model, source.model)
 
     def test_detailer_context_toggle_always_corrects_with_selected_settings(self):
-        _, source = self.source()
+        _, source, _pipe = self.source()
         pipeline = detailing.PipelineTests()
         pipeline.setUp()
         self.addCleanup(pipeline.doCleanups)
@@ -143,7 +143,7 @@ class ContextTests(unittest.TestCase):
                     self.assertEqual(payload["parameters"]["steps"], source.steps if enabled else 17)
 
     def test_manual_detailer_with_connected_context_still_enforces_matching_and_payment_guards(self):
-        _, source = self.source()
+        _, source, _pipe = self.source()
         pipeline = detailing.PipelineTests()
         pipeline.setUp()
         self.addCleanup(pipeline.doCleanups)
@@ -166,14 +166,14 @@ class ContextTests(unittest.TestCase):
         for count in (5, 3, 5):
             with self.subTest(count=count):
                 chars, = selector.build_character_prompt(character_count=count, **values)
-                image, source = self.source(prompt="style, 5girls, five women", characterPrompts=chars)
+                image, source, _pipe = self.source(prompt="style, 5girls, five women", characterPrompts=chars)
                 expected = [f"original character {i}" for i in range(1, count + 1)]
                 def check_request():
                     p = self.transport.post.call_args.kwargs["json"]["parameters"]
                     self.assertEqual([c["char_caption"] for c in p["v4_prompt"]["caption"]["char_captions"]], expected)
                     self.assertEqual(len(p["v4_negative_prompt"]["caption"]["char_captions"]), count)
                 check_request()
-                _, updated = self.i2i(image, source)
+                _, updated, _pipe = self.i2i(image, source)
                 check_request()
                 # The detailer's context resolver must see the same candidates,
                 # whether it receives I2I's output or bypasses I2I to use T2I.
@@ -185,16 +185,16 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(values, saved)
 
     def test_no_context_and_disabled_context_keep_manual_values(self):
-        image, source = self.source()
+        image, source, _pipe = self.source()
         for context in (source, object(), None):
-            _, result = self.i2i(image, context, use_context_settings=False)
+            _, result, _pipe = self.i2i(image, context, use_context_settings=False)
             self.assertEqual(result.prompt, "manual text")
             self.assertEqual(result.model, generation.MEDIUM)
             self.assertEqual(result.characters, ())
         self.assertEqual(self.i2i(image, None)[1].prompt, "manual text")
 
     def test_strict_i2i_blocks_before_context_token_encoding_or_request(self):
-        image, source = self.source()
+        image, source, _pipe = self.source()
         self.transport.post.reset_mock()
         with mock.patch.object(g, "get_nai_token", side_effect=AssertionError("token")), \
              mock.patch.object(g, "pil_to_base64", side_effect=AssertionError("encoding")):
@@ -203,7 +203,7 @@ class ContextTests(unittest.TestCase):
         self.transport.post.assert_not_called()
 
     def test_snapshot_has_no_sensitive_payload_and_cannot_mutate_source(self):
-        image, source = self.source()
+        image, source, _pipe = self.source()
         cloned = copy.deepcopy(source)
         with self.assertRaises(FrozenInstanceError):
             source.source_seed = 4
@@ -211,14 +211,14 @@ class ContextTests(unittest.TestCase):
         settings["characterPrompts"][0].center["x"] = 9
         settings["characterPrompts"].clear()
         self.assertEqual(source, cloned)
-        _, updated = self.i2i(image, source)
+        _, updated, _pipe = self.i2i(image, source)
         self.assertFalse(set(vars(updated)) & {"image", "mask", "token", "authorization", "references", "vibes", "limit_opus_free"})
         with self.assertRaisesRegex(ValueError, "NAI context"):
             inherit_context({}, True)
 
     def test_existing_image_slot_and_widget_order_are_preserved(self):
         for cls in (g.NovelAIGenerator, g.NAIImg2ImgNode):
-            self.assertEqual(cls.RETURN_TYPES, ("IMAGE", "NAI_CONTEXT"))
+            self.assertEqual(cls.RETURN_TYPES, ("IMAGE", "NAI_CONTEXT", "RS_MC_CHARACTER_PIPE"))
         for cls in (g.NovelAIGenerator, g.NAIImg2ImgNode, NAIMultiCharacterDetailer):
             fields = list(cls.INPUT_TYPES()["optional"])
             self.assertGreater(fields.index("context_mode"), fields.index("use_context_settings"))

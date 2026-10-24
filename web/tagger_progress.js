@@ -17,6 +17,7 @@ app.registerExtension({
                 widget.inputEl.readOnly = true;
             }
             widget.value = detail.text;
+            node.rsNaiSettingsPanel?.refresh();
             const needed = node.computeSize();
             node.setSize([Math.max(node.size[0], needed[0]), Math.max(node.size[1], needed[1])]);
             node.setDirtyCanvas(true, true);

@@ -306,7 +306,11 @@ def post_nai(
                     continue
             try:
                 response.raise_for_status()
-                return response.content
+                content = response.content
+                if url == GENERATE_IMAGE_URL:
+                    from .diagnostics import record_request
+                    record_request(payload)
+                return content
             except requests.RequestException as exc:
                 mark_api_error(exc, phase="generation" if url == GENERATE_IMAGE_URL else "vibe encoding", token=token)
                 raise

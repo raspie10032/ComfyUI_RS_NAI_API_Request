@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (c) 2025 raspie10032
 
+from .local_bridge import NAICharacterPipe, PIPE_TYPE, CHARACTER_INPUT, prepare_characters, pipe_from_context, nai_pipe_prompts
 from .errors import user_error
 
 from datetime import datetime
@@ -121,7 +122,7 @@ class CharacterPromptSelect:
             })
         return inputs
 
-    RETURN_TYPES = ("LIST",)
+    RETURN_TYPES = (PIPE_TYPE,)
     RETURN_NAMES = ("CharacterPrompt",)
     FUNCTION = "build_character_prompt"
     CATEGORY = "RS_NovelAI_API/Characters"
@@ -157,7 +158,7 @@ class CharacterPromptSelect:
                 f"キャラクタープロンプトを{count}件使用。保存済みスロット {slots} は出力とNAIコンテキストから除外されます。"
                 "共通プロンプトの人数は別途変更してください（例: 5girls → 3girls、five women → three women）。"
             )
-        return (character_prompts,)
+        return (NAICharacterPipe(tuple(character_prompts)),)
 
 class NovelAIGenerator:
     DESCRIPTION = "Generates one image. Connect NAI context to inherit prompts, characters and generation settings, or override only selected fields. Seed, size, references and Anlas protection stay local. The output context and autosave record the effective generated settings after Opus limits and fixed Medium settings. V3/Furry cannot use characterPrompts."
@@ -203,7 +204,7 @@ class NovelAIGenerator:
                 "cfg_rescale": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
                 "prefer_brownian": ("BOOLEAN", {"default": False}),
                 "variety_boost": ("BOOLEAN", {"default": True}),
-                "characterPrompts": ("LIST", {"tooltip": "V5: up to 22 active character prompts; V4/V4.5: up to 6. V5 Curated inpainting uses V4.5 (6)."}),
+                "characterPrompts": (CHARACTER_INPUT, {"tooltip": "V5: up to 22 active character prompts; V4/V4.5: up to 6. V5 Curated inpainting uses V4.5 (6)."}),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **reference_inputs(),
                 **save_inputs(),
@@ -212,8 +213,8 @@ class NovelAIGenerator:
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "NAI_CONTEXT")
-    RETURN_NAMES = ("image", "nai_context")
+    RETURN_TYPES = ("IMAGE", "NAI_CONTEXT", PIPE_TYPE)
+    RETURN_NAMES = ("image", "nai_context", "character_pipe")
     FUNCTION = "generate"
     CATEGORY = "RS_NovelAI_API/Generation"
 
@@ -239,7 +240,9 @@ class NovelAIGenerator:
              cfg_rescale, prefer_brownian, variety_boost, characterPrompts) = (
                 inherited[key] for key in INHERITED_FIELDS)
         validate_save_options(save_format, webp_quality)
+        prompt, negative_prompt = nai_pipe_prompts(prompt, negative_prompt, characterPrompts)
         model_id = get_model_id(model)
+        characterPrompts = prepare_characters(model_id, characterPrompts)
         validate_character_prompts(model_id, characterPrompts)
         validate_references(model_id, vibes, references, inpainting=False)
         token = get_nai_token()
@@ -270,7 +273,8 @@ class NovelAIGenerator:
         save_path = autosave(pil_img, save_folder / filename, payload=payload, save_format=save_format, webp_quality=webp_quality)
         print(f'Image saved: {save_path}')
 
-        return (pil_to_tensor(pil_img), context_from_payload(payload))
+        context = context_from_payload(payload)
+        return (pil_to_tensor(pil_img), context, pipe_from_context(context))
 
 class NAIImg2ImgNode:
     DESCRIPTION = "Requires one image; split batches before use. General img2img requires limit_opus_free=False and may spend Anlas. Width/height resize the source to the requested size. NAI context inherits prompts, characters, model and sampling settings. Seed remains local. The context output records the settings actually sent by this stage."
@@ -296,7 +300,7 @@ class NAIImg2ImgNode:
                 "prefer_brownian": ("BOOLEAN", {"default": False}),
                 "noise": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
                 "variety_boost": ("BOOLEAN", {"default": True}),
-                "characterPrompts": ("LIST", {"tooltip": "V5: up to 22 active character prompts; V4/V4.5: up to 6. V5 Curated inpainting uses V4.5 (6)."}),
+                "characterPrompts": (CHARACTER_INPUT, {"tooltip": "V5: up to 22 active character prompts; V4/V4.5: up to 6. V5 Curated inpainting uses V4.5 (6)."}),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **reference_inputs(),
                 **save_inputs(),
@@ -305,8 +309,8 @@ class NAIImg2ImgNode:
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "NAI_CONTEXT")
-    RETURN_NAMES = ("image", "nai_context")
+    RETURN_TYPES = ("IMAGE", "NAI_CONTEXT", PIPE_TYPE)
+    RETURN_NAMES = ("image", "nai_context", "character_pipe")
     FUNCTION = "generate"
     CATEGORY = "RS_NovelAI_API/Generation"
 
@@ -329,7 +333,9 @@ class NAIImg2ImgNode:
              cfg_rescale, prefer_brownian, variety_boost, characterPrompts) = (
                 inherited[key] for key in INHERITED_FIELDS)
         validate_save_options(save_format, webp_quality)
+        prompt, negative_prompt = nai_pipe_prompts(prompt, negative_prompt, characterPrompts)
         model_id = get_model_id(model)
+        characterPrompts = prepare_characters(model_id, characterPrompts)
         validate_character_prompts(model_id, characterPrompts)
         validate_references(model_id, vibes, references, inpainting=False)
         validate_single_image(image)
@@ -368,7 +374,8 @@ class NAIImg2ImgNode:
         save_path = autosave(result_pil, save_folder / filename, payload=payload, save_format=save_format, webp_quality=webp_quality)
         print(f'Image saved: {save_path}')
 
-        return (pil_to_tensor(result_pil), context_from_payload(payload))
+        context = context_from_payload(payload)
+        return (pil_to_tensor(result_pil), context, pipe_from_context(context))
 
 class NAIInpaintNode:
     DESCRIPTION = "Requires one image and one nonempty mask; white repaints and black preserves. Width/height resize image and mask. Requires limit_opus_free=False and may spend Anlas. V5 Curated falls back to V4.5 Curated inpainting."
@@ -395,7 +402,7 @@ class NAIInpaintNode:
                 "prefer_brownian": ("BOOLEAN", {"default": False}),
                 "noise": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
                 "variety_boost": ("BOOLEAN", {"default": True}),
-                "characterPrompts": ("LIST", {"tooltip": "V5: up to 22 active character prompts; V4/V4.5: up to 6. V5 Curated inpainting uses V4.5 (6)."}),
+                "characterPrompts": (CHARACTER_INPUT, {"tooltip": "V5: up to 22 active character prompts; V4/V4.5: up to 6. V5 Curated inpainting uses V4.5 (6)."}),
                 "limit_opus_free": ("BOOLEAN", {"default": True}),
                 **reference_inputs(),
                 **save_inputs(),
@@ -412,7 +419,9 @@ class NAIInpaintNode:
         if limit_opus_free:
             raise user_error("PAID_BLOCKED", RuntimeError, "limit_opus_free blocks inpainting because it can spend Anlas. Set it to False to allow paid requests.")
         validate_save_options(save_format, webp_quality)
+        prompt, negative_prompt = nai_pipe_prompts(prompt, negative_prompt, characterPrompts)
         model_id = get_model_id(model)
+        characterPrompts = prepare_characters(model_id, characterPrompts, inpainting=True)
         validate_character_prompts(model_id, characterPrompts, inpainting=True)
         validate_references(model_id, vibes, references, inpainting=True)
         validate_single_image(image)
@@ -474,7 +483,7 @@ def _detailer_options():
     return {
         "detail_mode": (["first", "all"], {"default": "first"}),
         "matching_mode": (["shared", "wd14"], {"default": "shared"}),
-        "characterPrompts": ("LIST",),
+        "characterPrompts": (CHARACTER_INPUT,),
         "tagger": ("RS_WD_TAGGER",),
         "match_min_score": ("FLOAT", {"default": 0.25, "min": 0.01, "max": 1.0, "step": 0.01}),
         "match_min_margin": ("FLOAT", {"default": 0.08, "min": 0.01, "max": 1.0, "step": 0.01}),

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Region planning, identity selection and sequential masked inpainting."""
 
+from .local_bridge import prepare_characters, nai_pipe_prompts
 from .errors import user_error
 
 import json
@@ -328,7 +329,8 @@ def run_face_detail(
     if detail_mode not in {"first", "all"} or matching_mode not in {"shared", "wd14"}:
         raise user_error("DETAIL_MODE", ValueError, "Unknown detail or matching mode.")
     validate_references(get_model_id(model), vibes, references, inpainting=True)
-    characters = list(characterPrompts or [])
+    prompt, negative_prompt = nai_pipe_prompts(prompt, negative_prompt, characterPrompts)
+    characters = prepare_characters(get_model_id(model), characterPrompts, inpainting=True)
     if matching_mode != "shared" and not characters:
         raise user_error("MATCHING_INPUT", ValueError,
             "Connect original CharacterPromptSelect output for character matching."

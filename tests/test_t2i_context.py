@@ -26,11 +26,11 @@ class T2IContextTests(unittest.TestCase):
         return g.NovelAIGenerator().generate(**args)
 
     def test_inherits_all_from_either_generation_action_but_seed_size_and_references_stay_local(self):
-        _, source = self.source()
+        _, source, _pipe = self.source()
         for action in ("generate", "img2img", "infill"):
             with self.subTest(source_action=action):
                 incoming = replace(source, source_action=action, references_omitted=True)
-                _, result = self.t2i(incoming)
+                _, result, _pipe = self.t2i(incoming)
                 payload = self.transport.post.call_args.kwargs["json"]
                 self.assertEqual(result.settings(), incoming.settings())
                 self.assertEqual((result.source_action, result.source_seed, result.source_size),
@@ -43,14 +43,14 @@ class T2IContextTests(unittest.TestCase):
             self.assertEqual(self.t2i(source, seed=-1)[1].source_seed, 2468)
 
     def test_each_override_and_empty_zero_false_preserve_unselected_fields(self):
-        _, source = self.source(prefer_brownian=True)
+        _, source, _pipe = self.source(prefer_brownian=True)
         original = copy.deepcopy(source)
         manual = dict(prompt="replacement scene", negative_prompt="", model="NAI Diffusion V4.5 Full",
                       sampler="k_euler_ancestral", steps=17, cfg_scale=0.0, scheduler="native",
                       cfg_rescale=0.0, prefer_brownian=False, variety_boost=False, characterPrompts=None)
         for field in INHERITED_FIELDS:
             with self.subTest(field=field):
-                _, result = self.t2i(source, **manual, context_mode="override_selected",
+                _, result, _pipe = self.t2i(source, **manual, context_mode="override_selected",
                                      **{f"override_{field}": True})
                 expected = source.settings()
                 expected[field] = [] if field == "characterPrompts" else manual[field]
@@ -58,9 +58,9 @@ class T2IContextTests(unittest.TestCase):
                 self.assertEqual(source, original)
 
     def test_character_replacement_preserves_negatives_positions_and_removes_old_slots(self):
-        _, source = self.source()
+        _, source, _pipe = self.source()
         replacement = [g.CharacterPrompt("green hair", "red eyes", .2, .8)]
-        _, result = self.t2i(source, context_mode="override_selected",
+        _, result, _pipe = self.t2i(source, context_mode="override_selected",
                              override_characterPrompts=True, characterPrompts=replacement)
         self.assertEqual([(c.prompt, c.uc, c.x, c.y) for c in result.characters],
                          [("green hair", "red eyes", .2, .8)])
@@ -69,7 +69,7 @@ class T2IContextTests(unittest.TestCase):
         self.assertEqual(len(source.characters), 2)
 
     def test_manual_mode_disconnection_and_stale_flags(self):
-        _, source = self.source()
+        _, source, _pipe = self.source()
         manual = dict(context_mode="override_selected", override_steps=True, steps=13)
         self.assertEqual(self.t2i(source, **manual)[1].steps, 13)
         self.assertEqual(self.t2i(source, **{**manual, "context_mode": "inherit_all"})[1].steps, source.steps)
@@ -82,8 +82,8 @@ class T2IContextTests(unittest.TestCase):
         self.assertEqual(self.t2i(None, **manual)[1].steps, 14)
 
     def test_medium_and_opus_limits_are_applied_after_context_merge(self):
-        _, source = self.source()
-        _, result = self.t2i(source, context_mode="override_selected",
+        _, source, _pipe = self.source()
+        _, result, _pipe = self.t2i(source, context_mode="override_selected",
             override_model=True, model=context_tests.generation.MEDIUM,
             override_steps=True, steps=40, override_sampler=True, sampler="k_euler",
             override_cfg_rescale=True, cfg_rescale=.8,
@@ -91,7 +91,7 @@ class T2IContextTests(unittest.TestCase):
         self.assertEqual((result.steps, result.sampler, result.cfg_rescale), (14, "k_euler_ancestral", 0))
         self.assertNotIn("custom rejected uc", result.negative_prompt)
         self.assertTrue(all(c.uc == "" for c in result.characters))
-        _, result = self.t2i(source, context_mode="override_selected",
+        _, result, _pipe = self.t2i(source, context_mode="override_selected",
             override_steps=True, steps=50, width=2048, height=2048, limit_opus_free=True)
         self.assertEqual(result.steps, 28)
         self.assertEqual(result.source_size, (1024, 1024))
@@ -99,7 +99,7 @@ class T2IContextTests(unittest.TestCase):
         self.assertEqual(source.steps, 24)
 
     def test_bad_context_and_model_combinations_fail_before_auth_or_request(self):
-        _, source = self.source()
+        _, source, _pipe = self.source()
         for options, error_type, error in (
             ({"override_model": True, "model": "NAI Diffusion V3"}, ValueError, "characterPrompts requires"),
             ({"context_mode": "unknown"}, ValueError, "context mode"),
@@ -117,7 +117,7 @@ class T2IContextTests(unittest.TestCase):
                 self.transport.post.assert_not_called()
 
     def test_strict_guard_rejects_references_and_unqualified_subscription(self):
-        _, source = self.source()
+        _, source, _pipe = self.source()
         for reference in ("vibes", "references"):
             self.transport.post.reset_mock()
             with mock.patch.object(g, "get_nai_token", side_effect=AssertionError("token read")), \
@@ -133,11 +133,11 @@ class T2IContextTests(unittest.TestCase):
         self.transport.post.assert_not_called()
 
     def test_changed_t2i_values_reach_i2i_and_autosave_in_all_formats(self):
-        _, source = self.source()
+        _, source, _pipe = self.source()
         for format_name, glob in (("PNG", "*.png"), ("WebP lossless", "*.webp"), ("WebP lossy", "*.webp")):
             with self.subTest(format=format_name):
                 before = set(Path(self.transport.temp.name).rglob(glob))
-                image, updated = self.t2i(source, save_format=format_name,
+                image, updated, _pipe = self.t2i(source, save_format=format_name,
                     context_mode="override_selected", override_prompt=True, prompt="new scene",
                     override_cfg_scale=True, cfg_scale=3.0, override_negative_prompt=True, negative_prompt="")
                 added = set(Path(self.transport.temp.name).rglob(glob)) - before
@@ -149,7 +149,7 @@ class T2IContextTests(unittest.TestCase):
                 self.assertEqual(restored["settings"]["seed"], 789)
                 self.assertEqual([c["prompt"] for c in restored["characters"]],
                                  [c.prompt for c in updated.characters])
-                _, next_context = self.i2i(image, updated)
+                _, next_context, _pipe = self.i2i(image, updated)
                 self.assertEqual(next_context.settings(), updated.settings())
                 self.assertEqual(next_context.source_seed, 456)
 

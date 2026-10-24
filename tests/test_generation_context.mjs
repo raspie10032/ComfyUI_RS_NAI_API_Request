@@ -16,19 +16,31 @@ for (const order of [["combined_detailer", "generation_context"], ["generation_c
         class Node {
             constructor() {
                 this.widgets = Object.entries({ prompt: "keep me", model: "NAI Diffusion V5 Full", seed: 222,
-                    width: 768, strength: .3, sampler: "k_euler", show_advanced: false,
+                    width: 768, strength: .3, sampler: "k_euler", scheduler: "native", show_advanced: false,
                     limit_opus_free: true, use_context_settings: true }).map(([k, v]) => widget(k, v));
                 this.inputs = [{ name: "nai_context", link: null }]; this.size = [300, 200];
             }
             computeSize() { return [300, 100]; }
             setSize(s) { this.size = s; }
             setDirtyCanvas() {}
+            addWidget(type, name, value, callback, options) {
+                const w = { type, name, value, callback, options }; this.widgets.push(w); return w;
+            }
         }
         for (const e of extensions) await e.beforeRegisterNodeDef(Node, { name });
         const n = new Node(); n.onNodeCreated();
         const get = key => n.widgets.find(w => w.name === key);
         const values = n.widgets.filter(w => w.serialize !== false).map(w => w.value);
         assert.equal(get("prompt").hidden, false);
+        if (name !== "NAIMultiCharacterDetailer") {
+            const button = n.widgets.find(w => w.type === "button");
+            assert.equal(get("scheduler").hidden, true);
+            button.callback();
+            assert.equal(get("scheduler").hidden, false);
+            button.callback();
+            assert.equal(get("scheduler").hidden, true);
+            assert.equal(button.serializeValue(), undefined);
+        }
         n.inputs[0].link = 42; n.onConnectionsChange();
         for (const key of ["prompt", "model", "sampler"]) assert.equal(get(key).hidden, true);
         for (const key of ["seed", "strength", "limit_opus_free", "use_context_settings"]) assert.equal(get(key).hidden, false);
@@ -44,6 +56,18 @@ for (const order of [["combined_detailer", "generation_context"], ["generation_c
         assert.deepEqual(n.widgets.filter(w => w.serialize !== false).map(w => w.value), values);
         assert.equal(get("rs_nai_context_status").serializeValue(), undefined);
         assert.equal(n.widgets.filter(w => w.name === "rs_nai_context_status").length, 1);
+        n.inputs.push({ name: "characterPrompts", link: 99 });
+        const pipeHints = { ko: /중심 좌표/, en: /center positions/, ja: /中心座標/ };
+        for (const code of ["ko", "en", "ja"]) {
+            locale = code;
+            n.onConnectionsChange();
+            assert.match(get("rs_nai_context_status").value, pipeHints[code]);
+            n.inputs[0].link = 42;
+            n.onConnectionsChange();
+            assert.doesNotMatch(get("rs_nai_context_status").value, pipeHints[code]);
+            n.inputs[0].link = null;
+        }
+        n.inputs.pop();
         if (name === "NAIMultiCharacterDetailer") {
             n.inputs[0].link = 42;
             const expected = {en: /NovelAI correction/, ko: /NAI로 보정/, ja: /NAIで補正/};

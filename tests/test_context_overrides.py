@@ -21,7 +21,7 @@ class ContextOverrideTests(unittest.TestCase):
     i2i = context_tests.ContextTests.i2i
 
     def test_each_replacement_preserves_other_fields_and_source(self):
-        image, source = self.source(prefer_brownian=True)
+        image, source, _pipe = self.source(prefer_brownian=True)
         original = copy.deepcopy(source)
         manual = dict(prompt="replacement style", negative_prompt="", model="NAI Diffusion V4.5 Full",
                       sampler="k_euler_ancestral", steps=17, cfg_scale=2.5, scheduler="native",
@@ -29,7 +29,7 @@ class ContextOverrideTests(unittest.TestCase):
                       characterPrompts=[])
         for field in INHERITED_FIELDS:
             with self.subTest(field=field):
-                _, updated = self.i2i(image, source, **manual, context_mode="override_selected",
+                _, updated, _pipe = self.i2i(image, source, **manual, context_mode="override_selected",
                                       **{f"override_{field}": True})
                 expected = source.settings()
                 expected[field] = manual[field]
@@ -39,8 +39,8 @@ class ContextOverrideTests(unittest.TestCase):
                 self.assertEqual(source, original)
 
     def test_selected_i2i_changes_reach_next_detailer_and_saved_metadata(self):
-        image, source = self.source()
-        _, updated = self.i2i(image, source, context_mode="override_selected",
+        image, source, _pipe = self.source()
+        _, updated, _pipe = self.i2i(image, source, context_mode="override_selected",
                               override_steps=True, steps=19, override_cfg_scale=True, cfg_scale=3.5)
         # Use actual detailer execution and its mock transport, not a fake resolver.
         pipeline = detailing.PipelineTests()
@@ -72,7 +72,7 @@ class ContextOverrideTests(unittest.TestCase):
         self.assertEqual(context.cfg_scale, 3.5)
 
     def test_detailer_replaces_entire_character_list_or_clears_it(self):
-        _, source = self.source()
+        _, source, _pipe = self.source()
         detector = DetectionBundle(None, object())
         replacement = g.CharacterPromptSelect().build_character_prompt(character1="green hair")[0]
         for characters in (None, replacement):
@@ -82,13 +82,13 @@ class ContextOverrideTests(unittest.TestCase):
                     prompt="ignored", negative_prompt="ignored", model="NAI Diffusion V4.5 Full",
                     nai_context=source, context_mode="override_selected",
                     override_characterPrompts=True, characterPrompts=characters)
-                self.assertEqual(run.call_args.kwargs["characterPrompts"], characters or [])
+                self.assertEqual(run.call_args.kwargs["characterPrompts"], list(characters or []))
                 self.assertEqual(run.call_args.kwargs.get("matching_mode", "shared"), "shared")
                 self.assertIs(run.call_args.kwargs["nai_context"], source)
                 self.assertFalse(any(k.startswith("override_") for k in run.call_args.kwargs))
 
     def test_modes_disconnection_and_stale_flags(self):
-        image, source = self.source()
+        image, source, _pipe = self.source()
         manual = dict(context_mode="override_selected", override_steps=True, steps=13)
         self.assertEqual(self.i2i(image, source, **manual)[1].steps, 13)
         self.assertEqual(self.i2i(image, source, **{**manual, "context_mode": "inherit_all"})[1].steps, source.steps)
@@ -99,8 +99,8 @@ class ContextOverrideTests(unittest.TestCase):
         self.assertEqual(self.i2i(image, source, context_mode="override_selected")[1].settings(), source.settings())
 
     def test_medium_limits_override_manual_choices_and_context_tracks_effective_values(self):
-        image, source = self.source()
-        _, updated = self.i2i(image, source, context_mode="override_selected",
+        image, source, _pipe = self.source()
+        _, updated, _pipe = self.i2i(image, source, context_mode="override_selected",
             override_model=True, model=context_tests.generation.MEDIUM,
             override_steps=True, steps=40, override_sampler=True, sampler="k_euler",
             override_cfg_rescale=True, cfg_rescale=.8,
@@ -110,7 +110,7 @@ class ContextOverrideTests(unittest.TestCase):
         self.assertTrue(all(c.uc == "" for c in updated.characters))
 
     def test_invalid_model_combination_and_selection_fail_before_request(self):
-        image, source = self.source()
+        image, source, _pipe = self.source()
         for options, error in (
             ({"override_model": True, "model": "NAI Diffusion V3"}, "characterPrompts requires"),
             ({"context_mode": "unsupported"}, "context mode"),

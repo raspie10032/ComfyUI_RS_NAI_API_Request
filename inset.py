@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Local reference layout and reference-guided inpainting."""
 
+from .local_bridge import CHARACTER_INPUT, prepare_characters, nai_pipe_prompts
 from dataclasses import dataclass
 import json
 import math
@@ -132,7 +133,7 @@ class NAIReferenceInsetGenerate:
         }, "optional": {
             "sampler": (SAMPLER_LIST, {"default": "k_euler_ancestral"}),
             "scheduler": (SCHEDULER_LIST, {"default": "karras"}),
-            "characterPrompts": ("LIST", {"tooltip": "Original character prompts. Coordinates 0–1 refer to the generated output and are mapped to the full canvas automatically."}),
+            "characterPrompts": (CHARACTER_INPUT, {"tooltip": "Original character prompts. Coordinates 0–1 refer to the generated output and are mapped to the full canvas automatically."}),
             **save_inputs(),
         }}
 
@@ -151,7 +152,9 @@ class NAIReferenceInsetGenerate:
             raise user_error("INSET_LAYOUT", ValueError, "Connect the inset output of NAI Reference Inset.")
         width, height = inset.canvas.size
         x0, y0, x1, y1 = inset.target_box
+        prompt, negative_prompt = nai_pipe_prompts(prompt, negative_prompt, characterPrompts)
         model_id = get_model_id(model)
+        characterPrompts = prepare_characters(model_id, characterPrompts, inpainting=True)
         validate_character_prompts(model_id, characterPrompts, inpainting=True)
         characters = [CharacterPrompt(c.prompt, c.uc,
                       (x0 + c.center["x"] * (x1 - x0)) / width,

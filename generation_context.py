@@ -102,7 +102,8 @@ def inherit_context(context, enabled, *, mode="inherit_all", manual=None, overri
                 settings[name] = manual[name]
                 selected.append(name)
         # None explicitly means no characters, never fallback to the original list.
-        settings["characterPrompts"] = list(settings["characterPrompts"] or [])
+        from .local_bridge import nai_character_list
+        settings["characterPrompts"] = nai_character_list(settings["characterPrompts"])
     notice(f"NAI context: {settings['model']} · {len(settings['characterPrompts'])} character(s) · "
            "Seed, size, strength and Anlas protection use this node's settings.")
     if selected:

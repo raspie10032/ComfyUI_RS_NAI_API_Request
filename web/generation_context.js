@@ -14,13 +14,16 @@ const detailerModes = {
     ja: "次の実行：検出・照合を通過した領域をNAIで補正します。Anlas保護が適用されます。処理領域数が増えるほど品質は保証できません。",
 };
 
+const advanced = new Set(["scheduler", "cfg_rescale", "prefer_brownian", "noise", "variety_boost", "normalize_vibe_strengths", "save_format", "webp_quality"]);
+
 function update(node, isGenerator) {
     const state = contextState(node);
     const { active, selective, selected } = state;
     // Combined detailer owns its fold logic; never overwrite that widget state.
-    if (isGenerator) for (const widget of node.widgets ?? []) {
-        if (!contextFields.includes(widget.name) && !contextControls.includes(widget.name)) continue;
-        const hide = contextWidgetHidden(widget.name, state) ?? false;
+    node.rsNaiSettingsPanel?.refresh();
+    if (isGenerator && !node.rsNaiSettingsPanel?.isPanel()) for (const widget of node.widgets ?? []) {
+        if (!contextFields.includes(widget.name) && !contextControls.includes(widget.name) && !advanced.has(widget.name)) continue;
+        const hide = contextWidgetHidden(widget.name, state) ?? (node.rsNaiHasAdvanced && advanced.has(widget.name) && !node.properties?.rsNaiAdvanced);
         if (hide && !widget.rsNaiContextVisible && !widget.type?.startsWith("converted-widget")) {
             widget.rsNaiContextVisible = { type: widget.type, computeSize: widget.computeSize, hidden: widget.hidden };
             widget.type = "rs-nai-context-hidden";
@@ -43,6 +46,9 @@ function update(node, isGenerator) {
     }
     const locale = String(app.ui?.settings?.getSettingValue("Comfy.Locale") ?? "en").slice(0, 2);
     status.value = (labels[locale] ?? labels.en)[active ? 0 : 1];
+    if ((!active || selected.has("model")) && String(node.widgets?.find(w => w.name === "model")?.value).includes("Medium Effort")) {
+        status.value += "\nMedium Effort: 14 steps · Euler Ancestral · CFG Rescale 0 · fixed Heavy UC (base/character negatives ignored).";
+    }
     const names = contextFieldLabels[locale] ?? contextFieldLabels.en;
     const prefix = ({ en: "Override", ko: "직접 변경", ja: "手動変更" })[locale] ?? "Override";
     for (const [i, name] of contextFields.entries()) {
@@ -69,9 +75,18 @@ function update(node, isGenerator) {
             status.value += "\n" + (characterText[locale] ?? characterText.en);
         }
     }
+    if ((!active || selected.has("characterPrompts")) && node.inputs?.some(i => i.name === "characterPrompts" && i.link != null)) {
+        const pipeHelp = {
+            en: "NAI uses the pipe's common/character prompts, negatives and center positions when provided. The effective model sets the character limit. After execution, the last successful request shows the applied NAI settings.",
+            ko: "파이프에 담긴 공통·캐릭터 프롬프트, 네거티브와 중심 좌표를 NAI에서 사용합니다. 캐릭터 수는 실제 적용 모델의 한도를 따릅니다. 실행 후 ‘마지막으로 성공한 NAI 요청’에서 적용된 설정을 확인할 수 있습니다.",
+            ja: "パイプに含まれる共通・キャラクタープロンプト、ネガティブと中心座標をNAIで使用します。人数は実際のモデルの上限に従います。実行後は「最後に成功したNAIリクエスト」で適用設定を確認できます。",
+        };
+        status.value += "\n" + (pipeHelp[locale] ?? pipeHelp.en);
+    }
     if (!isGenerator) {
         status.value = (detailerModes[locale] ?? detailerModes.en) + "\n\n" + status.value;
     }
+    node.rsNaiSettingsPanel?.refresh();
     const size = node.computeSize();
     node.setSize([Math.max(node.size[0], size[0]), size[1]]);
     node.setDirtyCanvas(true, true);
@@ -86,7 +101,18 @@ app.registerExtension({
             nodeType.prototype[hook] = function () {
                 const result = previous?.apply(this, arguments);
                 if (hook === "onNodeCreated") {
-                    for (const name of contextControls) {
+                    if (nodeData.name !== "NAIMultiCharacterDetailer" && this.addWidget && !(this.addDOMWidget && typeof document !== "undefined")) {
+                        this.properties ??= {};
+                        this.properties.rsNaiAdvanced ??= false;
+                        this.rsNaiHasAdvanced = true;
+                        const button = this.addWidget("button", "기본 / 상세 · Basic / Advanced", null, () => {
+                            this.properties.rsNaiAdvanced = !this.properties.rsNaiAdvanced;
+                            update(this, true);
+                        }, { serialize: false });
+                        button.serialize = false;
+                        button.serializeValue = () => undefined;
+                    }
+                    for (const name of [...contextControls, "model"]) {
                         const mode = this.widgets?.find(w => w.name === name);
                         if (!mode) continue;
                         const callback = mode.callback;

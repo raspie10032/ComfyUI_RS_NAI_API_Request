@@ -162,9 +162,10 @@ class InsetTests(unittest.TestCase):
     def test_model_character_limit_and_bad_input_fail_before_token(self):
         value = self.prepare()["result"][0]
         for model, count in (("NAI Diffusion V5 Full", 23), ("NAI Diffusion V5 Curated", 7)):
-            with self.assertRaises(ValueError):
-                inset.NAIReferenceInsetGenerate().generate(**{**self.options(value), "model": model,
-                    "characterPrompts": [generators.CharacterPrompt("bird", "", .5, .5)]*count})
+            from ComfyUI_RS_NAI_API_Request.local_bridge import prepare_characters
+            chars = [generators.CharacterPrompt("bird", "", .5, .5)] * count
+            self.assertEqual(len(prepare_characters(inset.get_model_id(model), chars, inpainting=True)),
+                             6 if "Curated" in model else 22)
         for width, side in ((65, "left"), (128, "unknown")):
             with self.assertRaisesRegex(ValueError, "RS NAI:INSET_LAYOUT"):
                 self.prepare(side=side,width=width)

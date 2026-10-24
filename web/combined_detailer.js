@@ -1,6 +1,7 @@
 import { app } from "../../scripts/app.js";
 import { ComfyWidgets } from "../../scripts/widgets.js";
 import { contextControls, contextState, contextWidgetHidden } from "./context_controls.js";
+import { addDetailerPanel } from "./detailer_panel.js";
 
 const modelFields = ["face_segm_model", "face_bbox_model", "sam_model", "eye_bbox_model"];
 const labels = {
@@ -47,6 +48,14 @@ const targets = {
 };
 
 function update(node, toggle, basic) {
+    const panel = node.rsNaiSettingsPanel ?? node.rsNaiDetailerPanel;
+    panel?.refresh();
+    if (panel?.isPanel()) {
+        const size = node.computeSize();
+        node.setSize([Math.max(node.size[0], size[0]), size[1]]);
+        node.setDirtyCanvas(true, true);
+        return;
+    }
     const expanded = Boolean(node.widgets?.find(w => w.name === toggle)?.value);
     const state = contextState(node);
     for (const widget of node.widgets ?? []) {
@@ -89,7 +98,11 @@ app.registerExtension({
                     }
                 }
                 if (hook === "onNodeCreated") {
-                    for (const name of [toggle, "save_format", ...contextControls, ...(nodeData.name === "NAIDetectionCombineLoader" ? modelFields : [])]) {
+                    if (nodeData.name === "NAIMultiCharacterDetailer" && this.addDOMWidget) addDetailerPanel(this, app, nodeData);
+                    const watched = nodeData.name === "NAIMultiCharacterDetailer"
+                        ? (this.widgets ?? []).map(w => w.name)
+                        : [toggle, "save_format", ...contextControls, ...modelFields];
+                    for (const name of watched) {
                         const widget = this.widgets?.find(w => w.name === name);
                         if (widget) {
                             const callback = widget.callback;

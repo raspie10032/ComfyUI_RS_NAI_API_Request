@@ -96,27 +96,17 @@ class CharacterCapacityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "at most 6"):
             nai_api.build_nai_payload("group", "nai-diffusion-5-curated", "infill", params, inpainting=True)
 
-    def test_all_generators_reject_overflow_before_token_encoding_or_network(self):
-        for node, extra in ((generators.NovelAIGenerator, {}),
-                            (generators.NAIImg2ImgNode, dict(image=None, strength=0.5)),
-                            (generators.NAIInpaintNode, dict(image=None, mask=None, strength=0.5))):
-            for model, limit in (("NAI Diffusion V4.5 Full", 6), ("NAI Diffusion V5 Full", 22)):
-                with self.subTest(node=node.__name__, model=model), mock.patch.object(generators, "get_nai_token") as token, mock.patch.object(generators, "reference_parameters") as refs, mock.patch.object(generators, "post_nai") as post:
-                    cs = self.build()[:limit] + self.build(1)
-                    with self.assertRaisesRegex(ValueError, f"at most {limit}"):
-                        node().generate(prompt="group", negative_prompt="", model=model, width=512,
-                            height=512, sampler="k_euler", steps=20, cfg_scale=5, seed=1,
-                            characterPrompts=cs, limit_opus_free=False, **extra)
-                    token.assert_not_called()
-                    refs.assert_not_called()
-                    post.assert_not_called()
-        with mock.patch.object(generators, "get_nai_token") as token:
-            with self.assertRaisesRegex(ValueError, "at most 6"):
-                generators.NAIInpaintNode().generate(image=None, mask=None, strength=0.5,
-                    prompt="group", negative_prompt="", model="NAI Diffusion V5 Curated",
-                    width=512, height=512, sampler="k_euler", steps=20, cfg_scale=5, seed=1,
-                    characterPrompts=self.build(7), limit_opus_free=False)
-            token.assert_not_called()
+    def test_receivers_trim_to_model_limit_without_mutating_the_shared_source(self):
+        from ComfyUI_RS_NAI_API_Request.local_bridge import prepare_characters
+        source = self.build()
+        for model, limit, infill in (("nai-diffusion-4-5-full", 6, False),
+                                     ("nai-diffusion-5-full", 22, False),
+                                     ("nai-diffusion-5-curated", 6, True)):
+            with self.subTest(model=model, infill=infill):
+                result = prepare_characters(model, source, inpainting=infill)
+                self.assertEqual(len(result), limit)
+                self.assertEqual([c.prompt for c in result], [c.prompt for c in source[:limit]])
+                self.assertEqual(len(source), 22)
 
 
 if __name__ == "__main__":

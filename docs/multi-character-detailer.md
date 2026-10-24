@@ -4,6 +4,14 @@ Available in **2.8.0**, under `RS_NovelAI_API`. Execution detects regions, match
 
 **Quality cannot be guaranteed as the number of processed regions increases.**
 
+## In-node panel / 노드 내부 패널 / ノード内パネル
+
+The multi-character detailer groups settings into five tabs: **Correction**, **Regions & masks**, **Character matching**, **Generation**, and **Save & results**. Correction keeps strength, seed and region limits together. Generation contains context inheritance and sampling controls; Save & results includes the request delay, autosave format, last successful request and execution notices. Connected settings show their source instead of a competing editor. For selective inheritance, enable **Override selected** and check the replacement beside each field. Tabs change the view; the original workflow values, widget order and connections remain intact. The legacy `show_advanced` value remains accepted but is replaced visually by the tabs.
+
+**한국어:** **보정 / 영역·마스크 / 캐릭터 매칭 / 생성 설정 / 저장·결과** 탭으로 나눴습니다. 첫 화면에는 변경 강도·시드·최대 처리 영역을 모았습니다. 컨텍스트에서 가져오는 값은 출처를 표시하고, **선택 항목만 변경 → 직접 변경**을 켠 값만 입력할 수 있습니다. 연결된 입력은 연결 쪽에서 설정합니다. 저장·결과에서 요청 전 대기와 저장 형식을 바꾸고 실제 마지막 요청 설정·실행 안내를 확인하세요. 탭 전환은 입력값을 지우지 않으며, 기존 워크플로의 값·입력 순서·연결을 유지합니다. 예전 `show_advanced` 값은 계속 읽지만 화면에서는 탭으로 대체합니다. 접혀 있는 탭의 값도 실행에 적용됩니다.
+
+**日本語:** **補正 / 領域・マスク / キャラクター照合 / 生成設定 / 保存・結果**の5タブに整理しました。継承項目には取得元を表示し、**選択項目のみ変更 → 手動変更**を有効にした項目を編集できます。保存・結果では待機時間・保存形式と、最後に成功したリクエスト・実行通知を確認できます。タブを切り替えても値は保持され、元のワークフローの入力順と接続を維持します。非表示のタブの値も実行に適用されます。
+
 ## Selective context settings
 
 Available in **2.9.0**. Connect context from **NAI Load Image**, T2I or I2I. The image loader restores validated settings from PNG/WebP; see [metadata reuse and restoration limits](image-metadata.md#connect-the-recovered-context).
@@ -85,7 +93,7 @@ Examples have **Anlas protection enabled**: I2I stops at the guard until allowed
 
 SEGM 선택 시 BBOX·SAM은 다운로드·로드·추론을 건너뜁니다. SEGM OFF에서는 BBOX 단독 또는 BBOX+SAM을 사용합니다. OFF 모델은 불러오지 않습니다. 얼굴·눈·옷·손·피부·머리카락·인물 전체 모델을 선택하거나 기존 모델 폴더에 파일을 추가하고 목록을 새로고침하세요. 눈을 주 대상으로 보정할 때는 주 SEGM/BBOX 목록에서 눈 모델을 선택합니다.
 
-홀·요철 채우기 → 8픽셀 확장 → 경계 부드러움이 기본입니다. 상세 설정을 접어도 값은 적용됩니다. 캐릭터 최대 22명·영역 최대 64개, 기본 5개입니다. 인원을 줄이면 캐릭터 개수와 **공통 프롬프트의 인원 표현도 함께** 바꾸세요. 숨긴 슬롯은 저장만 되고 요청에서는 제외됩니다.
+홀·요철 채우기 → 8픽셀 확장 → 경계 부드러움이 기본입니다. 다른 탭으로 옮겨도 설정값은 적용됩니다. 캐릭터 최대 22명·영역 최대 64개, 기본 5개입니다. 인원을 줄이면 캐릭터 개수와 **공통 프롬프트의 인원 표현도 함께** 바꾸세요. 숨긴 슬롯은 저장만 되고 요청에서는 제외됩니다.
 
 시험 워크플로를 열면 이름과 삭제된 미리보기 입력을 이전합니다. 시드·Anlas 보호 등 뒤의 값과 나머지 연결을 유지합니다. **불러오기만으로 실행되지는 않지만, 실행하면 실제 보정합니다.** 예제는 Anlas 보호가 켜져 있으므로 I2I/보정 전에 해당 노드에서 확인하세요. 기존 페이스 디테일러 동작은 유지합니다.
 
