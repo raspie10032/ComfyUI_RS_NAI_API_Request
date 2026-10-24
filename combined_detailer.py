@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from .detector_bundle import DetectionBundle
+from .detector_bundle import DetectionBundle, detection_bundle
 from .diagnostics import notice
 from .generation_context import NAIContext, context_inputs, context_override_inputs, inherit_context, take_context_overrides
 from .generators import NAIFaceDetailerNode
@@ -83,7 +83,7 @@ class NAIMultiCharacterDetailer:
         req = old["required"]
         model_choices, model_options = req["model"]
         return {"required": {
-            "image": req["image"], "detectors": ("NAI_DETECTION_BUNDLE",),
+            "image": req["image"], "detectors": ("NAI_DETECTION_BUNDLE,RS_MC_DETECTION_BUNDLE",),
             **{key: req[key] for key in ("prompt", "negative_prompt", "model", "strength", "seed")},
             "model": (model_choices, {**model_options, "default": "NAI Diffusion V5 Full"}),
         }, "optional": {
@@ -122,6 +122,7 @@ class NAIMultiCharacterDetailer:
         from .errors import user_error
         # Old API graphs may still send this removed prototype setting.
         options.pop("preview_only", None)
+        detectors = detection_bundle(detectors)
         if not isinstance(detectors, DetectionBundle):
             raise ValueError("Connect NAI Detection Combine Loader. / NAI 감지 모델 콤바인 로더를 연결해 주세요. / NAI検出モデル結合ローダーを接続してください。")
         if detectors.segm_detector is None and detectors.bbox_detector is None:

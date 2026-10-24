@@ -232,7 +232,7 @@ def inspect_metadata(image):
     base = _detailer_base(record)
     if (operation == 'detailer' or legacy_detail) and base is None:
         return {'status': 'partial', 'operation': 'detailer', 'settings': {}, 'characters': [],
-                'warnings': warnings + ['detailer_not_base'], 'size': list(image.size), 'record': record,
+                'warnings': warnings + ['detailer_not_base'], 'size': list(image.size), 'record': record, 'local_record': record.get('local_context') or (data if isinstance(data.get('rs_multicharacter'), dict) else None),
                 'detailer_regions': fields.get('rs_detailer_regions'), 'missing': []}
     if base is not None:
         request = base
@@ -319,6 +319,12 @@ def inspect_metadata(image):
                                'negative_prompt': comfy_to_nai(c['negative_prompt'])} for c in characters]
             except (ValueError, TypeError):
                 warnings.append('invalid_characters')
+    if isinstance(local, dict) and isinstance(local.get('nai_context'), dict):
+        saved = local['nai_context']
+        if isinstance(saved.get('settings'), dict):
+            common = {k: settings[k] for k in ('prompt', 'negative_prompt') if k in settings}
+            settings = {**saved['settings'], **common}
+            warnings = [w for w in warnings if w != 'local_generation_settings']
     missing = [k for k in ('prompt', 'negative_prompt', 'model', 'seed', 'steps', 'cfg_scale', 'sampler') if k not in settings]
-    return {'status': 'ok' if settings else 'empty', 'operation': operation, 'size': list(image.size), 'settings': settings, 'characters': characters, 'prompt_syntax': 'NovelAI', 'characters_present': 'char_captions' in positive, 'warnings': list(dict.fromkeys(warnings)), 'missing': missing, 'record': record,
+    return {'status': 'ok' if settings else 'empty', 'operation': operation, 'size': list(image.size), 'settings': settings, 'characters': characters, 'prompt_syntax': 'NovelAI', 'characters_present': 'char_captions' in positive, 'warnings': list(dict.fromkeys(warnings)), 'missing': missing, 'record': record, 'local_record': record.get('local_context') or (data if isinstance(data.get('rs_multicharacter'), dict) else None),
             **({'settings_origin': 'nai_context', 'detailer_regions': fields.get('rs_detailer_regions')} if base is not None else {})}

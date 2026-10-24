@@ -53,6 +53,27 @@ class DetectionBundle:
     sam_model: object = None
     eye_bbox_detector: object = None
 
+    def rs_detection_bundle(self):
+        return {"version": 1, "segm_detector": self.segm_detector,
+                "bbox_detector": self.bbox_detector, "sam_model": self.sam_model,
+                "eye_bbox_detector": self.eye_bbox_detector}
+
+
+def detection_bundle(value):
+    if isinstance(value, DetectionBundle):
+        return value
+    export = getattr(value, "rs_detection_bundle", None)
+    if not callable(export):
+        raise ValueError("Connect an RS NAI or RS MultiCharacter Detection Combine Loader. / RS 감지 모델 통합 로더를 연결해 주세요.")
+    data = export()
+    if not isinstance(data, dict) or data.get("version") != 1:
+        raise ValueError("Unsupported RS detector bundle version.")
+    fields = {name: data.get(name) for name in ("segm_detector", "bbox_detector", "sam_model", "eye_bbox_detector")}
+    for name in ("segm_detector", "bbox_detector", "eye_bbox_detector"):
+        if fields[name] is not None and not callable(getattr(fields[name], "detect", None)):
+            raise ValueError(f"Invalid {name} in shared detector bundle.")
+    return DetectionBundle(**fields)
+
 
 class NAIDetectionCombineLoader:
     @classmethod

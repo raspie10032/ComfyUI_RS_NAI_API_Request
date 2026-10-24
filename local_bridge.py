@@ -3,9 +3,10 @@
 import importlib
 import math
 import re
+import json
 
 from .diagnostics import notice
-from dataclasses import dataclass
+from dataclasses import dataclass, replace, field
 from collections.abc import Sequence
 
 LOCAL_CHARACTER_LIMIT = 10
@@ -162,7 +163,7 @@ def _pipe_classes():
 
 
 PIPE_TYPE = "RS_MC_CHARACTER_PIPE"
-CHARACTER_INPUT = "LIST,RS_MC_CHARACTER_PIPE"
+CHARACTER_INPUT = "LIST,RS_MC_CHARACTER_PIPE,NAI_CONTEXT"
 
 
 @dataclass(frozen=True)
@@ -172,6 +173,8 @@ class NAICharacterPipe(Sequence):
     prompt: str | None = None
     negative_prompt: str | None = None
     syntax: str = "NovelAI"
+    local_record_json: str | None = field(default=None, kw_only=True)
+    nai_settings_json: str | None = field(default=None, kw_only=True)
 
     def __len__(self):
         return len(self.characters)
@@ -187,6 +190,10 @@ class NAICharacterPipe(Sequence):
 
     def as_local_character_pipe(self):
         Character, CharacterPipe = _pipe_classes()
+        native = None
+        if self.local_record_json:
+            module = importlib.import_module(CharacterPipe.__module__.rpartition(".")[0] + ".metadata")
+            native = module.pipe_from_record(module.object_json(self.local_record_json))
         if not self.characters:
             raise ValueError("This image has no character captions. Add a local character prompt first. / 캐릭터 캡션이 없습니다. 로컬 캐릭터 프롬프트를 먼저 추가해 주세요.")
         if len(self) > LOCAL_CHARACTER_LIMIT:
@@ -196,14 +203,27 @@ class NAICharacterPipe(Sequence):
             raise ValueError("Unsupported character pipe prompt syntax.")
         prompt, negative = convert(self.prompt or "", self.negative_prompt or "")
         chars = []
-        for c in self.characters[:LOCAL_CHARACTER_LIMIT]:
+        for index, c in enumerate(self.characters[:LOCAL_CHARACTER_LIMIT]):
             positive, uc = convert(c.prompt, c.uc)
             center = c.center
-            chars.append(Character(positive, uc, center["x"], center["y"]))
+            if native is not None and index < len(native.characters):
+                original = native.characters[index]
+                if original.center != center and (original.bbox is not None or original.region_mask is not None):
+                    raise ValueError("Character coordinates changed while carrying a local mask/box. Update placement with RS Position before exporting again. / 마스크·상자의 좌표가 달라졌습니다. RS 위치 노드에서 다시 배치해 주세요.")
+                chars.append(replace(original, prompt=positive, uc=uc, x=center["x"], y=center["y"]))
+            else:
+                chars.append(Character(positive, uc, center["x"], center["y"]))
         # A prompt-only editor must not replace the receiving sampler's scene.
+        if native is not None:
+            text_convert = local_prompts if (native.character_syntax or native.syntax) == "NovelAI" else lambda p, n: (p, n)
+            texts = tuple(replace(c, prompt=text_convert(c.prompt, c.uc)[0],
+                                  uc=text_convert(c.prompt, c.uc)[1]) for c in native.text_regions)
+            return replace(native, characters=tuple(chars), prompt=prompt if self.prompt is not None else None,
+                negative_prompt=negative if self.prompt is not None else None, syntax="ComfyUI",
+                character_syntax="ComfyUI", text_regions=texts, nai_settings_json=self.nai_settings_json)
         return CharacterPipe(tuple(chars), prompt=prompt if self.prompt is not None else None,
                              negative_prompt=negative if self.prompt is not None else None, syntax="ComfyUI",
-                             character_syntax="ComfyUI")
+                             character_syntax="ComfyUI", nai_settings_json=self.nai_settings_json)
 
 
 def pipe_from_context(context):
@@ -211,7 +231,9 @@ def pipe_from_context(context):
     if not isinstance(context, NAIContext):
         # Incomplete metadata must still leave IMAGE/MASK usable.
         return NAICharacterPipe(())
-    return NAICharacterPipe(context.characters, context.prompt, context.negative_prompt)
+    return NAICharacterPipe(context.characters, context.prompt, context.negative_prompt,
+        local_record_json=context.local_record_json,
+        nai_settings_json=json.dumps(context_snapshot(context), ensure_ascii=True, allow_nan=False))
 
 
 def nai_character_list(source):
@@ -223,7 +245,7 @@ def nai_character_list(source):
     if not hasattr(source, "characters"):
         return list(source)
     from .generation_context import ContextCharacter
-    syntax = source.syntax
+    syntax = getattr(source, "character_syntax", None) or source.syntax
     if syntax not in ("NovelAI", "ComfyUI"):
         raise ValueError("Unsupported character pipe prompt syntax.")
     convert = (lambda text: text) if syntax == "NovelAI" else comfy_to_nai
@@ -234,6 +256,21 @@ def nai_character_list(source):
 def prepare_characters(model_id, source, *, inpainting=False):
     from .nai_api import character_limit, INPAINT_MODEL_ID_OVERRIDES
     characters = nai_character_list(source)
+    snapshot = local_record(source)
+    if snapshot:
+        local = json.loads(snapshot).get("rs_multicharacter", {})
+        features = []
+        if any(local.get("character_masks", [])) or any(local.get("boxes", [])):
+            features.append("mask/box")
+        if any(v.get("name", "None") != "None" for v in local.get("character_loras", [])):
+            features.append("LoRA")
+        if local.get("text_regions"):
+            features.append("text regions")
+        if local.get("interaction") or any(local.get("body_parts", [])):
+            features.append("interaction/body guidance")
+        if features:
+            notice("NAI receives captions and center coordinates. Local-only settings are preserved for return, "
+                   "but not applied by NAI / 로컬 전용 설정은 보존되며 NAI에서는 적용되지 않습니다: " + ", ".join(features))
     effective_model = INPAINT_MODEL_ID_OVERRIDES.get(model_id, f"{model_id}-inpainting") if inpainting else model_id
     limit = character_limit(effective_model)
     if characters and not limit:
@@ -272,4 +309,60 @@ def pipe_from_metadata(metadata):
             raise ValueError("Invalid character X/Y metadata.")
         characters.append(ContextCharacter(item["prompt"], item["negative_prompt"], x, y))
     return NAICharacterPipe(tuple(characters), settings.get("prompt"), settings.get("negative_prompt"),
-                            metadata.get("prompt_syntax", "NovelAI"))
+                            metadata.get("prompt_syntax", "NovelAI"),
+                            local_record_json=json.dumps(metadata["local_record"], allow_nan=False) if metadata.get("local_record") else None,
+                            nai_settings_json=json.dumps(metadata["record"]["nai_context"], allow_nan=False) if metadata.get("record", {}).get("nai_context") else None)
+
+
+def local_record(source):
+    """Copy a bounded scene snapshot; never copy raw API payloads or tensors."""
+    if source is None:
+        return None
+    existing = getattr(source, "local_record_json", None)
+    if existing is not None:
+        from .metadata import json_object
+        return json.dumps(json_object(existing), ensure_ascii=True, allow_nan=False)
+    export = getattr(source, "rs_context_record", None)
+    if callable(export):
+        from .metadata import json_object
+        text = json.dumps(export(), ensure_ascii=True, allow_nan=False)
+        json_object(text)
+        return text
+    return None
+
+
+def context_snapshot(context):
+    return {"settings": {**{k: getattr(context, k) for k in (
+        "prompt", "negative_prompt", "model", "sampler", "steps", "cfg_scale", "scheduler",
+        "cfg_rescale", "prefer_brownian", "variety_boost")},
+        "seed": context.source_seed, "width": context.source_size[0], "height": context.source_size[1]},
+        "characters": [{"prompt": c.prompt, "negative_prompt": c.uc, "centers": [c.center]} for c in context.characters],
+        "operation": context.source_action, "warnings": ["references_omitted"] if context.references_omitted else []}
+
+
+def inherited_pipe_settings(source, manual):
+    from .generation_context import NAIContext, INHERITED_FIELDS
+    from .metadata_context import restore_context
+    from .metadata import json_object
+    if manual is None:
+        raise ValueError("Local pipes require this node's NAI model and sampling settings.")
+    settings = {key: manual[key] for key in INHERITED_FIELDS}
+    saved = getattr(source, "nai_settings_json", None)
+    if saved:
+        context, _ = restore_context(json_object(saved))
+        if not isinstance(context, NAIContext):
+            raise ValueError("The stored NAI settings are incomplete. Disable context or choose valid NAI settings.")
+        settings.update(context.settings())
+    settings["prompt"], settings["negative_prompt"] = nai_pipe_prompts(
+        settings["prompt"], settings["negative_prompt"], source)
+    # Keep the immutable source until request construction captures its extras.
+    settings["characterPrompts"] = source
+    return settings
+
+
+def context_extra(context):
+    extra = {"nai_context": context_snapshot(context)}
+    if context.local_record_json:
+        from .metadata import json_object
+        extra["local_context"] = json_object(context.local_record_json)
+    return extra

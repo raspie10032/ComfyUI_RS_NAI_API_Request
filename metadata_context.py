@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Validate recovered values before exposing an executable NAI context."""
 import math
+import json
 
 from .generation_context import ContextCharacter, NAIContext, UnavailableNAIContext
 from .nai_api import MODEL_ID_MAP, SAMPLER_LIST, SCHEDULER_LIST, character_limit
@@ -90,4 +91,5 @@ def restore_context(data, model_choice=AUTO_MODEL):
         characters=tuple(characters), source_seed=settings["seed"], source_action=action,
         source_size=(settings["width"], settings["height"]),
         references_omitted="references_omitted" in data.get("warnings", []),
+        local_record_json=json.dumps(data["local_record"], allow_nan=False) if data.get("local_record") else None,
     ), report

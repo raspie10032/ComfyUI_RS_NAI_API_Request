@@ -47,6 +47,14 @@ Both image loaders show a notice before queueing when an image contains more tha
 
 **日本語:** 画像ローダーの **NAIコンテキスト**出力でプロンプト・キャラクター・生成設定を引き継ぎ、T2I・I2I・マルチキャラクターディテーラーの **「選択項目のみ変更」** で必要な値だけ変更できます。シード・サイズは各ノードの値を使用します。ディテーラーの自動保存では画像全体の元コンテキストと領域ごとの補正履歴を分けて保持します。
 
+## Shared context with RS MultiCharacter
+
+**RS MultiCharacter interoperability:** connect character/context pipes, detection combine loaders and WD taggers between the two updated extensions. Prompts and coordinates transfer; local-only features and each backend's settings survive round trips. NAI payment protection remains local to each node. [Behavior, limits and offline verification](docs/shared-local-context.md).
+
+**한국어:** 양쪽 확장을 업데이트하면 캐릭터·컨텍스트 파이프와 감지기·태거를 서로 연결할 수 있습니다. 프롬프트·좌표를 공유하고 로컬 마스크·LoRA와 양쪽 생성 설정은 왕복할 때 보존합니다. NAI 과금 보호는 각 노드의 설정을 따릅니다.
+
+**日本語:** 両方を更新すると、キャラクター・コンテキストパイプと検出ローダー・タガーを相互接続できます。ローカル専用機能と各バックエンドの設定は往復時に保持され、NAIの課金保護は各ノードの設定に従います。
+
 ## What's New in 2.8.0
 
 - **NAI Multi-Character Detailer:** detect regions, match each to its original character prompt and correct it with NovelAI. Hole/notch filling and mask expansion are enabled by default. Execution performs correction; there is no preview-only switch. The resulting image, mask visualization and matching report remain available.

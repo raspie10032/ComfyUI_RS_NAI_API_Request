@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Small immutable snapshots of successful generation requests, never raw payloads."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .diagnostics import notice
 from .nai_api import MODEL_ID_MAP
@@ -68,14 +68,29 @@ class NAIContext:
     source_size: tuple
     references_omitted: bool = False
 
+    local_record_json: str | None = field(default=None, kw_only=True)
+
+    @property
+    def syntax(self):
+        return "NovelAI"
+
+    def __len__(self):
+        return len(self.characters)
+
+    def as_local_character_pipe(self):
+        from .local_bridge import pipe_from_context
+        return pipe_from_context(self).as_local_character_pipe()
+
     def settings(self):
+        from .local_bridge import pipe_from_context
         return {**{name: getattr(self, name) for name in INHERITED_FIELDS if name != "characterPrompts"},
-                "characterPrompts": list(self.characters)}
+                "characterPrompts": (pipe_from_context(self)
+                                     if self.local_record_json else list(self.characters))}
 
 
 def context_inputs():
     return {
-        "nai_context": ("NAI_CONTEXT", {"tooltip": "Connect the previous NAI generation context. Carries prompts, characters and generation settings; seed, size, strength, references and Anlas protection stay local."}),
+        "nai_context": ("NAI_CONTEXT,RS_MC_CHARACTER_PIPE", {"tooltip": "Connect NAI context or an RS character pipe. Shared captions and coordinates transfer; local pipes keep this node's NAI model/settings unless they contain a previous NAI snapshot; seed, size, strength, references and Anlas protection stay local."}),
         "use_context_settings": ("BOOLEAN", {"default": True, "tooltip": "Use connected prompts, characters, model and sampling settings. Turn off to use this node's manual values. Seed always uses this node's setting."}),
     }
 
@@ -86,11 +101,15 @@ def inherit_context(context, enabled, *, mode="inherit_all", manual=None, overri
     if isinstance(context, UnavailableNAIContext):
         from .errors import user_error
         raise user_error("METADATA_CONTEXT", ValueError, "; ".join(context.reasons))
-    if not isinstance(context, NAIContext):
+    if not isinstance(context, NAIContext) and hasattr(context, "characters"):
+        from .local_bridge import inherited_pipe_settings
+        settings = inherited_pipe_settings(context, manual)
+    elif not isinstance(context, NAIContext):
         raise ValueError("Connect NAI context from NAI Load Image, NAI Image Generator or NAI Img2Img. / NAI 이미지 불러오기·생성·I2I 노드의 NAI 컨텍스트 출력을 연결해 주세요. / NAI画像読み込み・生成・I2Iノードのコンテキスト出力を接続してください。")
+    else:
+        settings = context.settings()
     if mode not in CONTEXT_MODES:
         raise ValueError("Choose inherit_all or override_selected for context mode. / 컨텍스트 모드를 전체 사용 또는 선택 항목 변경으로 설정해 주세요. / コンテキストモードを全項目継承または選択項目変更にしてください。")
-    settings = context.settings()
     selected = []
     if mode == "override_selected":
         for name, enabled_field in (overrides or {}).items():
@@ -103,18 +122,27 @@ def inherit_context(context, enabled, *, mode="inherit_all", manual=None, overri
                 selected.append(name)
         # None explicitly means no characters, never fallback to the original list.
         from .local_bridge import nai_character_list
-        settings["characterPrompts"] = nai_character_list(settings["characterPrompts"])
+        if (overrides or {}).get("characterPrompts"):
+            # Validate the chosen source without throwing away its shared extras.
+            value = settings["characterPrompts"]
+            if value is None or (isinstance(value, (list, tuple)) or
+                    (getattr(value, "local_record_json", None) is None and
+                     type(value).__name__ == "NAICharacterPipe")):
+                settings["characterPrompts"] = nai_character_list(value)
+            else:
+                nai_character_list(value)
     notice(f"NAI context: {settings['model']} · {len(settings['characterPrompts'])} character(s) · "
            "Seed, size, strength and Anlas protection use this node's settings.")
     if selected:
         notice("Manual context replacements / 직접 변경 항목 / 手動変更項目: " + ", ".join(selected))
-    if context.references_omitted:
+    if getattr(context, "references_omitted", False):
         notice("Reference images are not carried by NAI context. Connect Vibe / Precise Reference separately if needed.")
     return settings
 
 
-def context_from_payload(payload):
+def context_from_payload(payload, source=None):
     """Read effective values after Medium/Opus normalization and successful POST."""
+    from .local_bridge import local_record
     p = payload["parameters"]
     positive = p.get("v4_prompt", {}).get("caption", {}).get("char_captions", [])
     negative = p.get("v4_negative_prompt", {}).get("caption", {}).get("char_captions", [])
@@ -131,4 +159,5 @@ def context_from_payload(payload):
         characters=characters, source_seed=int(p["seed"]), source_action=payload["action"],
         source_size=(int(p["width"]), int(p["height"])),
         references_omitted=any(p.get(k) for k in ("reference_image_multiple", "director_reference_images")),
+        local_record_json=local_record(source),
     )

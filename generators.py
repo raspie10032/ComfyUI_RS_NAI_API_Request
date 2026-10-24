@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (c) 2025 raspie10032
 
-from .local_bridge import NAICharacterPipe, PIPE_TYPE, CHARACTER_INPUT, prepare_characters, pipe_from_context, nai_pipe_prompts
+from .local_bridge import NAICharacterPipe, PIPE_TYPE, CHARACTER_INPUT, prepare_characters, pipe_from_context, nai_pipe_prompts, context_extra
 from .errors import user_error
 
 from datetime import datetime
@@ -242,6 +242,7 @@ class NovelAIGenerator:
         validate_save_options(save_format, webp_quality)
         prompt, negative_prompt = nai_pipe_prompts(prompt, negative_prompt, characterPrompts)
         model_id = get_model_id(model)
+        source_pipe = characterPrompts
         characterPrompts = prepare_characters(model_id, characterPrompts)
         validate_character_prompts(model_id, characterPrompts)
         validate_references(model_id, vibes, references, inpainting=False)
@@ -270,10 +271,10 @@ class NovelAIGenerator:
 
         # Autosave
         save_folder, filename = self._get_save_path('NAI', self.output_dir)
-        save_path = autosave(pil_img, save_folder / filename, payload=payload, save_format=save_format, webp_quality=webp_quality)
+        context = context_from_payload(payload, source_pipe)
+        save_path = autosave(pil_img, save_folder / filename, payload=payload, extra=context_extra(context), save_format=save_format, webp_quality=webp_quality)
         print(f'Image saved: {save_path}')
 
-        context = context_from_payload(payload)
         return (pil_to_tensor(pil_img), context, pipe_from_context(context))
 
 class NAIImg2ImgNode:
@@ -335,6 +336,7 @@ class NAIImg2ImgNode:
         validate_save_options(save_format, webp_quality)
         prompt, negative_prompt = nai_pipe_prompts(prompt, negative_prompt, characterPrompts)
         model_id = get_model_id(model)
+        source_pipe = characterPrompts
         characterPrompts = prepare_characters(model_id, characterPrompts)
         validate_character_prompts(model_id, characterPrompts)
         validate_references(model_id, vibes, references, inpainting=False)
@@ -371,10 +373,9 @@ class NAIImg2ImgNode:
 
         # Autosave
         save_folder, filename = NovelAIGenerator._get_save_path('NAI_i2i', NovelAIGenerator._get_output_directory())
-        save_path = autosave(result_pil, save_folder / filename, payload=payload, save_format=save_format, webp_quality=webp_quality)
+        context = context_from_payload(payload, source_pipe)
+        save_path = autosave(result_pil, save_folder / filename, payload=payload, extra=context_extra(context), save_format=save_format, webp_quality=webp_quality)
         print(f'Image saved: {save_path}')
-
-        context = context_from_payload(payload)
         return (pil_to_tensor(result_pil), context, pipe_from_context(context))
 
 class NAIInpaintNode:
@@ -484,7 +485,7 @@ def _detailer_options():
         "detail_mode": (["first", "all"], {"default": "first"}),
         "matching_mode": (["shared", "wd14"], {"default": "shared"}),
         "characterPrompts": (CHARACTER_INPUT,),
-        "tagger": ("RS_WD_TAGGER",),
+        "tagger": ("RS_WD_TAGGER,RS_MC_TAGGER",),
         "match_min_score": ("FLOAT", {"default": 0.25, "min": 0.01, "max": 1.0, "step": 0.01}),
         "match_min_margin": ("FLOAT", {"default": 0.08, "min": 0.01, "max": 1.0, "step": 0.01}),
         "match_crop_factor": ("FLOAT", {"default": 2.0, "min": 1.0, "max": 5.0, "step": 0.1}),

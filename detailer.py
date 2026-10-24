@@ -331,6 +331,10 @@ def run_face_detail(
     validate_references(get_model_id(model), vibes, references, inpainting=True)
     prompt, negative_prompt = nai_pipe_prompts(prompt, negative_prompt, characterPrompts)
     characters = prepare_characters(get_model_id(model), characterPrompts, inpainting=True)
+    from .local_bridge import local_record, context_extra
+    from .generation_context import NAIContext
+    scene_context = nai_context
+    scene_record = local_record(characterPrompts)
     if matching_mode != "shared" and not characters:
         raise user_error("MATCHING_INPUT", ValueError,
             "Connect original CharacterPromptSelect output for character matching."
@@ -539,6 +543,14 @@ def run_face_detail(
     out = source.copy()
     total_mask = np.zeros((h, w), dtype=np.uint8)
     base_seed = int(np.random.randint(0, 0x7FFFFFFF)) if seed == -1 else int(seed)
+    if scene_context is None and scene_record is not None:
+        # Describe the whole scene with the chosen NAI settings and resolved
+        # seed. The source was local, so its original NAI action is unknown.
+        scene_context = NAIContext(prompt, negative_prompt, model, sampler, steps,
+            cfg_scale, scheduler, cfg_rescale, prefer_brownian, variety_boost,
+            tuple(characters), base_seed, "unknown", (image.shape[2], image.shape[1]),
+            local_record_json=scene_record)
+        base_generation = context_record(scene_context)
     last_result = None
     edit_history = []
     reference_params = None
@@ -710,7 +722,8 @@ def run_face_detail(
         )
         autosave(out, folder / filename, source_image=metadata_source, operation="detailer",
                  extra={"base_generation_available": base_generation is not None, "edits": edit_history,
-                        **({"base_generation": base_generation} if base_generation is not None else {})},
+                        **({"base_generation": base_generation} if base_generation is not None else {}),
+                        **(context_extra(scene_context) if scene_context is not None else {})},
                  save_format=save_format, webp_quality=webp_quality)
     return (
         pil_to_tensor(out),
