@@ -97,6 +97,35 @@ class BidirectionalTests(unittest.TestCase):
         return self.m.build_record(pipe or self.pipe, dict(width=64, height=48, seed=7, steps=2, cfg=5,
             sampler_name='euler', scheduler='normal'), {}, [], {'spatial_slots': 1}, engine='sdxl-spatial-alpha-1')
 
+    def test_camera_shared_node_is_identical_and_preserves_real_context_round_trip(self):
+        from ComfyUI_RS_NAI_API_Request.camera_control import RSCameraControl
+        node = RSCameraControl()
+        native = self.package.NODE_CLASS_MAPPINGS['RSCameraControl']()
+        for section in ('required','optional'):
+            self.assertEqual(native.INPUT_TYPES()[section], node.INPUT_TYPES()[section])
+        changed = node.apply(context=self.pipe, elevation=60)['result'][0]
+        self.assertNotEqual(changed.characters[0].prompt, self.pipe.characters[0].prompt)
+        self.assertEqual(replace(changed.characters[0],prompt=self.pipe.characters[0].prompt), self.pipe.characters[0])
+        self.assertIn('(from above:',changed.characters[0].prompt)
+        self.assertIn('(from above:', changed.prompt)
+        incoming = bridge.NAICharacterPipe(tuple(bridge.nai_character_list(changed)), *bridge.nai_pipe_prompts('', '', changed))
+        self.assertIn('::from above::', incoming.prompt)
+        returned = self.p.local_pipe(incoming)
+        self.assertEqual(returned.characters, changed.characters)
+        self.assertEqual(returned.prompt, changed.prompt)
+        # Native NAIContext is frozen too; all NAI request settings survive.
+        context = NAIContext(prompt='cafe', negative_prompt='blur', model='NAI Diffusion V5 Full',
+            characters=tuple(incoming.characters), sampler='k_euler_ancestral', steps=23,
+            cfg_scale=6., scheduler='native', cfg_rescale=0., prefer_brownian=False, variety_boost=True,
+            source_seed=7, source_action='generate', source_size=(64,48))
+        updated = native.apply(context=context, azimuth=90)['result'][0]
+        self.assertIsInstance(updated, NAIContext)
+        self.assertIn('::viewed from the right side::',updated.prompt)
+        self.assertEqual(updated.model,context.model)
+        self.assertIn('::viewed from the right side::', updated.characters[0].prompt)
+        self.assertEqual(replace(updated.characters[0],prompt=context.characters[0].prompt),context.characters[0])
+        self.assertEqual(context.prompt,'cafe')
+
     def test_direct_round_trip_preserves_native_text_positions_and_source(self):
         before = self.pipe
         chars = bridge.nai_character_list(self.pipe)

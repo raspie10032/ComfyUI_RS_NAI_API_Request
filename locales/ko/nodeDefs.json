@@ -1607,5 +1607,44 @@
         "name": "감지 모델 묶음"
       }
     }
+  },
+  "RSCameraControl": {
+    "display_name": "RS 카메라 시점",
+    "description": "시점 태그로 유도합니다. 실제 3D 카메라가 아니며 캐릭터 마스크·좌표는 바꾸지 않습니다. 상속 중에는 컨텍스트 출력을 연결하세요.",
+    "inputs": {
+      "azimuth": {
+        "name": "좌우 각도"
+      },
+      "elevation": {
+        "name": "위아래 각도"
+      },
+      "distance": {
+        "name": "촬영 거리"
+      },
+      "roll": {
+        "name": "기울기"
+      },
+      "strength": {
+        "name": "시점 강도"
+      },
+      "weighting": {
+        "name": "가중치 표현"
+      },
+      "prompt_syntax": {
+        "name": "프롬프트 문법"
+      },
+      "enabled": {
+        "name": "사용"
+      },
+      "context": {
+        "name": "공용 컨텍스트"
+      },
+      "base_prompt": {
+        "name": "공통 프롬프트"
+      },
+      "scope": {
+        "name": "적용 범위"
+      }
+    }
   }
 }

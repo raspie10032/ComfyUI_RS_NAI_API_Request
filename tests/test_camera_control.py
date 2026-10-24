@@ -1,0 +1,113 @@
+# SPDX-License-Identifier: GPL-3.0-only
+"""The camera node is importable without ComfyUI or a GPU."""
+from dataclasses import dataclass, field
+import importlib.util
+import math
+from pathlib import Path
+import unittest
+
+spec = importlib.util.spec_from_file_location("camera_under_test", Path(__file__).resolve().parents[1]/"camera_control.py")
+camera = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(camera)
+
+
+@dataclass(frozen=True)
+class Caption:
+    prompt: str
+    uc: str = "unchanged UC"
+    x: float = .28
+    y: float = .5
+    lora_name: str = "test.safetensors"
+
+
+@dataclass(frozen=True)
+class SharedContext:
+    prompt: str | None = "cafe, two adult women"
+    syntax: str = "ComfyUI"
+    characters: tuple = (Caption("brown hair"), Caption("pink hair", x=.72))
+    character_syntax: str | None = None
+    text_regions: tuple = (Caption("a sign"),)
+    negative_prompt: str = "blur"
+    generation_json: str = '{"steps":30,"scheduler":"sgm_uniform"}'
+    local_record_json: str = '{"character_masks":[1,2]}'
+    model: str = "V5 Full"
+    source_seed: int = 999
+    settings: dict = field(default_factory=lambda: {"lora":"RSCV5"})
+
+
+class CameraTests(unittest.TestCase):
+    def test_continuous_weights_and_no_hidden_gain_at_knots(self):
+        for field, knots in (("azimuth",[-180,-90,0,90,180]), ("elevation",[-90,-60,0,60,90]), ("distance",[0,.25,.5,.75,1])):
+            low, high = {"azimuth":(-180,180), "elevation":(-90,90), "distance":(0,1)}[field]
+            for point in knots:
+                left=camera.camera_weights(**{field:max(low,point-1e-5)})
+                right=camera.camera_weights(**{field:min(high,point+1e-5)})
+                self.assertLess(max(abs(left.get(k,0)-right.get(k,0)) for k in left.keys()|right.keys()), .0001)
+        self.assertEqual(camera.camera_weights(azimuth=-180), camera.camera_weights(azimuth=180))
+        self.assertEqual(camera.camera_weights(elevation=90),camera.camera_weights(azimuth=90,elevation=90))
+
+    def test_linear_strength_and_distance_conservation(self):
+        for distance in [i/1000 for i in range(1001)]:
+            weights=camera.camera_weights(distance=distance)
+            self.assertAlmostEqual(sum(weights.get(t,0) for t in camera.DISTANCE_TAGS),1.2)
+            self.assertTrue(all(math.isfinite(v) and v>=0 for v in weights.values()))
+        low=camera.camera_weights(30,20,.4,10,.8)
+        high=camera.camera_weights(30,20,.4,10,1.6)
+        for tag in low: self.assertAlmostEqual(high[tag],low[tag]*2)
+
+    def test_native_and_nai_context_are_immutable_and_keep_extras(self):
+        for syntax in ("ComfyUI","NovelAI"):
+            source=SharedContext(syntax=syntax)
+            result=camera.RSCameraControl().apply(context=source,elevation=60)
+            updated,prompt,caption=result['result']
+            self.assertNotEqual(source.prompt,updated.prompt)
+            self.assertTrue(prompt.startswith(source.prompt))
+            for name in ('text_regions','negative_prompt','generation_json','local_record_json','model','source_seed','settings'):
+                self.assertEqual(getattr(source,name),getattr(updated,name))
+            for original, changed in zip(source.characters,updated.characters):
+                self.assertTrue(changed.prompt.startswith(original.prompt+", "))
+                for name in ('uc','x','y','lora_name'):
+                    self.assertEqual(getattr(original,name),getattr(changed,name))
+            self.assertIn('::from above::' if syntax=='NovelAI' else '(from above:',caption)
+            self.assertNotIn('::' if syntax=='ComfyUI' else '(from',caption)
+
+    def test_common_only_and_mixed_character_syntax(self):
+        source=SharedContext(character_syntax="NovelAI")
+        common=camera.RSCameraControl().apply(context=source,scope="scene_only")['result'][0]
+        self.assertEqual(common.characters,source.characters)
+        both=camera.RSCameraControl().apply(context=source)['result'][0]
+        self.assertIn('(from front:',both.prompt)
+        self.assertIn('::from front::',both.characters[0].prompt)
+        self.assertEqual(source.characters[0].prompt,'brown hair')
+
+    def test_no_scene_does_not_silently_replace_sampler_caption(self):
+        pipe=SharedContext(prompt=None)
+        with self.assertRaisesRegex(ValueError,'base_prompt'):
+            camera.RSCameraControl().apply(context=pipe)
+        output,prompt,_=camera.RSCameraControl().apply(context=pipe,base_prompt='new scene')['result']
+        self.assertTrue(prompt.startswith('new scene'))
+        self.assertIsNone(pipe.prompt)
+        self.assertIs(camera.RSCameraControl().apply(context=pipe,enabled=False)['result'][0],pipe)
+        self.assertIs(camera.RSCameraControl().apply(context=pipe,strength=0)['result'][0],pipe)
+
+    def test_off_zero_and_string_only_paths(self):
+        pipe=SharedContext()
+        for settings in ({'enabled':False},{'strength':0}):
+            out,caption,tags=camera.RSCameraControl().apply(context=pipe,**settings)['result']
+            self.assertIs(out,pipe);self.assertEqual(caption,pipe.prompt);self.assertEqual(tags,'')
+        out,prompt,tags=camera.RSCameraControl().apply(base_prompt='hello',weighting='plain')['result']
+        self.assertIsNone(out);self.assertTrue(prompt.startswith('hello'));self.assertNotIn(':',tags)
+        self.assertIn('::',camera.RSCameraControl().apply(prompt_syntax='NovelAI')['result'][2])
+
+    def test_bad_inputs_show_readable_errors(self):
+        for field in ('azimuth','elevation','distance','roll','strength'):
+            for value in (float('nan'),float('inf'),True,'oops'):
+                with self.assertRaisesRegex(ValueError,'카메라'):
+                    camera.camera_weights(**{field:value})
+        with self.assertRaisesRegex(ValueError,'최종'):
+            camera.RSCameraControl().apply(context=object())
+        with self.assertRaisesRegex(ValueError,'문자열'):
+            camera.RSCameraControl().apply(base_prompt=12)
+
+
+if __name__=='__main__': unittest.main()

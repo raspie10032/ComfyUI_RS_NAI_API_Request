@@ -1607,5 +1607,44 @@
         "name": "検出モデル"
       }
     }
+  },
+  "RSCameraControl": {
+    "display_name": "RS カメラ視点",
+    "description": "視点タグによる誘導です。実際の3Dカメラではなく、マスクと座標は変更しません。継承時はコンテキスト出力を接続してください。",
+    "inputs": {
+      "azimuth": {
+        "name": "左右の角度"
+      },
+      "elevation": {
+        "name": "上下の角度"
+      },
+      "distance": {
+        "name": "撮影距離"
+      },
+      "roll": {
+        "name": "傾き"
+      },
+      "strength": {
+        "name": "視点の強度"
+      },
+      "weighting": {
+        "name": "重みの表現"
+      },
+      "prompt_syntax": {
+        "name": "プロンプト構文"
+      },
+      "enabled": {
+        "name": "有効"
+      },
+      "context": {
+        "name": "共通コンテキスト"
+      },
+      "base_prompt": {
+        "name": "共通プロンプト"
+      },
+      "scope": {
+        "name": "適用範囲"
+      }
+    }
   }
 }
