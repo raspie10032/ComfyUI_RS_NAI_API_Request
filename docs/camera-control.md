@@ -39,6 +39,26 @@ Both models visibly changed toward side/above and near/far compositions. Anima's
 
 Reference: [Anima camera-tag helper](https://arca.live/b/aiart/179423561) and the inspected `ComfyUI-KR-Camera-Control` package. That package credits `ComfyUI_bsk_UI` / 灰暗x for its camera prompt algorithm and interaction design. The RS/NAI implementation uses its own continuous formulas, context integration and region transforms. Reference default weights and discontinuities were compared; the inspected code/archive is not distributed here. See [camera reference attribution](../THIRD_PARTY_NOTICES.md#camera-control-references) for the inspected package's license and the reference scope.
 
+
+## 원본에서 접목한 기능 / Reference-to-feature mapping
+
+참고 원문은 [아카라이브 카메라 제어 소개](https://arca.live/b/aiart/179423561)이며, 실제 검토한 패키지는 `ComfyUI-KR-Camera-Control`입니다. 해당 패키지는 카메라 프롬프트 알고리즘과 조작 설계의 출처를 `ComfyUI_bsk_UI` / 灰暗x로 표기합니다. 아래 표는 참고한 아이디어가 **RS 카메라 시점·NAI 카메라 시점에 어떻게 접목됐는지**를 설명합니다.
+
+| 원본에서 참고한 기능 | 두 확장에 접목한 방식 |
+| --- | --- |
+| 좌우 방향을 정면·측면·후면 태그로 바꾸기 | 좌우 시점 각도를 받아 공통 장면과 캐릭터 프롬프트에 방향 태그를 가중치와 함께 추가합니다. |
+| 높이에 따라 위·아래에서 보는 태그 만들기 | 상하 시점 각도에서 위·아래 시점 태그를 연속적으로 섞고, 극단 각도에는 내려다보기·올려다보기 태그를 사용합니다. |
+| 극근접·근접·중간·전신·원경의 거리 구분 | 같은 다섯 구도 어휘를 0~1 거리 조절에 연결하고, 인접한 구도 태그를 부드럽게 섞습니다. |
+| 롤을 `dutch angle` 태그로 표현하기 | 기울기 크기를 태그 강도로 변환합니다. 선택형 영역 연동에서는 실제 캐릭터 영역도 함께 회전합니다. |
+| 노드 안에서 드래그·휠로 조작하고 프롬프트 확인하기 | 드래그로 시점, 휠로 거리, Shift+휠로 기울기를 바꾸며 태그 가중치 곡선과 실행된 프롬프트를 표시합니다. |
+| 가중치 유무 선택·프리셋·랜덤 구도 | 가중치/일반 태그 출력, 기본 시점 버튼, 카메라 전용 시드와 balanced/full 랜덤 범위로 구성했습니다. |
+
+**원본 수치를 그대로 이식한 것은 아닙니다.** 원본의 축별 기본 가중치 5, 데드존과 구간 전환을 비교한 뒤, 이 구현에서는 기본 강도 1.2와 별도의 연속 보간식을 사용했습니다. 원본의 사용자 프리셋 편집 체계·렌즈/심도/움직임 추가 설정·미리보기 전용 3D 카메라 조작까지 동일하게 제공하지는 않습니다.
+
+**이번 확장에 맞춰 추가한 기능**은 공통 캐릭터 파이프·NAI 컨텍스트 입출력, ComfyUI/NovelAI 가중치 문법 전환, 공통/캐릭터 태그 적용 범위, 기존 프롬프트·LoRA·영역 자료 보존, 좌표·박스·실루엣·부위 마스크의 거리/회전/평면 원근 연동과 변환 미리보기입니다. NAI 실제 요청에는 태그와 변환된 캐릭터 중심 좌표를 보내고, 실루엣은 로컬 왕복용 컨텍스트에 보관합니다. 이 부분은 원본에 있던 기능으로 소개하지 않습니다.
+
+The table in [third-party notices](../THIRD_PARTY_NOTICES.md#features-incorporated-from-the-camera-reference) provides the same mapping in English. Source attribution and the inspected package's license remain recorded there. The feature is a caption and flat-plane layout guide; it does not reconstruct 3D anatomy or guarantee a pose.
+
 ## 한국어 사용법
 
 **최종 캐릭터 파이프 또는 NAI 컨텍스트 → RS 카메라 시점 → 생성 노드**로 연결합니다. 생성 노드에서 컨텍스트 상속을 켜세요. 공통 장면이 없는 파이프는 `base_prompt`에 장면 문장을 연결해야 합니다. 컨텍스트 없이 쓸 때는 `prompt` 출력만 공통 프롬프트에 연결합니다.

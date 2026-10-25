@@ -123,3 +123,18 @@ model configuration. It does not vendor the reference script or use ONNX.
 - **Inspected package:** `ComfyUI-KR-Camera-Control`. Its README and source headers attribute its camera prompt algorithm and interaction design to `ComfyUI_bsk_UI`, Copyright © 2026 灰暗x, and identify the inspected package as `AGPL-3.0-or-later`. This records the inspected package's attribution; it does not establish the current licensing of every upstream version.
 - **Reference scope:** camera-direction/framing tags, interactive camera controls, default weights and boundary behavior were studied and compared. The RS/NAI implementation uses its own continuous caption-weight formulas, seeded random views, shared-context integration and flat-plane region transforms. See the [camera guide](docs/camera-control.md) for formulas and limitations.
 - **Distribution:** the inspected package's source, archive and assets are not bundled. Its license is not a grant for model weights or external services. The two RS extensions share their own camera implementation under their existing GPL-3.0-only license.
+
+### Features incorporated from the camera reference
+
+| Studied feature in `ComfyUI-KR-Camera-Control` | Integration in RS Camera Control and NAI Camera Control |
+| --- | --- |
+| Horizontal direction converted into front/side/rear prompt tags | Azimuth controls generate weighted front, left/right-side and rear captions for the common scene and, optionally, each character. |
+| Vertical direction converted into above/below view tags | Elevation controls blend above/below captions, including overhead and worm's-eye endpoints. |
+| Distance converted into five framing categories | The same framing vocabulary—extreme close-up, close-up, medium shot, full body and wide shot—is exposed on a 0…1 distance control. |
+| Roll expressed through `dutch angle` | Roll generates a weighted tilt caption; optional RS layout sync also rotates character regions. |
+| In-node drag/wheel interaction and prompt preview | Drag changes the view, wheel changes distance, Shift+wheel changes roll, and the panel displays caption weights and the executed camera prompt. |
+| Weighted/plain prompt output, presets and random-view controls | RS provides weighted/plain captions, view preset buttons and reproducible seeded random views with balanced/full ranges. Its randomization is independent of the generation seed. |
+
+The reference's per-axis default weight of 5, dead zones, discrete category transitions, editable preset library and extra lens/DoF/movement settings were inspected; these are not reproduced as an identical settings system. RS uses its own continuous blend formulas, degree-based axes and default strength 1.2. It does not reproduce the reference's separate draggable 3D preview camera.
+
+**RS/NAI additions:** shared character-pipe/context input and output; ComfyUI/NovelAI caption syntax selection; scene/character caption routing; preservation of prompts, LoRAs and local region records; synchronized point/box/silhouette/body-part zoom, roll and flat-plane perspective; and transformed-region previews. Native NAI requests receive captions and character centers, while local silhouettes remain in the context for round trips. These additions are not attributed to the reference as existing features. Neither caption control nor flat-plane projection reconstructs a 3D person or guarantees a pose.
