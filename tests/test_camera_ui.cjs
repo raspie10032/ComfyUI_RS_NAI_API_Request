@@ -21,6 +21,11 @@ const layoutProbes=coordinates.map((v,i)=>[.2,.7,v.distance,v.roll,[1,1.5,2/3][i
 const layoutPython=cp.spawnSync(process.env.CAMERA_PYTHON||'python',['-c','import json,sys;from camera_layout import project,framing;print(json.dumps([project(x,y,framing(d,r,a)) for x,y,d,r,a in json.load(sys.stdin)]))'],{input:JSON.stringify(layoutProbes),encoding:'utf8'});
 assert.equal(layoutPython.status,0,layoutPython.stderr);
 JSON.parse(layoutPython.stdout).forEach((p,i)=>p.forEach((v,j)=>assert.ok(Math.abs(v-sandbox.projectLayout(...layoutProbes[i])[j])<1e-12)));
+
+const perspectiveProbes=coordinates.filter(v=>Math.abs(Math.cos(v.azimuth*Math.PI/180)*Math.cos(v.elevation*Math.PI/180))>1e-6).flatMap((v,i)=>[[.2,.3],[.8,.7]].map(([x,y])=>[x,y,v.distance,v.roll,[1,1.5,2/3][i%3],v.azimuth,v.elevation]));
+const perspectivePython=cp.spawnSync(process.env.CAMERA_PYTHON||'python',['-c','import json,sys;from camera_layout import project,perspective_framing;print(json.dumps([project(x,y,perspective_framing(d,r,a,yaw,pitch)) for x,y,d,r,a,yaw,pitch in json.load(sys.stdin)]))'],{input:JSON.stringify(perspectiveProbes),encoding:'utf8'});
+assert.equal(perspectivePython.status,0,perspectivePython.stderr);
+JSON.parse(perspectivePython.stdout).forEach((p,i)=>p.forEach((v,j)=>assert.ok(Math.abs(v-sandbox.projectLayout(...perspectiveProbes[i],true)[j])<1e-12)));
 for(let i=0;i<coordinates.length;i++){
   const actual=sandbox.cameraWeights(coordinates[i]);
   for(const tag of new Set([...Object.keys(expected[i]),...Object.keys(actual)])) assert.ok(Math.abs((actual[tag]||0)-(expected[i][tag]||0))<1e-10,`${i}: ${tag}`);
@@ -70,6 +75,7 @@ class Node{
  assert.ok(layoutNotice.textContent.length>30);assert.equal(layoutCanvas.height,427);
  sandbox.setCameraValues(node,{layout_sync:'distance_and_roll',canvas_aspect:2,distance:.8,roll:25});
  assert.equal(layoutCanvas.height,320);
+ sandbox.setCameraValues(node,{layout_sync:'perspective',azimuth:45,elevation:25});assert.match(layoutNotice.textContent,/perspective|원근|遠近|透[视視]/);
  sandbox.setCameraValues(node,{enabled:false});editor.render();
  assert.equal(node.onConfigure(),'configured');
  vm.runInNewContext(source,{app,document:{createElement:element},console});

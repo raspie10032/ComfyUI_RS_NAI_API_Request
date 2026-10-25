@@ -153,6 +153,33 @@ class BidirectionalTests(unittest.TestCase):
         self.assertEqual(moved.source_seed,123)
         self.assertEqual(self.p.local_pipe(moved).characters,expected.characters)
 
+    def test_camera_perspective_nai_snapshot_keeps_masks_parts_and_request_settings(self):
+        from ComfyUI_RS_NAI_API_Request.camera_control import RSCameraControl
+        region = sys.modules[self.package.__name__ + '.region_mask']
+        shape=torch.zeros(1,80,120);shape[:,10:65,15:50]=1
+        mask=region.prepare_mask(shape,margin=0)
+        pipe=replace(self.pipe,characters=(replace(self.pipe.characters[0],region_mask=mask,
+                     body_parts=(('head',mask),),body_part_strength=.2),))
+        incoming=bridge.NAICharacterPipe(tuple(bridge.nai_character_list(pipe)),
+                     *bridge.nai_pipe_prompts('', '', pipe),local_record_json=bridge.local_record(pipe))
+        node=RSCameraControl()
+        updated=node.apply(context=incoming,distance=.75,roll=20,azimuth=45,elevation=25,layout_sync='perspective',canvas_aspect=1.5)['result'][0]
+        restored=self.p.local_pipe(updated)
+        expected=self.package.NODE_CLASS_MAPPINGS['RSCameraControl']().apply(context=pipe,distance=.75,roll=20,
+                     azimuth=45,elevation=25,layout_sync='perspective',canvas_aspect=1.5)['result'][0]
+        self.assertEqual(restored.characters,expected.characters)
+        self.assertNotEqual(restored.characters[0].region_mask,mask)
+        self.assertEqual(pipe.characters[0].region_mask,mask)
+        self.assertEqual(updated.characters[0].center,restored.characters[0].center)
+        context=NAIContext(prompt=incoming.prompt,negative_prompt=incoming.negative_prompt,
+            model='NAI Diffusion V5 Full',characters=incoming.characters,sampler='k_euler_ancestral',steps=23,
+            cfg_scale=6.,scheduler='native',cfg_rescale=0.,prefer_brownian=False,variety_boost=True,
+            source_seed=123,source_action='generate',source_size=(120,80),local_record_json=incoming.local_record_json)
+        moved=node.apply(context=context,distance=.75,roll=20,azimuth=45,elevation=25,layout_sync='perspective',canvas_aspect=1.5)['result'][0]
+        self.assertEqual(moved.model,context.model)
+        self.assertEqual(moved.source_seed,123)
+        self.assertEqual(self.p.local_pipe(moved).characters,expected.characters)
+
     def test_direct_round_trip_preserves_native_text_positions_and_source(self):
         before = self.pipe
         chars = bridge.nai_character_list(self.pipe)

@@ -98,7 +98,7 @@ class RSCameraControl:
             "base_prompt": ("STRING", {"forceInput": True, "tooltip": "Optional scene caption, in the context's syntax. Required when a connected pipe has no scene. / 연결 파이프에 공통 프롬프트가 없으면 장면 문장을 연결하세요."}),
             "random_mode": (["off", "balanced", "full"], {"default": "off", "tooltip": "Random view overrides the four manual axes. Balanced avoids rear/pole/extreme framing; full uses all ranges. / 랜덤 구도는 수동 각도·거리·기울기를 대신합니다. balanced는 극단 시점을 피하고 full은 전체 범위입니다."}),
             "random_seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffff, "control_after_generate": True, "tooltip": "Camera seed only. Fixed reproduces the view; randomize changes it after each queued generation. / 카메라 전용 시드. fixed는 구도 유지, randomize는 생성마다 변경합니다. 이미지 생성 시드는 바꾸지 않습니다."}),
-            "layout_sync": (["fixed", "distance_and_roll"], {"default": "fixed", "tooltip": "Move all character points, boxes and masks with distance/tilt. Text boxes stay fixed; view angles do not invent 3D shapes. / 거리·기울기에 캐릭터 좌표·상자·마스크를 함께 맞춥니다. 글자 상자는 고정이며 3D 형상은 만들지 않습니다."}),
+            "layout_sync": (["fixed", "distance_and_roll", "perspective"], {"default": "fixed", "tooltip": "perspective tilts the flat mask plane with view angles; distance_and_roll only zooms/rotates. Text stays fixed. / perspective는 좌우·상하 각도로 평면 마스크를 원근 변형합니다. distance_and_roll은 거리·회전만 연동. 글자는 고정."}),
             "canvas_aspect": ("FLOAT", {"default": 1., "min": .1, "max": 10., "step": .001, "tooltip": "Output width divided by height. Use the sampler's ratio to avoid stretched mask rotation. / 생성 너비÷높이. 샘플러와 같은 비율로 맞추세요."}),
         }}
 
@@ -106,13 +106,13 @@ class RSCameraControl:
     RETURN_NAMES = ("context", "prompt", "camera_prompt")
     FUNCTION = "apply"
     CATEGORY = "RS/Camera"
-    DESCRIPTION = "Shared camera captions with optional 2D distance/tilt layout sync. Yaw/elevation remain text guidance. / 공용 카메라 시점. 거리·기울기에 마스크 배치를 연동할 수 있습니다. 좌우·상하 시점은 태그 유도입니다."
+    DESCRIPTION = "Shared camera captions and optional mask zoom, rotation and flat-plane perspective. / 공용 카메라 시점. 마스크 확대·축소·회전과 평면 원근 변형을 선택할 수 있습니다."
 
     def apply(self, azimuth=0., elevation=0., distance=.5, roll=0., strength=1.2,
               weighting="weighted", prompt_syntax="ComfyUI", enabled=True, scope="scene_and_characters", context=None, base_prompt=None,
               random_mode="off", random_seed=0, layout_sync="fixed", canvas_aspect=1.):
-        if layout_sync not in ("fixed", "distance_and_roll"):
-            raise ValueError("Choose fixed or distance_and_roll layout sync. / 마스크 배치 연동 방식을 선택해 주세요.")
+        if layout_sync not in ("fixed", "distance_and_roll", "perspective"):
+            raise ValueError("Choose fixed, distance_and_roll or perspective layout sync. / 마스크 배치 연동 방식을 선택해 주세요.")
         from .camera_layout import framing, camera_layout, layout_preview
         framing(.5, 0, canvas_aspect)
         if context is not None and (not is_dataclass(context) or not hasattr(context, "characters")
@@ -156,8 +156,9 @@ class RSCameraControl:
             except (ValueError, ImportError):
                 if enabled and strength and layout_sync != "fixed":
                     raise
-        if output is not None and enabled and strength and layout_sync == "distance_and_roll":
-            output = camera_layout(output, distance, roll, canvas_aspect)
+        if output is not None and enabled and strength and layout_sync != "fixed":
+            output = camera_layout(output, distance, roll, canvas_aspect, azimuth, elevation,
+                                   perspective=layout_sync == "perspective")
         return {"ui": {"camera_caption": [camera], "camera_syntax": [syntax],
                        "camera_regions": [source_regions],
                        "camera_layout": [{"mode": layout_sync, "aspect": canvas_aspect}],

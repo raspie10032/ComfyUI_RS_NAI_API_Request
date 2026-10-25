@@ -54,9 +54,16 @@ export function randomCamera(mode, seed) {
     }));
 }
 
-export function projectLayout(x, y, distance, roll, aspect) {
+export function projectLayout(x, y, distance, roll, aspect, azimuth=0, elevation=0, perspective=false) {
     const scale=2**(2*(.5-distance)), a=roll*Math.PI/180, co=Math.cos(a), si=Math.sin(a);
     x=(x-.5)*aspect;y-=.5;
+    if (perspective) {
+        const yaw=azimuth*Math.PI/180, pitch=elevation*Math.PI/180;
+        const ca=Math.cos(yaw), sa=Math.sin(yaw), ce=Math.cos(pitch), se=Math.sin(pitch);
+        const depth=1+(-sa*ce*x+se*y)/(2*Math.hypot(aspect,1)/scale);
+        const u=ca*x, v=sa*se*x+ce*y;
+        return [.5+scale*(co*u-si*v)/(aspect*depth),.5+scale*(si*u+co*v)/depth];
+    }
     return [.5+scale*(co*x-si*y)/aspect,.5+scale*(si*x+co*y)];
 }
 
@@ -166,7 +173,8 @@ export function addCameraEditor(node) {
             "隨機視角: fixed重複，randomize每次改變。拖曳或預設切回手動。");
         output.textContent = executed ?? (v.enabled ? Object.entries(cameraWeights(v)).filter(([,w])=>w>=.005).map(([tag,w])=>`${tag}  ${w.toFixed(2)}`).join("\n") : text("Camera OFF", "카메라 꺼짐", "カメラOFF", "相机已关闭", "相機已關閉"));
         const mode=executedLayout?.mode??v.layout_sync, aspect=executedLayout?.aspect??v.canvas_aspect;
-        const sync=v.enabled&&v.strength&&mode==="distance_and_roll";
+        const sync=v.enabled&&v.strength&&mode!=="fixed";
+        const perspective=sync&&mode==="perspective";
         layoutNotice.textContent=regions.length ? text(
             "Last executed input regions · distance/tilt sync only; view angles stay captions. Text boxes stay fixed.",
             "마지막 실행 입력의 영역 · 거리·기울기만 배치 연동, 좌우·상하는 태그 유도. 글자 상자는 고정입니다.",
@@ -178,18 +186,33 @@ export function addCameraEditor(node) {
             "一度実行してマスクを表示。上流の変更後は再実行。比率=出力幅÷高さ。",
             "执行一次以显示蒙版。上游编辑后需重新执行。比例=输出宽÷高。",
             "執行一次以顯示遮罩。上游編輯後需重新執行。比例=輸出寬÷高。");
+        if(perspective) layoutNotice.textContent=text(
+            "Flat-plane perspective: near side grows, far side shrinks. No 3D silhouette/occlusion. ±90° collapses the plane; change the angle. Text stays fixed.",
+            "평면 원근: 가까운 쪽은 커지고 먼 쪽은 작아집니다. 입체 형상·가림은 복원하지 않습니다. ±90°에서는 선이 되므로 각도를 바꾸세요. 글자는 고정.",
+            "平面の遠近変形。近側は拡大、遠側は縮小。立体形状・遮蔽は復元しません。±90°は線になるため角度を変更。文字枠は固定。",
+            "平面透视：近大远小，不重建立体轮廓或遮挡。±90°会退化成线，请调整角度。文本固定。",
+            "平面透視：近大遠小，不重建立體輪廓或遮擋。±90°會退化成線，請調整角度。文字固定。")+(regions.length?"":" "+text("Run once to load masks.","입력 마스크를 보려면 한 번 실행하세요.","マスク表示は一度実行。","执行一次以加载蒙版。","執行一次以載入遮罩。"));
         const lc=layoutCanvas.getContext("2d"), W=640,H=Math.max(64,Math.round(640/aspect));
         if(layoutCanvas.height!==H)layoutCanvas.height=H;
         lc.clearRect(0,0,W,H);lc.strokeStyle="#6b7b8b";lc.strokeRect(0,0,W,H);
-        const point=(x,y,isText)=>sync&&!isText?projectLayout(x,y,v.distance,v.roll,aspect):[x,y];
+        const point=(x,y,isText)=>sync&&!isText?projectLayout(x,y,v.distance,v.roll,aspect,v.azimuth,v.elevation,perspective):[x,y];
         const regionColors=["#ff8d91","#81bcff","#94dd9d","#ffd27f","#c3a0ff"];
         for(const region of regions){
             const isText=region.kind==="text";lc.fillStyle=regionColors[(region.id-1)%regionColors.length];lc.strokeStyle=lc.fillStyle;lc.globalAlpha=.45;
             if(region.mask){
-                const mask=region.mask,bits=atob(mask.bits);lc.save();
+                const mask=region.mask,bits=atob(mask.bits);
+                if(perspective&&!isText){
+                    for(let y=0;y<mask.height;y++)for(let x=0;x<mask.width;x++){
+                        const i=y*mask.width+x;if(!(bits.charCodeAt(i>>3)&(128>>(i%8))))continue;
+                        const ps=[[x,y],[x+1,y],[x+1,y+1],[x,y+1]].map(([a,b])=>point(a/mask.width,b/mask.height,false));
+                        lc.beginPath();ps.forEach(([a,b],j)=>j?lc.lineTo(a*W,b*H):lc.moveTo(a*W,b*H));lc.closePath();lc.fill();
+                    }
+                }else{
+                lc.save();
                 lc.translate(W/2,H/2);if(sync){lc.rotate(v.roll*Math.PI/180);const scale=2**(2*(.5-v.distance));lc.scale(scale,scale);}lc.translate(-W/2,-H/2);
                 for(let y=0;y<mask.height;y++)for(let x=0;x<mask.width;x++){const i=y*mask.width+x;if(bits.charCodeAt(i>>3)&(128>>(i%8)))lc.fillRect(x/mask.width*W,y/mask.height*H,W/mask.width,H/mask.height);}
                 lc.restore();
+                }
             }else if(region.box){
                 const [l,t,r,b]=region.box,ps=[[l,t],[r,t],[l,b],[r,b]].map(([x,y])=>point(x,y,isText));
                 const left=Math.max(0,Math.min(...ps.map(p=>p[0]))),right=Math.min(1,Math.max(...ps.map(p=>p[0]))),top=Math.max(0,Math.min(...ps.map(p=>p[1]))),bottom=Math.min(1,Math.max(...ps.map(p=>p[1])));

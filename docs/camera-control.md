@@ -2,7 +2,7 @@
 
 Development candidate, validated on 2026-10-25; not yet a published release.
 
-This node adds view/framing captions to either an RS finalized character pipe or an NAI context. Optional 2D layout sync scales and rotates character regions for distance and tilt; it does not move a 3D camera or enforce generated anatomy. Negative prompts, LoRAs and model settings remain attached to the context.
+This node adds view/framing captions to either an RS finalized character pipe or an NAI context. Optional layout sync scales/rotates character regions or projects their common flat plane for azimuth/elevation; it does not move a 3D camera or enforce generated anatomy. Negative prompts, LoRAs and model settings remain attached to the context.
 
 ## Connect
 
@@ -47,12 +47,12 @@ Reference: [Anima camera-tag helper](https://arca.live/b/aiart/179423561). The s
 
 **드래그=시점, 휠=거리, Shift+휠=기울기**입니다. 시작 강도는 1.2이며 0.8~1.4부터 조정하세요. 아래 곡선은 태그 계산 그래프이며 실제 카메라 각도 측정값은 아닙니다. 연결된 수치 입력은 마우스로 덮어쓰지 않습니다.
 
-실제 생성에서 측면·위·거리 변화는 확인됐지만 뒤돌기·원경의 두 인물 크기는 완벽하지 않았습니다. 이 노드는 **시점 태그 유도 기능**이며 마스크를 돌리거나 3D 카메라 위치를 강제하지 않습니다. 두 노드를 연달아 연결하거나 이미 시점 태그가 있는 컨텍스트에 넣으면 태그가 더해지므로, 상반되는 기존 시점 문장은 직접 정리하세요.
+실제 생성에서 측면·위·거리 변화는 확인됐지만 뒤돌기·원경의 두 인물 크기는 완벽하지 않았습니다. 이 노드는 **시점 태그 유도 기능**이며, 선택형 배치 연동으로 마스크도 변형합니다. 생성된 인체를 3D 카메라처럼 강제하지는 않습니다. 두 노드를 연달아 연결하거나 이미 시점 태그가 있는 컨텍스트에 넣으면 태그가 더해지므로, 상반되는 기존 시점 문장은 직접 정리하세요.
 
 
 ## Random composition / 랜덤 구도
 
-`random_mode` defaults to `off`, preserving existing workflows. Choose `balanced` for azimuth −90…90°, elevation −35…35°, distance 0.25…0.85 and roll −10…10°. `full` samples the entire four-axis range. Strength, characters, masks, placements and image seed stay under their existing controls. Randomizing a view cannot guarantee correct poses or avoid cropping, and camera tags do not move masks.
+`random_mode` defaults to `off`, preserving existing workflows. Choose `balanced` for azimuth −90…90°, elevation −35…35°, distance 0.25…0.85 and roll −10…10°. `full` samples the entire four-axis range. Strength, characters, masks, placements and image seed stay under their existing controls. Randomizing a view cannot guarantee correct poses or avoid cropping, and geometry changes only when layout sync is enabled.
 
 `random_seed` is an independent 32-bit integer. With the built-in seed control set to **fixed**, the same camera seed and mode reproduce the same captions. Select **randomize** to change the camera seed after each queued generation. API clients must send a different camera seed themselves; identical requests may use ComfyUI's cache. A single execution draws one view; a downstream image batch shares that view.
 
@@ -67,10 +67,21 @@ Set `layout_sync=distance_and_roll` and `canvas_aspect=width/height` (e.g. 1216/
 
 The editor displays thumbnails of the last executed input regions and updates their transformed preview when distance or roll changes. Run once to populate it; run again after editing upstream masks. This thumbnail is approximate; sampling uses the original-resolution transformed binary masks. Upstream source masks remain untouched. Only the visible canvas is retained in the output; a wholly invisible character raises an actionable error rather than silently becoming global conditioning. OFF or strength 0 passes through unchanged. Existing workflows default to fixed layout.
 
-This is a 2D framing tool. Azimuth/elevation still change captions, not the depth, occlusion or silhouette of a 3D subject. Generated framing, exact tilt and pose remain model-dependent. Random views use the same seeded distance/roll for both captions and geometry; extreme random views can crop a character entirely and require a less extreme view. Chaining two sync nodes deliberately compounds their transforms. NAI stores the local transformed masks in its return snapshot and uses the updated character centers; the NAI API itself does not consume these local masks. A local snapshot is limited to 10 characters for this conversion.
+This is a 2D framing tool. In distance_and_roll mode, azimuth/elevation change captions only. Select perspective for flat-plane projection; neither mode reconstructs subject depth or occlusion. Generated framing, exact tilt and pose remain model-dependent. Random views use the same seeded distance/roll for both captions and geometry; extreme random views can crop a character entirely and require a less extreme view. Chaining two sync nodes deliberately compounds their transforms. NAI stores the local transformed masks in its return snapshot and uses the updated character centers; the NAI API itself does not consume these local masks. A local snapshot is limited to 10 characters for this conversion.
 
 ### 한국어
 
 `마스크 배치 연동=distance_and_roll`, `생성 화면 비율=너비÷높이`로 설정합니다. 최종 포지션/마스크 파이프 뒤에 카메라를 놓으세요. 거리 0.5는 원래 크기, 0은 2배, 1은 0.5배이며 양수 기울기는 화면에서 시계 방향입니다. 캐릭터 좌표·상자·전체 마스크·부위 마스크가 함께 변환되고 글자 상자는 유지됩니다. 회전한 박스는 외접 사각형입니다.
 
 한 번 실행하면 카메라 패널에 입력 영역이 표시되고 거리·기울기 조절에 따라 미리보기가 바뀝니다. 상위 노드 마스크를 수정했다면 다시 실행하세요. 미리보기는 축소본이고 실제 연산에는 원래 해상도의 마스크를 씁니다. 캔버스 밖만 잘라 적용하며 원본 파이프는 보존합니다. 캐릭터 전체가 밖으로 나가면 복구 안내 오류를 표시합니다. 좌우·상하 시점으로 입체 마스크를 만들어내는 기능은 아닙니다. NAI에서는 바뀐 중심 좌표를 사용하고 로컬 마스크는 왕복 복원을 위해 보관합니다.
+
+
+## Flat-plane mask perspective / 마스크 평면 원근
+
+Choose `layout_sync=perspective` to apply azimuth/elevation as a pinhole projection to the entire mask plane. Distance and roll are included. Every character silhouette, body-part mask, box and point uses the same projection; text stays fixed. A positive azimuth puts the right side nearer; positive elevation puts the top nearer. Nearer regions grow and farther regions shrink. This is a flat-plane approximation: it does not reconstruct the person's side/back silhouette, body depth or occlusions. A rear view mirrors the plane. At ±90° yaw or elevation the plane collapses to a line; execution raises an actionable error. Very near-edge views can also make a mask too small to survive rasterization. Use less extreme angles or distance_and_roll.
+
+The projection orbits the canvas centre with coordinates X=(x−0.5)×aspect, Y=y−0.5. Before roll, U=cos(yaw)X, V=sin(yaw)sin(pitch)X+cos(pitch)Y, Z=−sin(yaw)cos(pitch)X+sin(pitch)Y. Divide U/V by 1+Z/f, with zoom s=2**(2*(0.5−distance)) and f=2×hypot(aspect,1)/s. Roll, zoom and aspect normalization produce the final screen coordinates. This keeps the whole source canvas in front of the camera. Original-resolution masks use inverse nearest-neighbor sampling; preview cells use the same projection on reduced thumbnails. Centers for sampling are the warped mask's centroid; preview markers project the input center and are approximate under perspective/clipping. Projected boxes remain their axis-aligned outer bounds, so masks preserve shape more faithfully.
+
+**마스크 배치 연동을 perspective로 선택**하면 좌우·상하 각도에 따라 전체 마스크 평면을 원근 변형합니다. 거리·회전도 함께 적용됩니다. 가까운 쪽은 커지고 먼 쪽은 작아지며, 전체·부위 마스크와 좌표를 같은 방식으로 바꿉니다. 글자는 고정입니다. **인물 입체 형상이나 가려진 부분을 복원하는 기능은 아닙니다.** 뒤쪽에서는 평면이 좌우 반전되며, ±90°에서는 마스크가 선이 되어 오류로 안내합니다. 각도를 줄이거나 distance_and_roll을 사용하세요. 기본 fixed와 기존 거리·기울기 모드의 결과는 유지됩니다.
+
+Perspective validation (2026-10-25): local Python 269 cases (261 passed, 8 skipped); NAI Python 300 passed; 24 cross-package cases passed; both camera editor test files passed. Forward projection matched Python/JavaScript; tests cover mask/body-part warps, edge-on rejection, zero-angle compatibility, and NAI/local round trips. Two controlled Anima images used the same camera captions/seed, 1216x832, RSCV5 0.9, 30 steps, Euler ancestral / SGM uniform (yaw 45, elevation 25, distance 0.65, roll 12). PNG-restored masks exactly matched the expected warp. An additional live UI generation at yaw 50 verified interactive preview execution. This does not establish pose fidelity or results on other model families; no live NAI request was made for perspective.

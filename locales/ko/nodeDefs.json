@@ -1610,7 +1610,7 @@
   },
   "RSCameraControl": {
     "display_name": "RS 카메라 시점",
-    "description": "시점 태그 유도와 선택형 2D 마스크 배치 연동. 좌우·상하는 태그, 거리·기울기는 마스크 확대·축소·회전에 사용합니다.",
+    "description": "시점 태그와 마스크 배치 연동. perspective는 좌우·상하 각도로 평면 원근 변형, distance_and_roll은 거리·회전만 적용합니다. 입체 형상·가림은 복원하지 않습니다.",
     "inputs": {
       "azimuth": {
         "name": "좌우 각도"
@@ -1652,7 +1652,8 @@
         "name": "카메라 랜덤 시드"
       },
       "layout_sync": {
-        "name": "마스크 배치 연동"
+        "name": "마스크 배치 연동",
+        "tooltip": "perspective: 평면 원근 + 거리·회전. ±90°에서는 선이 되므로 각도를 바꾸세요. 글자 상자는 고정."
       },
       "canvas_aspect": {
         "name": "생성 화면 비율"

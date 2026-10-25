@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Shared 2-D camera framing. No guessed depth or model-specific projection."""
+"""Shared camera framing and flat-plane perspective for prompt regions."""
 import base64
 from dataclasses import replace
 import json
@@ -14,27 +14,68 @@ def framing(distance, roll, aspect):
 
 
 def project(x, y, transform):
+    if len(transform) == 9:
+        a,b,c,d,e,f,g,h,i = transform
+        depth = g*x + h*y + i
+        return (a*x+b*y+c)/depth, (d*x+e*y+f)/depth
     scale, co, si, aspect = transform
     x, y = (x - .5) * aspect, y - .5
     return (.5 + scale * (co*x - si*y) / aspect,
             .5 + scale * (si*x + co*y))
 
 
+def perspective_framing(distance, roll, aspect, azimuth, elevation):
+    scale, co, si, aspect = framing(distance, roll, aspect)
+    if azimuth == 0 and elevation == 0:
+        return framing(distance, roll, aspect)
+    yaw, pitch = math.radians(azimuth), math.radians(elevation)
+    ca, sa, ce, se = math.cos(yaw), math.sin(yaw), math.cos(pitch), math.sin(pitch)
+    if abs(ca*ce) < 1e-6:
+        raise ValueError("Perspective makes the flat mask edge-on. Move the view away from ±90°, or use distance_and_roll. / 원근 투영으로 평면 마스크가 선이 됩니다. ±90°에서 각도를 바꾸거나 거리·기울기 연동을 사용하세요.")
+    # Orbit a camera around the canvas centre. All masks lie on the same
+    # plane; the focal distance keeps its entire canvas in front of the camera.
+    focal = 2 * math.hypot(aspect, 1) / scale
+    g, h = -sa*ce*aspect/focal, se/focal
+    i = 1 - .5*(g+h)
+    ux, uy = co*ca - si*sa*se, -si*ce
+    vx, vy = si*ca + co*sa*se, co*ce
+    return (.5*g+scale*ux, .5*h+scale*uy/aspect, .5*i-.5*scale*(ux+uy/aspect),
+            .5*g+scale*vx*aspect, .5*h+scale*vy, .5*i-.5*scale*(vx*aspect+vy),
+            g, h, i)
+
+
 def _warp(mask, transform):
     # Chunked inverse nearest sampling keeps memory bounded on 4096px masks.
     import numpy as np
-    scale, co, si, aspect = transform
-    if scale == 1 and si == 0:
-        return mask
+    perspective = len(transform) == 9
+    if perspective:
+        inverse = np.linalg.inv(np.asarray(transform).reshape(3,3)).reshape(-1)
+    else:
+        scale, co, si, aspect = transform
+        if scale == 1 and si == 0:
+            return mask
     w, h = mask.width, mask.height
     source = np.unpackbits(np.frombuffer(mask.packed, dtype=np.uint8), count=w*h).reshape(h, w)
     result = np.zeros((h, w), dtype=np.uint8)
-    x = ((np.arange(w, dtype=np.float64) + .5) / w - .5) * aspect / scale
+    x = (np.arange(w, dtype=np.float64) + .5) / w
+    if not perspective:
+        x = (x - .5) * aspect / scale
     for top in range(0, h, 64):
-        y = ((np.arange(top, min(top+64, h), dtype=np.float64) + .5) / h - .5)[:, None] / scale
-        sx = np.floor((.5 + (co*x + si*y)/aspect) * w).astype(np.int64)
-        sy = np.floor((.5 - si*x + co*y) * h).astype(np.int64)
-        inside = (sx >= 0) & (sx < w) & (sy >= 0) & (sy < h)
+        y = ((np.arange(top, min(top+64, h), dtype=np.float64) + .5) / h)[:, None]
+        if perspective:
+            a,b,c,d,e,f,g,j,k = inverse
+            depth = g*x + j*y + k
+            valid = np.abs(depth) > 1e-12
+            depth = np.where(valid, depth, 1.)
+            px, py = (a*x+b*y+c)/depth, (d*x+e*y+f)/depth
+            inside = valid & (px >= 0) & (px < 1) & (py >= 0) & (py < 1)
+            sx = np.floor(np.clip(px,0,1)*w).astype(np.int64)
+            sy = np.floor(np.clip(py,0,1)*h).astype(np.int64)
+        else:
+            y = (y-.5)/scale
+            sx = np.floor((.5 + (co*x + si*y)/aspect) * w).astype(np.int64)
+            sy = np.floor((.5 - si*x + co*y) * h).astype(np.int64)
+            inside = (sx >= 0) & (sx < w) & (sy >= 0) & (sy < h)
         result[top:top+len(y)] = source[sy.clip(0,h-1), sx.clip(0,w-1)] * inside
     if not result.any():
         return None
@@ -68,15 +109,16 @@ def _character(character, transform, number):
     return replace(character, x=x, y=y, **part_changes)
 
 
-def camera_layout(context, distance, roll, aspect):
-    transform = framing(distance, roll, aspect)
-    if transform[0] == 1 and transform[2] == 0:
+def camera_layout(context, distance, roll, aspect, azimuth=0., elevation=0., perspective=False):
+    transform = (perspective_framing(distance,roll,aspect,azimuth,elevation) if perspective
+                 else framing(distance, roll, aspect))
+    if len(transform) == 4 and transform[0] == 1 and transform[2] == 0:
         return context
     # NAI carries local masks in an immutable metadata snapshot. Edit that
     # snapshot and its visible centers together, preserving its NAI settings.
     if getattr(context, "local_record_json", None) and callable(getattr(context,"as_local_character_pipe",None)):
         native = context.as_local_character_pipe()
-        changed = camera_layout(native, distance, roll, aspect)
+        changed = camera_layout(native, distance, roll, aspect, azimuth, elevation, perspective)
         characters = tuple(replace(c, x=n.x, y=n.y) for c,n in zip(context.characters,changed.characters))
         if len(characters) != len(context.characters):
             raise ValueError("Camera layout needs all characters; use at most 10 for local masks. / 마스크 연동은 캐릭터 10명까지 가능합니다.")

@@ -1610,7 +1610,7 @@
   },
   "RSCameraControl": {
     "display_name": "RS カメラ視点",
-    "description": "視点タグ誘導と任意の2D配置連動。距離・傾きでマスクを拡縮・回転します。",
+    "description": "視点タグとマスク配置の連動。perspectiveは平面の遠近変形、distance_and_rollは距離・回転のみ。立体形状・遮蔽は復元しません。",
     "inputs": {
       "azimuth": {
         "name": "左右の角度"
@@ -1652,7 +1652,8 @@
         "name": "カメラ乱数シード"
       },
       "layout_sync": {
-        "name": "マスク配置連動"
+        "name": "マスク配置連動",
+        "tooltip": "perspective: 平面の遠近＋距離・回転。±90°は線になるため角度を変更。文字枠は固定。"
       },
       "canvas_aspect": {
         "name": "出力の縦横比"
