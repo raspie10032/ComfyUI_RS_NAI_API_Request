@@ -6,9 +6,9 @@ This node adds view/framing captions to either an RS finalized character pipe or
 
 ## Connect
 
-`Finalize Character Pipe or NAI context → RS Camera Control → character_pipe or nai_context`
+`Finalize Character Pipe or NAI context → building_pipe [RS Camera Control] building_pipe → character_pipe or nai_context`
 
-Connect the existing scene to `base_prompt` if the finalized character pipe does not contain a scene. The node raises a readable error instead of silently replacing that missing scene with camera tags. A supplied `base_prompt` explicitly replaces the context's scene. With no context, connect `prompt` to the generator's common prompt; the context output is empty. The `camera_prompt` STRING contains just the added camera captions.
+Connect the existing scene to `base_prompt` if the finalized character pipe does not contain a scene. The node raises a readable error instead of silently replacing that missing scene with camera tags. A supplied `base_prompt` explicitly replaces the context's scene. With no context, connect `prompt` to the generator's common prompt; the context output is empty. The `camera_prompt` STRING contains just the added camera captions. Both camera entries name their pipe input and output `building_pipe`. Saved UI workflows migrate the old `context` socket in place; the old API keyword remains accepted. These sockets carry a finalized character pipe or NAI context.
 
 Default `scene_and_characters` adds the view to both common and character captions. This matters for regional Anima generation, where a common-only view can be suppressed by character conditions. `scene_only` leaves character captions untouched. Text regions do not receive camera captions. By default (`layout_sync=fixed`) position/mask coordinates remain fixed. Enable `distance_and_roll` to zoom and rotate every character region together around the canvas center. Set the downstream generator to inherit the connected context.
 

@@ -68,7 +68,7 @@ def main():
         '1': node('CharacterPromptSelect', character_count=2, character1='brown hair',
                   character1_x=.3, character1_y=.5, character2_enable=True, character2='pink hair',
                   character2_x=.7, character2_y=.5),
-        '2': node('NAICameraControl', context=['1',0], base_prompt='two adult women, garden',
+        '2': node('NAICameraControl', building_pipe=['1',0], base_prompt='two adult women, garden',
                   layout_sync='perspective', azimuth=45., elevation=25., distance=.65, roll=12., canvas_aspect=1.5),
         '3': node('NovelAIGenerator', nai_context=['2',0], model='NAI Diffusion V5 Full',
                   use_context_settings=True, width=64, height=64, steps=2, seed=777, limit_opus_free=False),

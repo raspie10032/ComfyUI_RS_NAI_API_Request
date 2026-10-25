@@ -6,6 +6,17 @@ const ranges = {azimuth: [-180, 180], elevation: [-90, 90], distance: [0, 1], ro
 const clamp = (v, low, high) => Math.max(low, Math.min(high, v));
 const widget = (node, name) => node.widgets?.find(w => w.name === name);
 const linked = (node, name) => node.inputs?.some(i => i.name === name && i.link != null);
+
+// Rename in place so old workflows keep socket indices and their link IDs.
+export function migrateCameraPipe(node) {
+    for (const slot of [...(node.inputs ?? []), ...(node.outputs ?? []).slice(0, 1)]) {
+        if (slot.name === "context") {
+            slot.name = "building_pipe";
+            delete slot.label;
+            delete slot.localized_name;
+        }
+    }
+}
 const lang = () => String(app.extensionManager?.setting?.get?.("Comfy.Locale") ?? "en");
 const text = (en, ko, ja, zh, tw = zh) => lang().startsWith("ko") ? ko : lang().startsWith("ja") ? ja : lang().startsWith("zh-TW") ? tw : lang().startsWith("zh") ? zh : en;
 
@@ -233,10 +244,10 @@ export function addCameraEditor(node) {
             "ランダム: fixedで再現、randomizeで毎回変更。ドラッグ・プリセットで手動に戻ります。",
             "随机视角: fixed重复，randomize每次改变。拖动或预设切回手动。",
             "隨機視角: fixed重複，randomize每次改變。拖曳或預設切回手動。");
-        const syntax=linked(node,"context") && resolvedSyntax ? resolvedSyntax : widget(node,"prompt_syntax")?.value ?? "ComfyUI";
+        const syntax=linked(node,"building_pipe") && resolvedSyntax ? resolvedSyntax : widget(node,"prompt_syntax")?.value ?? "ComfyUI";
         output.textContent = !v.enabled || !v.strength ? text("Camera OFF", "카메라 꺼짐", "カメラOFF", "相机已关闭", "相機已關閉") :
             executed ?? cameraCaption(cameraWeights(v), syntax, widget(node,"weighting")?.value ?? "weighted");
-        if(linked(node,"context") && !resolvedSyntax) notice.textContent += " " + text(
+        if(linked(node,"building_pipe") && !resolvedSyntax) notice.textContent += " " + text(
             "Context syntax resolves on execution; this preview uses the selected syntax.",
             "컨텍스트 문법은 실행 시 확정됩니다. 현재 미리보기는 선택한 문법을 사용합니다.",
             "接続コンテキストの構文は実行時に確定。現在は選択した構文で表示。",
@@ -319,7 +330,7 @@ export function addCameraEditor(node) {
     const previous=node.onExecuted;
     node.onExecuted=function(message){const result=previous?.apply(this,arguments);resolvedSyntax=message.camera_syntax?.[0] ?? null;executed=message.camera_caption?.[0] ?? null;executedView=message.camera_values?.[0] ?? null;executedLayout=message.camera_layout?.[0]??null;regions=message.camera_regions?.[0]??[];render();return result;};
     const configured=node.onConfigure;
-    node.onConfigure=function(){const result=configured?.apply(this,arguments);executed=null;executedView=null;executedLayout=null;resolvedSyntax=null;regions=[];render();return result;};
+    node.onConfigure=function(){const result=configured?.apply(this,arguments);migrateCameraPipe(this);executed=null;executedView=null;executedLayout=null;resolvedSyntax=null;regions=[];render();return result;};
     const connections=node.onConnectionsChange;
     node.onConnectionsChange=function(){const result=connections?.apply(this,arguments);executed=null;executedView=null;executedLayout=null;resolvedSyntax=null;regions=[];render();return result;};
     node.rsCameraEditor={root,render};render();
@@ -332,6 +343,8 @@ if(!globalThis[Symbol.for("raspie.camera.editor")]){
         name:"RS.CameraControl",
         async beforeRegisterNodeDef(nodeType,nodeData){
             if(nodeData.name!=="RSCameraControl")return;
+            // Keep the server API alias out of new nodes' visible sockets.
+            if(nodeData.input?.optional) delete nodeData.input.optional.context;
             const previous=nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated=function(){
                 const result=previous?.apply(this,arguments);addCameraEditor(this);
@@ -349,6 +362,7 @@ if(!globalThis[Symbol.for("raspie.nai.camera.editor")]){
         name:"RS.NAICameraControl",
         async beforeRegisterNodeDef(nodeType,nodeData){
             if(nodeData.name!=="NAICameraControl")return;
+            if(nodeData.input?.optional) delete nodeData.input.optional.context;
             const previous=nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated=function(){
                 const result=previous?.apply(this,arguments);addCameraEditor(this);

@@ -72,8 +72,20 @@ class Node{
  const prior=[];const oldFirst={app:{...app,registerExtension:e=>prior.push(e)},document:{createElement:element},console};
  vm.runInNewContext('globalThis[Symbol.for("raspie.camera.editor")]=true;'+source,oldFirst);
  assert.deepEqual(prior.map(e=>e.name),['RS.NAICameraControl']);
+ const defs={name:'RSCameraControl',input:{optional:{building_pipe:['RS_MC_CHARACTER_PIPE,NAI_CONTEXT'],context:['RS_MC_CHARACTER_PIPE,NAI_CONTEXT']}}};
+ await extension.beforeRegisterNodeDef(class {},defs);
+ assert.ok(defs.input.optional.building_pipe);assert.equal(defs.input.optional.context,undefined);
  const node=new Node();node.onNodeCreated();node.onNodeCreated();
  assert.equal(node.widgets.filter(w=>w.name==='rs_camera_editor').length,1);
+ // Loading the old socket names keeps every connection and slot index.
+ node.inputs=[{name:'base_prompt',link:7},{name:'context',link:12,label:'old context',localized_name:'공용 컨텍스트'}];
+ node.outputs=[{name:'context',links:[18,19],type:'RS_MC_CHARACTER_PIPE'},{name:'prompt',links:[20]}];
+ assert.equal(node.onConfigure(),'configured');
+ assert.equal(node.inputs[1].name,'building_pipe');assert.equal(node.inputs[1].link,12);
+ assert.equal(node.inputs[1].label,undefined);assert.equal(node.inputs[1].localized_name,undefined);
+ assert.equal(node.outputs[0].name,'building_pipe');assert.deepEqual(node.outputs[0].links,[18,19]);
+ assert.equal(node.outputs[1].name,'prompt');assert.equal(node.outputs[1].links[0],20);
+ assert.equal(node.onConfigure(),'configured');assert.equal(node.inputs[1].name,'building_pipe');
  const editor=node.rsCameraEditor,custom=node.widgets.at(-1);
  assert.equal(custom.serialize,false);assert.equal(custom.options.serialize,false);
  const [toolbar,canvas,notice,output,layoutNotice,layoutCanvas]=editor.root.children;
@@ -83,7 +95,7 @@ class Node{
  sandbox.setCameraValues(node,{weighting:'plain'});assert.equal(output.textContent,'from front, medium shot');
  sandbox.setCameraValues(node,{strength:0});assert.match(output.textContent,/OFF/);
  sandbox.setCameraValues(node,{strength:1.2,weighting:'weighted',prompt_syntax:'ComfyUI'});
- node.inputs=[{name:'context',link:12}];editor.render();assert.match(notice.textContent,/Context syntax/);
+ node.inputs=[{name:'building_pipe',link:12}];editor.render();assert.match(notice.textContent,/Context syntax/);
  node.onExecuted({camera_caption:['NAI caption'],camera_syntax:['NovelAI']});
  sandbox.setCameraValues(node,{distance:.75});assert.match(output.textContent,/::full body::/);
  node.onConnectionsChange();assert.match(notice.textContent,/Context syntax/);

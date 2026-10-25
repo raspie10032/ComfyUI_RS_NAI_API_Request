@@ -106,6 +106,8 @@ class RSCameraControl:
             "enabled": ("BOOLEAN", {"default": True, "tooltip": "Off passes the scene through without camera captions. / 끄면 시점 태그를 추가하지 않습니다."}),
             "scope": (["scene_and_characters", "scene_only"], {"tooltip": "Share the view with character regions, or affect only the common caption. Existing text regions and placements stay fixed. / 캐릭터 영역에도 같은 시점을 전달하거나 공통 문장에만 적용합니다. 글자 영역·배치는 유지됩니다."}),
         }, "optional": {
+            "building_pipe": ("RS_MC_CHARACTER_PIPE,NAI_CONTEXT", {"tooltip": "Final character pipe or NAI context. Character placements and model settings are preserved. / 최종 캐릭터 파이프 또는 NAI 컨텍스트. 캐릭터 배치는 유지됩니다."}),
+            # API alias for saved pre-rename graphs; the editor hides this socket.
             "context": ("RS_MC_CHARACTER_PIPE,NAI_CONTEXT", {"tooltip": "Final character pipe or NAI context. Character placements and model settings are preserved. / 최종 캐릭터 파이프 또는 NAI 컨텍스트. 캐릭터 배치는 유지됩니다."}),
             "base_prompt": ("STRING", {"forceInput": True, "tooltip": "Optional scene caption, in the context's syntax. Required when a connected pipe has no scene. / 연결 파이프에 공통 프롬프트가 없으면 장면 문장을 연결하세요."}),
             "random_mode": (["off", "balanced", "full"], {"default": "off", "tooltip": "Random view overrides the four manual axes. Balanced avoids rear/pole/extreme framing; full uses all ranges. / 랜덤 구도는 수동 각도·거리·기울기를 대신합니다. balanced는 극단 시점을 피하고 full은 전체 범위입니다."}),
@@ -115,14 +117,23 @@ class RSCameraControl:
         }}
 
     RETURN_TYPES = ("RS_MC_CHARACTER_PIPE", "STRING", "STRING")
-    RETURN_NAMES = ("context", "prompt", "camera_prompt")
+    RETURN_NAMES = ("building_pipe", "prompt", "camera_prompt")
     FUNCTION = "apply"
     CATEGORY = "RS/Camera"
     DESCRIPTION = "Shared camera captions and optional mask zoom, rotation and flat-plane perspective. / 공용 카메라 시점. 마스크 확대·축소·회전과 평면 원근 변형을 선택할 수 있습니다."
 
     def apply(self, azimuth=0., elevation=0., distance=.5, roll=0., strength=1.2,
               weighting="weighted", prompt_syntax="ComfyUI", enabled=True, scope="scene_and_characters", context=None, base_prompt=None,
-              random_mode="off", random_seed=0, layout_sync="fixed", canvas_aspect=1.):
+              random_mode="off", random_seed=0, layout_sync="fixed", canvas_aspect=1., **pipe_inputs):
+        # Keep the old context keyword (and positional calls) working. This
+        # finalized pipe must not run through the unfinished builder converter.
+        pipe = pipe_inputs.pop("building_pipe", None)
+        if pipe_inputs:
+            raise TypeError(f"Unexpected camera inputs: {', '.join(pipe_inputs)}")
+        if pipe is not None:
+            if context is not None and context is not pipe:
+                raise ValueError("Connect only one building_pipe. / building_pipe는 하나만 연결해 주세요.")
+            context = pipe
         if layout_sync not in ("fixed", "distance_and_roll", "perspective"):
             raise ValueError("Choose fixed, distance_and_roll or perspective layout sync. / 마스크 배치 연동 방식을 선택해 주세요.")
         from .camera_layout import framing, camera_layout, layout_preview

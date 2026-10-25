@@ -41,6 +41,21 @@ class SharedContext:
 
 
 class CameraTests(unittest.TestCase):
+    def test_building_pipe_name_and_legacy_api_are_equivalent(self):
+        node = camera.RSCameraControl()
+        fields = node.INPUT_TYPES()['optional']
+        self.assertEqual(fields['building_pipe'][0], fields['context'][0])
+        self.assertEqual(node.RETURN_NAMES[0], 'building_pipe')
+        source = SharedContext()
+        for options in ({}, {'enabled': False}, {'strength': 0}):
+            self.assertEqual(node.apply(building_pipe=source, **options),
+                             node.apply(context=source, **options))
+        self.assertIs(node.apply(building_pipe=source, enabled=False)['result'][0], source)
+        with self.assertRaisesRegex(ValueError, '하나만'):
+            node.apply(building_pipe=source, context=SharedContext())
+        with self.assertRaises(TypeError):
+            node.apply(unexpected_pipe=source)
+
     def test_random_reproducible_and_respects_ranges(self):
         for mode, bounds in camera.RANDOM_RANGES.items():
             for seed in range(1000):
