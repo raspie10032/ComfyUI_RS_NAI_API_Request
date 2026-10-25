@@ -37,7 +37,7 @@ Final generation comparison used 1216×832, the same scene/characters/seed 26102
 
 Both models visibly changed toward side/above and near/far compositions. Anima's rear example retained a side-looking face; its wide example assigned different apparent sizes to the two characters and changed the background. Side captions can turn each person independently rather than orbiting a shared camera. These are observed limits, not failures to dispatch the node. Results do not prove precise degrees, tilt direction, same-scale people, or support/quality across every model family. The numerical curves measure caption weights, not measured image angles or model adherence. No camera model, ControlNet or new inference pass is loaded.
 
-Reference: [Anima camera-tag helper](https://arca.live/b/aiart/179423561). The shared implementation uses its own continuous formulas and context integration. The reference implementation was inspected to compare default weights and discontinuities; its code/archive is not distributed here.
+Reference: [Anima camera-tag helper](https://arca.live/b/aiart/179423561) and the inspected `ComfyUI-KR-Camera-Control` package. That package credits `ComfyUI_bsk_UI` / 灰暗x for its camera prompt algorithm and interaction design. The RS/NAI implementation uses its own continuous formulas, context integration and region transforms. Reference default weights and discontinuities were compared; the inspected code/archive is not distributed here. See [camera reference attribution](../THIRD_PARTY_NOTICES.md#camera-control-references) for the inspected package's license and the reference scope.
 
 ## 한국어 사용법
 

@@ -627,6 +627,7 @@ These changes originated in `Add_facedetail` and are included in the current `ma
 
 | Project | License | Role |
 | :--- | :--- | :--- |
+| [Anima camera-tag helper](https://arca.live/b/aiart/179423561) / ComfyUI-KR-Camera-Control | Inspected package: AGPL-3.0-or-later; reference only | Camera-tag and interaction reference; inspected package credits ComfyUI_bsk_UI / 灰暗x. RS/NAI formulas and context/layout integration are implemented separately. [Details](THIRD_PARTY_NOTICES.md#camera-control-references) |
 | [bedovyy/ComfyUI_NAIDGenerator](https://github.com/bedovyy/ComfyUI_NAIDGenerator) | GPL-3.0-only | Reference for Opus free-generation limit behavior (pixel cap and step cap logic) |
 | [NAIA 2.0](https://github.com/DNT-LAB/NAIA2.0) | GPL-3.0 (upstream) | Reference for the reference inset and character asset workflows, introduced in [NAIA — Reference Inset, V5 Assets](https://arca.live/b/aiart/185642997) |
 | [ComfyUI-Impact-Pack](https://github.com/ltdrdata/ComfyUI-Impact-Pack) | GPL-3.0-only | External detector dependency and workflow integration for the Face Detailer node |
