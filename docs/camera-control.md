@@ -35,7 +35,7 @@ Python and JavaScript calculations matched at 301 mixed coordinates. Tests cover
 
 Final generation comparison used 1216×832, the same scene/characters/seed 26102504 and strength 1.2. Anima used RSCV5 0.9, Euler Ancestral / SGM Uniform / 30 steps / CFG 4. NovelAI used V5 Full / 23 steps / CFG scale 6 / native noise schedule with `limit_opus_free=True`. Seven Anima and four NAI final images were generated successfully, following 16 exploratory images. The request graphs and histories are kept in the local validation artifact directory; they are not a statistically representative benchmark.
 
-Both models visibly changed toward side/above and near/far compositions. Anima's rear example retained a side-looking face; its wide example assigned different apparent sizes to the two characters and changed the background. Side captions can turn each person independently rather than orbiting a shared camera. These are observed limits, not failures to dispatch the node. Results do not prove precise degrees, tilt direction, same-scale people, or support/quality across every model family. The numerical curves measure caption weights, not measured image angles or model adherence. No camera model, ControlNet or new inference pass is loaded.
+Both models visibly changed toward side/above and near/far compositions. Anima's rear example retained a side-looking face; its wide example assigned different apparent sizes to the two characters and changed the background. Side captions can turn each person independently rather than orbiting a shared camera. These are observed limits, not failures to dispatch the node. Results do not prove precise degrees, tilt direction, same-scale people, or support/quality across every model family. The numerical weights describe caption influence, not measured image angles or model adherence. No camera model, ControlNet or new inference pass is loaded.
 
 Reference: [Anima camera-tag helper](https://arca.live/b/aiart/179423561) and the inspected `ComfyUI-KR-Camera-Control` package. That package credits `ComfyUI_bsk_UI` / 灰暗x for its camera prompt algorithm and interaction design. The RS/NAI implementation uses its own continuous formulas, context integration and region transforms. Reference default weights and discontinuities were compared; the inspected code/archive is not distributed here. See [camera reference attribution](../THIRD_PARTY_NOTICES.md#camera-control-references) for the inspected package's license and the reference scope.
 
@@ -50,7 +50,7 @@ Reference: [Anima camera-tag helper](https://arca.live/b/aiart/179423561) and th
 | 높이에 따라 위·아래에서 보는 태그 만들기 | 상하 시점 각도에서 위·아래 시점 태그를 연속적으로 섞고, 극단 각도에는 내려다보기·올려다보기 태그를 사용합니다. |
 | 극근접·근접·중간·전신·원경의 거리 구분 | 같은 다섯 구도 어휘를 0~1 거리 조절에 연결하고, 인접한 구도 태그를 부드럽게 섞습니다. |
 | 롤을 `dutch angle` 태그로 표현하기 | 기울기 크기를 태그 강도로 변환합니다. 선택형 영역 연동에서는 실제 캐릭터 영역도 함께 회전합니다. |
-| 노드 안에서 드래그·휠로 조작하고 프롬프트 확인하기 | 드래그로 시점, 휠로 거리, Shift+휠로 기울기를 바꾸며 태그 가중치 곡선과 실행된 프롬프트를 표시합니다. |
+| 노드 안에서 드래그·휠로 조작하고 프롬프트 확인하기 | 드래그로 시점, 휠로 거리, Shift+휠로 기울기를 바꾸며 계산된 태그와 실행된 프롬프트를 표시합니다. |
 | 가중치 유무 선택·프리셋·랜덤 구도 | 가중치/일반 태그 출력, 기본 시점 버튼, 카메라 전용 시드와 balanced/full 랜덤 범위로 구성했습니다. |
 
 **원본 수치를 그대로 이식한 것은 아닙니다.** 원본의 축별 기본 가중치 5, 데드존과 구간 전환을 비교한 뒤, 이 구현에서는 기본 강도 1.2와 별도의 연속 보간식을 사용했습니다. 원본의 사용자 프리셋 편집 체계·렌즈/심도/움직임 추가 설정·미리보기 전용 3D 카메라 조작까지 동일하게 제공하지는 않습니다.
@@ -65,7 +65,7 @@ The table in [third-party notices](../THIRD_PARTY_NOTICES.md#features-incorporat
 
 기본은 **공통 장면＋캐릭터**에 적용합니다. Anima는 공통 태그만 넣으면 시점이 약하게 반영돼 기본 적용 범위를 넓혔습니다. 글자 영역·좌표·마스크·LoRA·네거티브는 유지합니다. 양쪽 패키지에서 같은 노드를 쓰며 NAI 가중치 문법도 자동으로 맞춥니다.
 
-**드래그=시점, 휠=거리, Shift+휠=기울기**입니다. 시작 강도는 1.2이며 0.8~1.4부터 조정하세요. 아래 곡선은 태그 계산 그래프이며 실제 카메라 각도 측정값은 아닙니다. 연결된 수치 입력은 마우스로 덮어쓰지 않습니다.
+**드래그=시점, 휠=거리, Shift+휠=기울기**입니다. 시작 강도는 1.2이며 0.8~1.4부터 조정하세요. 도식과 각도는 태그 계산을 위한 안내이며 실제 이미지의 카메라 각도 측정값은 아닙니다. 연결된 수치 입력은 마우스로 덮어쓰지 않습니다.
 
 실제 생성에서 측면·위·거리 변화는 확인됐지만 뒤돌기·원경의 두 인물 크기는 완벽하지 않았습니다. 이 노드는 **시점 태그 유도 기능**이며, 선택형 배치 연동으로 마스크도 변형합니다. 생성된 인체를 3D 카메라처럼 강제하지는 않습니다. 두 노드를 연달아 연결하거나 이미 시점 태그가 있는 컨텍스트에 넣으면 태그가 더해지므로, 상반되는 기존 시점 문장은 직접 정리하세요.
 

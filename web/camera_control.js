@@ -135,9 +135,9 @@ export function addCameraEditor(node) {
         buttons.push([b, labels]); toolbar.append(b);
     }
     const canvas = document.createElement("canvas");
-    canvas.width = 640; canvas.height = 340; canvas.tabIndex = 0;
-    canvas.setAttribute("aria-label", "Camera view and weight curves");
-    canvas.style.cssText = "width:100%;height:200px;display:block;touch-action:none;cursor:grab";
+    canvas.width = 640; canvas.height = 220; canvas.tabIndex = 0;
+    canvas.setAttribute("aria-label", "Camera view control");
+    canvas.style.cssText = "width:100%;height:130px;display:block;touch-action:none;cursor:grab";
     const notice = document.createElement("div"), output = document.createElement("pre");
     notice.style.cssText = "line-height:1.45;color:#bcc8d8";
     output.style.cssText = "white-space:pre-wrap;word-break:break-word;line-height:1.4;color:#99d4e8;margin:7px 0";
@@ -153,7 +153,7 @@ export function addCameraEditor(node) {
     function render() {
         const v = {...values(node), ...executedView}, c = canvas.getContext("2d");
         for (const [b, labels] of buttons) b.textContent = text(...labels);
-        c.clearRect(0,0,640,340);
+        c.clearRect(0,0,640,220);
         c.strokeStyle = "#526379"; c.lineWidth = 2;
         c.beginPath();c.ellipse(320,98,210,65,0,0,Math.PI*2);c.stroke();
         c.fillStyle = "#7db6ce";c.beginPath();c.arc(320,83,18,0,Math.PI*2);c.fill();
@@ -164,34 +164,13 @@ export function addCameraEditor(node) {
         c.strokeStyle="#ffca6a";c.beginPath();c.moveTo(320,98);c.lineTo(x,y);c.stroke();
         c.save();c.translate(x,y);c.rotate(v.roll*Math.PI/180);c.fillStyle="#ffca6a";c.fillRect(-12,-8,24,16);c.restore();
         c.fillStyle="#dce7f4";c.font="16px sans-serif";c.fillText(`${v.azimuth.toFixed(0)}° / ${v.elevation.toFixed(0)}° / ${v.distance.toFixed(2)}`,12,210);
-        const axes=[['azimuth',-180,180,0,['from front','viewed from the left side','from behind','viewed from the right side']],
-            ['elevation',-90,90,214,["worm's-eye view",'from below','from above','overhead view']],
-            ['distance',0,1,428,['extreme close-up','close-up','medium shot','full body','wide shot']]];
-        const colors=['#8dd3c7','#ffca6a','#a7afff','#f88cb8','#96d86e'];
-        c.font='12px sans-serif';c.fillText(text('Normalized weights 0–1 × strength','정규화 가중치 0~1 × 시점 강도','正規化重み 0–1 × 強度','归一化权重 0–1 × 强度','正規化權重 0–1 × 強度'),225,210);
-        for(const [axis,low,high,offset,tags] of axes){
-            c.strokeStyle="#4c5c70";c.strokeRect(offset+8,235,196,75);
-            const curves=Object.fromEntries(tags.map(tag=>[tag,[]]));
-            for(let i=0;i<=80;i++){
-                const w=cameraWeights({...v, strength:1, [axis]:low+(high-low)*i/80});
-                for(const tag of tags) curves[tag].push([i,w[tag] ?? 0]);
-            }
-            let color=0;
-            for(const points of Object.values(curves)){
-                c.strokeStyle=colors[color++%colors.length];c.beginPath();
-                points.forEach(([i,value],j)=>{const px=offset+8+i/80*196,py=310-value*75;j?c.lineTo(px,py):c.moveTo(px,py);});c.stroke();
-            }
-            const current=offset+8+(v[axis]-low)/(high-low)*196;
-            c.strokeStyle="#fff";c.beginPath();c.moveTo(current,233);c.lineTo(current,312);c.stroke();
-            c.fillStyle="#dce7f4";c.fillText({azimuth:text("azimuth","좌우 시점","左右視点","水平视角","水平視角"),elevation:text("elevation","상하 시점","上下視点","垂直视角","垂直視角"),distance:text("distance","거리","距離","距离","距離")}[axis],offset+12,333);
-        }
         const links=[...Object.keys(defaults),"random_mode","random_seed"].filter(k=>linked(node,k));
         notice.textContent = links.length ? text("Linked controls resolve on execution: ","연결 항목은 실행 시 확정: ","接続項目は実行時に確定: ","连接项在执行时确定: ","連接項在執行時確定: ")+links.join(", ") :
-            text("Drag: view · Wheel: distance · Shift+wheel: tilt. Diagram and curves guide captions. Layout sync is optional.",
-                "드래그: 시점 · 휠: 거리 · Shift+휠: 기울기. 도식·곡선은 태그 안내입니다. 마스크 배치는 별도로 연동할 수 있습니다.",
-                "ドラッグ:視点・ホイール:距離・Shift:傾き。図と曲線はタグの目安です。配置連動は任意です。",
-                "拖动:视角 · 滚轮:距离 · Shift+滚轮:倾斜。示意图和曲线用于提示标签，可选区域布局联动。",
-                "拖曳:視角 · 滾輪:距離 · Shift+滾輪:傾斜。示意圖和曲線用於提示標籤，可選區域配置連動。");
+            text("Drag: view · Wheel: distance · Shift+wheel: tilt. Diagram guides captions. Layout sync is optional.",
+                "드래그: 시점 · 휠: 거리 · Shift+휠: 기울기. 도식은 태그 안내입니다. 마스크 배치는 별도로 연동할 수 있습니다.",
+                "ドラッグ:視点・ホイール:距離・Shift:傾き。図はタグの目安です。配置連動は任意です。",
+                "拖动:视角 · 滚轮:距离 · Shift+滚轮:倾斜。示意图用于提示标签，可选区域布局联动。",
+                "拖曳:視角 · 滾輪:距離 · Shift+滾輪:傾斜。示意圖用於提示標籤，可選區域配置連動。");
         if ((widget(node,"random_mode")?.value ?? "off") !== "off") notice.textContent += " " + text(
             "Random view: fixed seed repeats; randomize changes each run. Drag/presets return to manual.",
             "랜덤 구도: fixed는 유지, randomize는 매번 변경. 드래그·프리셋은 수동으로 전환합니다.",
@@ -280,7 +259,7 @@ export function addCameraEditor(node) {
         w.callback=function(...args){const result=previous?.apply(this,args);executed=null;executedView=null;executedLayout=null;render();return result;};
     }
     const custom=node.addDOMWidget("rs_camera_editor","rs_camera_editor",root,{serialize:false,hideOnZoom:false});
-    custom.computeSize=()=>[360,630];custom.serialize=false;
+    custom.computeSize=()=>[360,560];custom.serialize=false;
     const previous=node.onExecuted;
     node.onExecuted=function(message){const result=previous?.apply(this,arguments);resolvedSyntax=message.camera_syntax?.[0] ?? null;executed=message.camera_caption?.[0] ?? null;executedView=message.camera_values?.[0] ?? null;executedLayout=message.camera_layout?.[0]??null;regions=message.camera_regions?.[0]??[];render();return result;};
     const configured=node.onConfigure;
