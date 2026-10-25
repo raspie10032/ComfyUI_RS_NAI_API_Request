@@ -5,6 +5,12 @@ import math
 
 
 DISTANCE_TAGS = ("extreme close-up", "close-up", "medium shot", "full body", "wide shot")
+CAMERA_TAG_AXES = {
+    **dict.fromkeys(("from front", "viewed from the left side", "viewed from the right side", "from behind"), "azimuth"),
+    **dict.fromkeys(("from above", "from below", "overhead view", "worm's-eye view"), "elevation"),
+    **dict.fromkeys(DISTANCE_TAGS, "distance"),
+    "dutch angle": "roll",
+}
 RANDOM_RANGES = {
     "balanced": ((-90., 90.), (-35., 35.), (.25, .85), (-10., 10.)),
     "full": ((-180., 180.), (-90., 90.), (0., 1.), (-45., 45.)),
@@ -64,6 +70,12 @@ def camera_weights(azimuth=0., elevation=0., distance=.5, roll=0., strength=1.2)
 def camera_caption(weights, syntax="ComfyUI", weighting="weighted"):
     if syntax not in ("ComfyUI", "NovelAI") or weighting not in ("weighted", "plain"):
         raise ValueError("Choose ComfyUI/NovelAI syntax and weighted/plain camera captions.")
+    # Plain captions cannot encode strength, but axes must remain independent.
+    # A yaw/elevation change must never add or remove a distance caption.
+    axis_peaks = {}
+    for tag, value in weights.items():
+        axis = CAMERA_TAG_AXES.get(tag, tag)
+        axis_peaks[axis] = max(axis_peaks.get(axis, 0.), value)
     parts = []
     for tag, value in weights.items():
         # This is the display precision, not a second normalization of the axes.
@@ -71,7 +83,7 @@ def camera_caption(weights, syntax="ComfyUI", weighting="weighted"):
             continue
         number = f"{value:.2f}".rstrip("0").rstrip(".")
         if weighting == "plain":
-            if value >= max(weights.values(), default=0)*.5:
+            if value >= axis_peaks[CAMERA_TAG_AXES.get(tag, tag)]*.5:
                 parts.append(tag)
         elif syntax == "NovelAI":
             parts.append(f"{number}::{tag}::")

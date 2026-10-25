@@ -121,3 +121,16 @@ Find **NAI Camera Control** in **RS_NovelAI_API → Camera** (한국어: **NAI �
 **한국어:** NAI만 설치한 환경에서도 **RS_NovelAI_API → Camera → NAI 카메라 시점**을 사용할 수 있습니다. 캐릭터 프롬프트 또는 NAI 컨텍스트를 연결하고 생성 노드의 컨텍스트 사용을 켜세요. 첫 생성 전에는 카메라의 `base_prompt`에 공통 장면을 연결합니다. NAI에 보내는 것은 시점 태그와 중심 좌표이며, 실루엣 자체를 NAI 영역 마스크로 적용하지 않습니다. 로컬 마스크를 포함한 컨텍스트를 편집할 때만 양쪽 확장이 필요합니다.
 
 **日本語:** NAIのみの環境でも **RS_NovelAI_API → Camera → NAI カメラ視点**を使用できます。キャラクタープロンプトまたはNAIコンテキストを接続し、生成ノードのコンテキスト継承を有効にしてください。初回生成前は`base_prompt`に共通シーンを接続します。NAIへ送るのは視点タグと中心座標です。ローカルマスクを含むコンテキストを編集する場合のみ両方の拡張が必要です。
+
+
+### Plain caption axis independence / 일반 태그의 축별 선택
+
+In `plain` mode, tags are selected against half of their own axis's peak weight (azimuth, elevation, distance and roll separately). Turning the horizontal camera no longer changes distance tags when distance stays fixed. Weighted captions and the underlying continuous weights are unchanged. Plain captions discard numerical strength, so small nonzero elevation/roll can still produce a view/tilt tag; use weighted mode where supported for gradual strength. Conflicting original captions and model-specific interpretation can still prevent side/rear views.
+
+`plain`에서는 좌우·상하·거리·기울기별 최대 가중치의 절반 이상인 태그를 선택합니다. 거리를 고정하면 좌우 각도를 바꿔도 거리 태그가 유지됩니다. 가중치 문법과 원래 연속 계산은 같습니다. 숫자 강도가 없는 일반 태그 특성상 작은 상하각·기울기도 태그로 표시될 수 있습니다. 세밀한 강도 표현이 가능한 경로에서는 weighted를 사용하세요. 기존 문장과의 충돌이나 모델 해석 때문에 측면·후면이 보장되지는 않습니다.
+
+### MOSS side/rear prompts / MOSS 측면·후면 문장
+
+For side/rear shots, start with a short scene and identity/outfit descriptions. Eye color, facial expression and a front-facing gesture can compete with view captions. In a same-seed MOSS native JSON check, simplified scene/character captions produced a rear view at 8 accelerated steps, while the original detailed captions stayed frontal. Several descriptions changed together, so this does not identify a single conflicting token or establish a general success rate. Keep camera captions on both scene and characters; compare simplified prompts before increasing steps or strength.
+
+측면·후면은 짧은 장면과 캐릭터·의상 설명부터 시작하세요. 눈 색·표정·정면 동작은 시점 태그와 충돌할 수 있습니다. 같은 시드의 MOSS 네이티브 JSON 시험에서 기존 상세 문장은 정면에 머물렀지만, 문장을 줄인 조건은 8스텝 고속화에서도 후면이 나왔습니다. 여러 표현을 함께 바꾼 비교이므로 특정 단어의 원인이나 일반 성공률을 확정한 결과는 아닙니다. 공통 장면과 캐릭터 모두에 시점을 적용하고, 스텝이나 강도를 높이기 전에 문장을 줄여 비교해보세요.

@@ -136,6 +136,38 @@ class CameraTests(unittest.TestCase):
         self.assertIsNone(out);self.assertTrue(prompt.startswith('hello'));self.assertNotIn(':',tags)
         self.assertIn('::',camera.RSCameraControl().apply(prompt_syntax='NovelAI')['result'][2])
 
+    def test_plain_axes_are_independent_across_eight_views_and_elevations(self):
+        for distance in (0., .1, .25, .4, .5, .65, .75, .9, 1.):
+            expected = None
+            for angle in (-180, -135, -90, -45, 0, 45, 90, 135, 180):
+                for elevation in (-90, -60, -25, 0, 25, 60, 90):
+                    for roll in (0, 2, 45):
+                        for syntax in ('ComfyUI', 'NovelAI'):
+                            caption = camera.camera_caption(camera.camera_weights(angle, elevation, distance, roll), syntax, 'plain')
+                            distance_tags = set(caption.split(', ')) & set(camera.DISTANCE_TAGS)
+                            if expected is None:
+                                expected = distance_tags
+                            self.assertEqual(distance_tags, expected)
+            self.assertTrue(expected)
+        for angle, direction in ((0, 'from front'), (90, 'viewed from the right side'), (180, 'from behind')):
+            caption = camera.camera_caption(camera.camera_weights(angle, 0, .65), weighting='plain')
+            self.assertIn(direction, caption)
+            self.assertIn('medium shot', caption)
+            self.assertIn('full body', caption)
+        self.assertEqual(camera.camera_caption(camera.camera_weights(strength=0), weighting='plain'), '')
+
+    def test_plain_direction_is_independent_of_distance_and_roll(self):
+        for angle in (-180, -135, -90, -45, 0, 45, 90, 135, 180):
+            expected = None
+            for distance in (0., .1, .25, .4, .65, .9, 1.):
+                for roll in (0, 2, 45):
+                    caption = camera.camera_caption(camera.camera_weights(angle, 0, distance, roll), weighting='plain')
+                    tags = set(caption.split(', ')) - set(camera.DISTANCE_TAGS) - {'dutch angle'}
+                    if expected is None:
+                        expected = tags
+                    self.assertEqual(tags, expected)
+            self.assertTrue(expected)
+
     def test_bad_inputs_show_readable_errors(self):
         for field in ('azimuth','elevation','distance','roll','strength'):
             for value in (float('nan'),float('inf'),True,'oops'):
