@@ -590,4 +590,3 @@ class BidirectionalTests(unittest.TestCase):
                                  [weight for text, weight in spans if text.strip(' ,') and weight > 0])
         finally:
             sys.path.remove(path)
-
