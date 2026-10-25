@@ -9,12 +9,13 @@ from .inset import NODE_CLASS_MAPPINGS as INSET_MAPPINGS, NODE_DISPLAY_NAME_MAPP
 from .assets import NODE_CLASS_MAPPINGS as ASSET_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS as ASSET_DISPLAY_MAPPINGS
 
 from .metadata_loader import NODE_CLASS_MAPPINGS as IMAGE_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS as IMAGE_DISPLAY_MAPPINGS
-from .camera_control import RSCameraControl
+from .camera_control import RSCameraControl, NAICameraControl
 from .detector_bundle import NAIDetectionCombineLoader
 from .combined_detailer import NAIMultiCharacterDetailer
 
 NODE_CLASS_MAPPINGS = {
     "RSCameraControl": RSCameraControl,
+    "NAICameraControl": NAICameraControl,
     **GENERATOR_MAPPINGS,
     **CONVERTER_NODE_CLASS_MAPPINGS,
     **INSET_MAPPINGS,
@@ -26,6 +27,7 @@ NODE_CLASS_MAPPINGS = {
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "RSCameraControl": "RS Camera Control",
+    "NAICameraControl": "NAI Camera Control",
     **GENERATOR_DISPLAY_MAPPINGS,
     **CONVERTER_NODE_DISPLAY_NAME_MAPPINGS,
     **INSET_DISPLAY_MAPPINGS,

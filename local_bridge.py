@@ -188,6 +188,17 @@ class NAICharacterPipe(Sequence):
     def __radd__(self, other):
         return list(other) + list(self)
 
+    def as_camera_context(self):
+        """Normalize legacy character slots without loading the local extension."""
+        from dataclasses import is_dataclass
+        if all(is_dataclass(c) for c in self.characters):
+            return self
+        from .generation_context import ContextCharacter
+        characters = tuple(c if is_dataclass(c) else ContextCharacter(
+            c.prompt, c.uc, c.center["x"], c.center["y"]
+        ) for c in self.characters)
+        return replace(self, characters=characters)
+
     def as_local_character_pipe(self):
         Character, CharacterPipe = _pipe_classes()
         native = None

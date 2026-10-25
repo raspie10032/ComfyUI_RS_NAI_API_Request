@@ -6,9 +6,9 @@ The Detailer can use bbox+SAM, native SEGM masks, or a standard ComfyUI `MASK` f
 
 > Current version: **2.9.1**
 
-**Development candidate:** [RS Camera Control](docs/camera-control.md) adds smoothly blended camera captions to shared RS/NAI contexts, with an interactive view/weight editor. It guides captions; it does not rotate masks or enforce a 3D camera.
+**Development candidate:** [NAI Camera Control / RS Camera Control](docs/camera-control.md) adds smoothly blended camera captions to shared RS/NAI contexts, with an interactive view/weight editor. It supports random views and optional region zoom, rotation and flat-plane perspective. NAI receives view captions and transformed character centers; silhouettes are preserved for local round trips. It does not enforce a 3D camera.
 
-**개발 후보 기능:** [RS 카메라 시점](docs/camera-control.md)은 NAI·로컬 공통 컨텍스트에 시점 태그를 더합니다. 노드 안에서 방향·높이·거리와 가중치 곡선을 조절하며, 마스크를 회전하거나 3D 시점을 강제하지 않습니다.
+**개발 후보 기능:** [NAI 카메라 시점 / RS 카메라 시점](docs/camera-control.md)은 NAI·로컬 공통 컨텍스트에 시점 태그를 더합니다. 노드 안에서 방향·높이·거리·랜덤 구도와 가중치 곡선을 조절하고, 영역의 확대·축소·회전·평면 원근 변형을 선택합니다. NAI에는 시점 태그와 변환한 캐릭터 중심 좌표를 보내고 실루엣은 로컬 왕복용으로 보존합니다.
 
 ## What's New in 2.9.1
 

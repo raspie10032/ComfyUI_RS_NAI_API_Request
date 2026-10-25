@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict'),cp=require('child_process');
 const source=fs.readFileSync('web/camera_control.js','utf8').replace(/^import[^\n]*\n/gm,'').replaceAll('export function','function');
-let extension,locale='en';
-const app={extensionManager:{setting:{get:()=>locale}},registerExtension:e=>extension=e};
+const extensions=[];let locale='en';
+const app={extensionManager:{setting:{get:()=>locale}},registerExtension:e=>extensions.push(e)};
 const context2d=new Proxy({}, {get:(obj,name)=>obj[name] ?? (()=>{}),set:(obj,name,value)=>(obj[name]=value,true)});
 const element=()=>({style:{},children:[],listeners:{},append(...items){this.children.push(...items);},setAttribute(){},addEventListener(name,fn){this.listeners[name]=fn;},getContext(){return context2d;},setPointerCapture(){}});
 const sandbox={app,document:{createElement:element},console,atob:s=>Buffer.from(s,'base64').toString('binary')};
@@ -40,7 +40,18 @@ class Node{
  onExecuted(){return 'executed';}
 }
 (async()=>{
+ const extension=extensions.find(e=>e.name==='RS.CameraControl');
  await extension.beforeRegisterNodeDef(Node,{name:'RSCameraControl'});
+ class NAINode extends Node {}
+ const nai=extensions.find(e=>e.name==='RS.NAICameraControl');
+ assert.ok(nai);
+ await nai.beforeRegisterNodeDef(NAINode,{name:'NAICameraControl'});
+ const naiNode=new NAINode();naiNode.onNodeCreated();naiNode.onNodeCreated();
+ assert.equal(naiNode.widgets.filter(w=>w.name==='rs_camera_editor').length,1);
+ // An old companion editor guard cannot suppress the NAI-specific editor.
+ const prior=[];const oldFirst={app:{...app,registerExtension:e=>prior.push(e)},document:{createElement:element},console};
+ vm.runInNewContext('globalThis[Symbol.for("raspie.camera.editor")]=true;'+source,oldFirst);
+ assert.deepEqual(prior.map(e=>e.name),['RS.NAICameraControl']);
  const node=new Node();node.onNodeCreated();node.onNodeCreated();
  assert.equal(node.widgets.filter(w=>w.name==='rs_camera_editor').length,1);
  const editor=node.rsCameraEditor,custom=node.widgets.at(-1);

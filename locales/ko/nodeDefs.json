@@ -1659,5 +1659,57 @@
         "name": "생성 화면 비율"
       }
     }
+  },
+  "NAICameraControl": {
+    "display_name": "NAI 카메라 시점",
+    "description": "NAI 시점·랜덤 구도·중심 좌표 연동. NAI에는 시점 태그와 중심 좌표를 보냅니다. 실루엣 마스크는 로컬 왕복용으로 보존합니다.",
+    "inputs": {
+      "azimuth": {
+        "name": "좌우 각도"
+      },
+      "elevation": {
+        "name": "위아래 각도"
+      },
+      "distance": {
+        "name": "촬영 거리"
+      },
+      "roll": {
+        "name": "기울기"
+      },
+      "strength": {
+        "name": "시점 강도"
+      },
+      "weighting": {
+        "name": "가중치 표현"
+      },
+      "prompt_syntax": {
+        "name": "프롬프트 문법"
+      },
+      "enabled": {
+        "name": "사용"
+      },
+      "context": {
+        "name": "공용 컨텍스트"
+      },
+      "base_prompt": {
+        "name": "공통 프롬프트"
+      },
+      "scope": {
+        "name": "적용 범위"
+      },
+      "random_mode": {
+        "name": "랜덤 구도"
+      },
+      "random_seed": {
+        "name": "카메라 랜덤 시드"
+      },
+      "layout_sync": {
+        "name": "마스크 배치 연동",
+        "tooltip": "perspective: 평면 원근 + 거리·회전. ±90°에서는 선이 되므로 각도를 바꾸세요. 글자 상자는 고정."
+      },
+      "canvas_aspect": {
+        "name": "생성 화면 비율"
+      }
+    }
   }
 }

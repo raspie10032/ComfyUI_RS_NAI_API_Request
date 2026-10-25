@@ -85,3 +85,19 @@ The projection orbits the canvas centre with coordinates X=(x−0.5)×aspect, Y=
 **마스크 배치 연동을 perspective로 선택**하면 좌우·상하 각도에 따라 전체 마스크 평면을 원근 변형합니다. 거리·회전도 함께 적용됩니다. 가까운 쪽은 커지고 먼 쪽은 작아지며, 전체·부위 마스크와 좌표를 같은 방식으로 바꿉니다. 글자는 고정입니다. **인물 입체 형상이나 가려진 부분을 복원하는 기능은 아닙니다.** 뒤쪽에서는 평면이 좌우 반전되며, ±90°에서는 마스크가 선이 되어 오류로 안내합니다. 각도를 줄이거나 distance_and_roll을 사용하세요. 기본 fixed와 기존 거리·기울기 모드의 결과는 유지됩니다.
 
 Perspective validation (2026-10-25): local Python 269 cases (261 passed, 8 skipped); NAI Python 300 passed; 24 cross-package cases passed; both camera editor test files passed. Forward projection matched Python/JavaScript; tests cover mask/body-part warps, edge-on rejection, zero-angle compatibility, and NAI/local round trips. Two controlled Anima images used the same camera captions/seed, 1216x832, RSCV5 0.9, 30 steps, Euler ancestral / SGM uniform (yaw 45, elevation 25, distance 0.65, roll 12). PNG-restored masks exactly matched the expected warp. An additional live UI generation at yaw 50 verified interactive preview execution. This does not establish pose fidelity or results on other model families; no live NAI request was made for perspective.
+
+
+## NAI-only installation and menu entry
+
+Find **NAI Camera Control** in **RS_NovelAI_API → Camera** (한국어: **NAI 카메라 시점**, 日本語: **NAI カメラ視点**). It uses the same camera/layout engine and interactive editor as RS Camera Control. No local diffusion model, ControlNet, extra camera weights or RS Multi-Character Sampler installation is required for native NAI character/context input. The older RS Camera Control ID remains available for existing workflows.
+
+- Before T2I: `NAI Character Prompt → NAI Camera Control (context) → NAI Image Generator (characterPrompts or nai_context)`. Connect the scene to the camera's `base_prompt`, then enable context inheritance on the generator.
+- From an image or a previous generation: `NAI Load Image / Generator (nai_context) → NAI Camera Control → NAI Generator / Img2Img / Multi-Character Detailer (nai_context)`. Enable context inheritance. Each generation stage retains its own seed, canvas, references and Anlas protection.
+- The shared context output remains `RS_MC_CHARACTER_PIPE` so it can also return to local RS nodes. A native NAI context remains a native NAI context at runtime. The default STRING-only syntax in the NAI entry is NovelAI; a connected context always supplies its own syntax.
+- `fixed` changes captions only; `distance_and_roll` also transforms character centers; `perspective` projects the common flat plane. Match `canvas_aspect` to generation width divided by height. NAI consumes centers, never silhouette masks. A plain NAI context has no silhouette to preview, so it shows character points.
+- Local silhouette/body-part snapshots require the local extension to decode and transform them. Install both updated extensions when editing those local records. This dependency does not apply to ordinary native NAI coordinates.
+- Turning the camera off passes the original context through. Camera processing itself never calls NovelAI; only executing a downstream generation/detailer node can make a request. Strict no-Anlas protection remains that downstream node's setting.
+
+**한국어:** NAI만 설치한 환경에서도 **RS_NovelAI_API → Camera → NAI 카메라 시점**을 사용할 수 있습니다. 캐릭터 프롬프트 또는 NAI 컨텍스트를 연결하고 생성 노드의 컨텍스트 사용을 켜세요. 첫 생성 전에는 카메라의 `base_prompt`에 공통 장면을 연결합니다. NAI에 보내는 것은 시점 태그와 중심 좌표이며, 실루엣 자체를 NAI 영역 마스크로 적용하지 않습니다. 로컬 마스크를 포함한 컨텍스트를 편집할 때만 양쪽 확장이 필요합니다.
+
+**日本語:** NAIのみの環境でも **RS_NovelAI_API → Camera → NAI カメラ視点**を使用できます。キャラクタープロンプトまたはNAIコンテキストを接続し、生成ノードのコンテキスト継承を有効にしてください。初回生成前は`base_prompt`に共通シーンを接続します。NAIへ送るのは視点タグと中心座標です。ローカルマスクを含むコンテキストを編集する場合のみ両方の拡張が必要です。

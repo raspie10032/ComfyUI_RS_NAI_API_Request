@@ -270,3 +270,20 @@ if(!globalThis[Symbol.for("raspie.camera.editor")]){
         },
     });
 }
+
+// Keep the NAI entry independent of the shared editor's registration guard:
+// the companion extension may have registered an earlier shared editor first.
+if(!globalThis[Symbol.for("raspie.nai.camera.editor")]){
+    globalThis[Symbol.for("raspie.nai.camera.editor")]=true;
+    app.registerExtension({
+        name:"RS.NAICameraControl",
+        async beforeRegisterNodeDef(nodeType,nodeData){
+            if(nodeData.name!=="NAICameraControl")return;
+            const previous=nodeType.prototype.onNodeCreated;
+            nodeType.prototype.onNodeCreated=function(){
+                const result=previous?.apply(this,arguments);addCameraEditor(this);
+                this.setSize?.([Math.max(380,this.size[0]),this.computeSize()[1]]);return result;
+            };
+        },
+    });
+}

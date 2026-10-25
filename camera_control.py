@@ -125,6 +125,10 @@ class RSCameraControl:
         scene = base_prompt if base_prompt is not None else (context.prompt if context is not None else "")
         if enabled and strength and scene is None:
             raise ValueError("This pipe has no scene caption. Connect base_prompt so the sampler's scene is not replaced by camera tags. / 공통 프롬프트가 없는 파이프입니다. base_prompt에 장면 문장을 연결하세요.")
+        # Native NAI character editors may still carry legacy mutable slots.
+        # Ask the pipe to normalize them without importing its backend here.
+        if enabled and strength and callable(getattr(context, "as_camera_context", None)):
+            context = context.as_camera_context()
         syntax = context.syntax if context is not None else prompt_syntax
         if random_mode not in ("off", "balanced", "full"):
             raise ValueError("Choose off/balanced/full random view. / 랜덤 구도 모드를 선택해 주세요.")
@@ -164,3 +168,22 @@ class RSCameraControl:
                        "camera_layout": [{"mode": layout_sync, "aspect": canvas_aspect}],
                        "camera_values": [{"azimuth": azimuth, "elevation": elevation, "distance": distance, "roll": roll}]},
                 "result": (output, prompt, camera)}
+
+
+class NAICameraControl(RSCameraControl):
+    """NAI-menu entry; shares the exact camera and layout implementation."""
+    @classmethod
+    def INPUT_TYPES(cls):
+        fields = super().INPUT_TYPES()
+        fields["required"]["prompt_syntax"] = (["NovelAI", "ComfyUI"], {
+            "tooltip": "Used without context. Connected context keeps its own syntax. / 컨텍스트가 없을 때 사용합니다. 연결 시 원본 문법을 따릅니다."
+        })
+        return fields
+
+    CATEGORY = "RS_NovelAI_API/Camera"
+    DESCRIPTION = (
+        "Camera captions, random views and character-center transforms for NovelAI. "
+        "NAI receives captions and centers, not silhouette masks. Shared masks stay available for local round trips. / "
+        "NAI 시점·랜덤 구도·캐릭터 중심 좌표 연동. NAI에는 태그와 중심 좌표를 보내며 "
+        "실루엣 마스크는 로컬 왕복용으로 보존합니다."
+    )

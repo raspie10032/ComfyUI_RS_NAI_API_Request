@@ -97,6 +97,19 @@ class BidirectionalTests(unittest.TestCase):
         return self.m.build_record(pipe or self.pipe, dict(width=64, height=48, seed=7, steps=2, cfg=5,
             sampler_name='euler', scheduler='normal'), {}, [], {'spatial_slots': 1}, engine='sdxl-spatial-alpha-1')
 
+    def test_native_nai_character_slots_work_with_either_camera_entry(self):
+        from ComfyUI_RS_NAI_API_Request.camera_control import NAICameraControl
+        native = generators.CharacterPromptSelect().build_character_prompt(
+            character_count=1, character1="brown hair", character1_x=.3, character1_y=.5)[0]
+        for cls in (NAICameraControl, self.package.NODE_CLASS_MAPPINGS["RSCameraControl"]):
+            with self.subTest(camera=cls.__module__):
+                output = cls().apply(context=native, base_prompt="one adult woman, garden",
+                                     distance=.7, layout_sync="distance_and_roll")["result"][0]
+                self.assertIn("brown hair", output.characters[0].prompt)
+                self.assertIn("::from front::", output.prompt)
+                self.assertGreater(output.characters[0].x, .3)
+                self.assertEqual(native.characters[0].center, {"x": .3, "y": .5})
+
     def test_camera_shared_node_is_identical_and_preserves_real_context_round_trip(self):
         from ComfyUI_RS_NAI_API_Request.camera_control import RSCameraControl
         node = RSCameraControl()
