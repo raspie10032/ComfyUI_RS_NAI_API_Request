@@ -104,6 +104,65 @@ export function setCameraValues(node, changes) {
     node.setDirtyCanvas?.(true, true);
 }
 
+// Separate bearing from height: raising a camera must not look like moving it behind the subject.
+export function cameraDiagram({azimuth=0, elevation=0, distance=.5} = {}) {
+    const yaw=azimuth*Math.PI/180, pitch=elevation*Math.PI/180, radius=65+35*distance;
+    return {top:[164+radius*Math.sin(yaw),164+radius*Math.cos(yaw)],
+        side:[456+radius*Math.cos(pitch),164-radius*Math.sin(pitch)],
+        sector:((Math.round(azimuth/45)%8)+8)%8};
+}
+
+function drawCameraDiagram(c, v) {
+    c.clearRect(0,0,640,350);
+    const label=(s,x,y,color="#dce7f4",size=19)=>{c.fillStyle=color;c.font=`${size}px sans-serif`;c.textAlign="center";c.fillText(s,x,y);};
+    const line=(x,y,tx,ty,color="#526379")=>{c.strokeStyle=color;c.lineWidth=2;c.beginPath();c.moveTo(x,y);c.lineTo(tx,ty);c.stroke();};
+    const arrow=(x,y,tx,ty,color)=>{
+        line(x,y,tx,ty,color);const a=Math.atan2(ty-y,tx-x);
+        c.fillStyle=color;c.beginPath();c.moveTo(tx,ty);c.lineTo(tx-10*Math.cos(a-.5),ty-10*Math.sin(a-.5));c.lineTo(tx-10*Math.cos(a+.5),ty-10*Math.sin(a+.5));c.closePath();c.fill();
+    };
+    const camera=(p,target)=>{
+        const [x,y]=p,[tx,ty]=target,a=Math.atan2(ty-y,tx-x);
+        // View cone and arrow explicitly point from the yellow camera to the blue subject.
+        c.fillStyle="#ffca6a20";c.beginPath();c.moveTo(x,y);c.lineTo(tx+19*Math.sin(a),ty-19*Math.cos(a));c.lineTo(tx-19*Math.sin(a),ty+19*Math.cos(a));c.closePath();c.fill();
+        arrow(x,y,x+(tx-x)*.7,y+(ty-y)*.7,"#ffca6a");
+        c.save();c.translate(x,y);c.rotate(a);c.fillStyle="#ffca6a";c.fillRect(-13,-9,22,18);
+        c.beginPath();c.moveTo(9,-5);c.lineTo(18,-11);c.lineTo(18,11);c.lineTo(9,5);c.closePath();c.fill();c.restore();
+    };
+    const {top,side,sector}=cameraDiagram(v);
+    label(text("TOP · direction","위에서 본 방향","上面・方向","俯视 · 方向","俯視 · 方向"),164,25);
+    label(text("SIDE · height","옆에서 본 높이","側面・高さ","侧视 · 高度","側視 · 高度"),472,25);
+    line(324,10,324,284);
+    c.strokeStyle="#526379";c.lineWidth=2;c.beginPath();c.arc(164,164,100,0,Math.PI*2);c.stroke();
+    line(64,164,264,164);line(164,64,164,264);
+    label(text("FRONT","정면","正面","正面"),164,288);
+    label(text("BACK","후면","背面","背面"),164,55);
+    label(text("LEFT","좌측","左側","左侧","左側"),29,170);
+    label(text("RIGHT","우측","右側","右侧","右側"),295,170);
+    c.fillStyle="#7db6ce";c.beginPath();c.arc(164,164,16,0,Math.PI*2);c.fill();
+    arrow(164,181,164,207,"#7db6ce");
+    c.strokeStyle="#526379";c.beginPath();c.arc(456,164,100,-Math.PI/2,Math.PI/2);c.stroke();
+    line(420,164,585,164);line(456,64,456,264);
+    label(text("ABOVE","위에서","上から","俯视","俯視"),472,55);
+    label(text("BELOW","아래에서","下から","仰视","仰視"),472,288);
+    // The profile's head sits on the eye-level axis, independently of horizontal bearing.
+    c.fillStyle="#7db6ce";c.beginPath();c.arc(456,164,14,0,Math.PI*2);c.fill();
+    c.fillRect(445,183,22,29);line(456,212,445,237,"#7db6ce");line(456,212,467,237,"#7db6ce");
+    camera(top,[164,164]);camera(side,[456,164]);
+    const directions=[
+        ["Front","정면","正面","正面"],["Front-right","우전방","右前方","右前方"],
+        ["Right side","우측면","右側面","右侧面","右側面"],["Rear-right","우후방","右後方","右后方","右後方"],
+        ["Behind","후면","背面","背面"],["Rear-left","좌후방","左後方","左后方","左後方"],
+        ["Left side","좌측면","左側面","左侧面","左側面"],["Front-left","좌전방","左前方","左前方"],
+    ];
+    const height=v.elevation>2?text("above","위에서","上から","俯视","俯視"):v.elevation< -2?text("below","아래에서","下から","仰视","仰視"):text("eye level","눈높이","目線","平视","平視");
+    label(`${text("Camera","카메라","カメラ","相机","相機")}: ${text(...directions[sector])} · ${height} (${v.azimuth.toFixed(0)}° / ${v.elevation.toFixed(0)}°)`,320,318,"#ffca6a");
+    label(text("Blue = subject, arrow = facing front · Yellow = camera aiming at subject",
+        "파랑=인물, 화살표=정면 · 노랑=인물을 바라보는 카메라",
+        "青=人物・矢印=正面方向 · 黄=人物に向くカメラ",
+        "蓝色=人物，箭头=正面 · 黄色=朝向人物的相机",
+        "藍色=人物，箭頭=正面 · 黃色=朝向人物的相機"),320,343,"#b7c6d9",17);
+}
+
 export function addCameraEditor(node) {
     if (node.rsCameraEditor) return;
     const root = document.createElement("div");
@@ -114,6 +173,7 @@ export function addCameraEditor(node) {
     const presets = [
         [["Front", "정면", "正面", "正面"], {azimuth:0,elevation:0}],
         [["Side", "측면", "側面", "侧面", "側面"], {azimuth:90,elevation:0}],
+        [["Back", "후면", "背面", "背面"], {azimuth:180,elevation:0}],
         [["Above", "위에서", "上から", "俯视", "俯視"], {azimuth:0,elevation:60}],
         [["Below", "아래서", "下から", "仰视", "仰視"], {azimuth:0,elevation:-45}],
         [["Close", "가까이", "近く", "近景"], {distance:.25}],
@@ -135,9 +195,9 @@ export function addCameraEditor(node) {
         buttons.push([b, labels]); toolbar.append(b);
     }
     const canvas = document.createElement("canvas");
-    canvas.width = 640; canvas.height = 220; canvas.tabIndex = 0;
+    canvas.width = 640; canvas.height = 350; canvas.tabIndex = 0;
     canvas.setAttribute("aria-label", "Camera view control");
-    canvas.style.cssText = "width:100%;height:130px;display:block;touch-action:none;cursor:grab";
+    canvas.style.cssText = "width:100%;height:auto;aspect-ratio:640/350;display:block;touch-action:none;cursor:grab";
     const notice = document.createElement("div"), output = document.createElement("pre");
     notice.style.cssText = "line-height:1.45;color:#bcc8d8";
     output.style.cssText = "white-space:pre-wrap;word-break:break-word;line-height:1.4;color:#99d4e8;margin:7px 0";
@@ -153,17 +213,13 @@ export function addCameraEditor(node) {
     function render() {
         const v = {...values(node), ...executedView}, c = canvas.getContext("2d");
         for (const [b, labels] of buttons) b.textContent = text(...labels);
-        c.clearRect(0,0,640,220);
-        c.strokeStyle = "#526379"; c.lineWidth = 2;
-        c.beginPath();c.ellipse(320,98,210,65,0,0,Math.PI*2);c.stroke();
-        c.fillStyle = "#7db6ce";c.beginPath();c.arc(320,83,18,0,Math.PI*2);c.fill();
-        c.fillRect(302,106,36,44);
-        c.fillStyle="#dce7f4";c.font="18px sans-serif";c.fillText(text("FRONT","정면","正面","正面"),285,183);c.fillText(text("REAR","후면","背面","背面"),292,19);
-        const angle = v.azimuth*Math.PI/180;
-        const x = 320+210*Math.sin(angle), y = 98+65*Math.cos(angle)-v.elevation*.6;
-        c.strokeStyle="#ffca6a";c.beginPath();c.moveTo(320,98);c.lineTo(x,y);c.stroke();
-        c.save();c.translate(x,y);c.rotate(v.roll*Math.PI/180);c.fillStyle="#ffca6a";c.fillRect(-12,-8,24,16);c.restore();
-        c.fillStyle="#dce7f4";c.font="16px sans-serif";c.fillText(`${v.azimuth.toFixed(0)}° / ${v.elevation.toFixed(0)}° / ${v.distance.toFixed(2)}`,12,210);
+        drawCameraDiagram(c,v);
+        canvas.setAttribute("aria-label",text(
+            "Camera direction and height. Drag to change view; wheel for distance; Shift+wheel for tilt.",
+            "카메라 방향과 높이. 드래그: 시점, 휠: 거리, Shift+휠: 기울기.",
+            "カメラの方向と高さ。ドラッグ:視点、ホイール:距離、Shift:傾き。",
+            "相机方向与高度。拖动:视角，滚轮:距离，Shift+滚轮:倾斜。",
+            "相機方向與高度。拖曳:視角，滾輪:距離，Shift+滾輪:傾斜。"));
         const links=[...Object.keys(defaults),"random_mode","random_seed"].filter(k=>linked(node,k));
         notice.textContent = links.length ? text("Linked controls resolve on execution: ","연결 항목은 실행 시 확정: ","接続項目は実行時に確定: ","连接项在执行时确定: ","連接項在執行時確定: ")+links.join(", ") :
             text("Drag: view · Wheel: distance · Shift+wheel: tilt. Diagram guides captions. Layout sync is optional.",
@@ -259,7 +315,7 @@ export function addCameraEditor(node) {
         w.callback=function(...args){const result=previous?.apply(this,args);executed=null;executedView=null;executedLayout=null;render();return result;};
     }
     const custom=node.addDOMWidget("rs_camera_editor","rs_camera_editor",root,{serialize:false,hideOnZoom:false});
-    custom.computeSize=()=>[360,560];custom.serialize=false;
+    custom.computeSize=()=>[360,640];custom.serialize=false;
     const previous=node.onExecuted;
     node.onExecuted=function(message){const result=previous?.apply(this,arguments);resolvedSyntax=message.camera_syntax?.[0] ?? null;executed=message.camera_caption?.[0] ?? null;executedView=message.camera_values?.[0] ?? null;executedLayout=message.camera_layout?.[0]??null;regions=message.camera_regions?.[0]??[];render();return result;};
     const configured=node.onConfigure;

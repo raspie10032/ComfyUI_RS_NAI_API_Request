@@ -25,7 +25,7 @@ The connected context determines ComfyUI or NovelAI prompt syntax. Without conte
 | strength | 0…5 / 1.2 | Caption weight multiplier; start around 0.8–1.4 |
 | enabled | true | OFF passes through without adding camera captions |
 
-Drag the in-node diagram to adjust horizontal/vertical view. Wheel adjusts distance; Shift+wheel adjusts tilt. Arrow keys adjust the view. Preset buttons set front/side/above/below or near/far; Reset restores numeric defaults and enables the node. Connected numerical inputs are not overwritten by these gestures; their effective values resolve at execution. The diagram is a caption guide. Small graphs show normalized weights; the separate numerical strength multiplies them. The text below shows weights, then the server's exact camera caption after execution.
+Drag the in-node diagram to adjust horizontal/vertical view. Wheel adjusts distance; Shift+wheel adjusts tilt. Arrow keys adjust the view. Preset buttons set front/side/back/above/below or near/far; Reset restores numeric defaults and enables the node. Connected numerical inputs are not overwritten by these gestures; their effective values resolve at execution. The diagram separates top-down bearing from side-view height. Blue marks the subject and its forward direction; yellow cameras and arrows point toward the subject. The position caption names the current eight-way bearing and height. Diagram distance follows the distance control; tilt is set with the roll control. The diagram is a caption guide. The text below previews the selected prompt syntax, then the exact server camera caption after execution.
 
 Neighboring tags use `s(t) = (1 − cos(πt)) / 2`, with complementary weights `1−s` and `s`. Horizontal captions are multiplied by `0.85 × cos(elevation)²`, vertical by `0.8`, distance by `1`, and tilt by `0.6 × |roll| / 45`, all times strength. Turning strength to 0 or disabling the node adds no camera captions. ±180 have equal rear captions; at ±90 elevation horizontal captions vanish. String formatting rounds to two decimals and omits weights below 0.005, so the smooth mathematical curves can still have small textual quantization steps.
 
@@ -134,3 +134,7 @@ In `plain` mode, tags are selected against half of their own axis's peak weight 
 For side/rear shots, start with a short scene and identity/outfit descriptions. Eye color, facial expression and a front-facing gesture can compete with view captions. In a same-seed MOSS native JSON check, simplified scene/character captions produced a rear view at 8 accelerated steps, while the original detailed captions stayed frontal. Several descriptions changed together, so this does not identify a single conflicting token or establish a general success rate. Keep camera captions on both scene and characters; compare simplified prompts before increasing steps or strength.
 
 측면·후면은 짧은 장면과 캐릭터·의상 설명부터 시작하세요. 눈 색·표정·정면 동작은 시점 태그와 충돌할 수 있습니다. 같은 시드의 MOSS 네이티브 JSON 시험에서 기존 상세 문장은 정면에 머물렀지만, 문장을 줄인 조건은 8스텝 고속화에서도 후면이 나왔습니다. 여러 표현을 함께 바꾼 비교이므로 특정 단어의 원인이나 일반 성공률을 확정한 결과는 아닙니다. 공통 장면과 캐릭터 모두에 시점을 적용하고, 스텝이나 강도를 높이기 전에 문장을 줄여 비교해보세요.
+
+### 카메라 위치 읽기 / Reading camera position
+
+위에서 본 방향과 옆에서 본 높이를 분리해 표시합니다. 파란 인물의 화살표는 정면, 노란 카메라의 렌즈·화살표는 인물을 바라보는 방향입니다. 도식 아래에 정면·우전방·우측면·우후방·후면·좌후방·좌측면·좌전방과 높이를 표시합니다. 높이를 올려도 위쪽 도식의 앞뒤 위치는 바뀌지 않습니다. 후면 버튼으로 바로 뒤쪽을 선택할 수 있습니다. 거리·기울기 수치 및 기존 드래그·휠 조작은 유지됩니다.

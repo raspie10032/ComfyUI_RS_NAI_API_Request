@@ -3,7 +3,8 @@ const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict'),cp=
 const source=fs.readFileSync('web/camera_control.js','utf8').replace(/^import[^\n]*\n/gm,'').replaceAll('export function','function');
 const extensions=[];let locale='en';
 const app={extensionManager:{setting:{get:()=>locale}},registerExtension:e=>extensions.push(e)};
-const context2d=new Proxy({}, {get:(obj,name)=>obj[name] ?? (()=>{}),set:(obj,name,value)=>(obj[name]=value,true)});
+const drawnText=[];
+const context2d=new Proxy({fillText(s){drawnText.push(s);}}, {get:(obj,name)=>obj[name] ?? (()=>{}),set:(obj,name,value)=>(obj[name]=value,true)});
 const element=()=>({style:{},children:[],listeners:{},append(...items){this.children.push(...items);},setAttribute(){},addEventListener(name,fn){this.listeners[name]=fn;},getContext(){return context2d;},setPointerCapture(){}});
 const sandbox={app,document:{createElement:element},console,atob:s=>Buffer.from(s,'base64').toString('binary')};
 vm.runInNewContext(source,sandbox);
@@ -35,6 +36,20 @@ for(let i=0;i<coordinates.length;i++){
   const actual=sandbox.cameraWeights(coordinates[i]);
   for(const tag of new Set([...Object.keys(expected[i]),...Object.keys(actual)])) assert.ok(Math.abs((actual[tag]||0)-(expected[i][tag]||0))<1e-10,`${i}: ${tag}`);
 }
+// Camera markers and captions must agree at front/back/left/right and stay independent of height.
+for (const [azimuth,sector,dx,dy] of [[0,0,0,1],[90,2,1,0],[180,4,0,-1],[-180,4,0,-1],[-90,6,-1,0]]) {
+  const d=sandbox.cameraDiagram({azimuth});
+  assert.equal(d.sector,sector);
+  assert.ok(Math.abs(d.top[0]-(164+82.5*dx))<1e-9);
+  assert.ok(Math.abs(d.top[1]-(164+82.5*dy))<1e-9);
+  assert.deepEqual(d.top,sandbox.cameraDiagram({azimuth,elevation:90}).top);
+}
+assert.ok(sandbox.cameraDiagram({elevation:90}).side[1]<164);
+assert.ok(sandbox.cameraDiagram({elevation:-90}).side[1]>164);
+assert.equal(sandbox.cameraDiagram({elevation:0}).side[1],164);
+assert.ok(sandbox.cameraDiagram({distance:1}).top[1]>sandbox.cameraDiagram({distance:0}).top[1]);
+for(const [angle,sector] of [[45,1],[135,3],[-135,5],[-45,7]]) assert.equal(sandbox.cameraDiagram({azimuth:angle}).sector,sector);
+
 class Node{
  constructor(){this.inputs=[];this.size=[340,200];this.widgets=Object.entries({azimuth:0,elevation:0,distance:.5,roll:0,strength:1.2,enabled:true,weighting:'weighted',prompt_syntax:'ComfyUI',random_mode:'off',random_seed:0,layout_sync:'fixed',canvas_aspect:1}).map(([name,value])=>({name,value,callback(){return 42;}}));}
  addDOMWidget(name,type,element,options){const w={name,type,element,options};this.widgets.push(w);return w;}
@@ -75,6 +90,14 @@ class Node{
  node.inputs=[];sandbox.setCameraValues(node,{distance:.5});
 
  for(const lang of ['en','ko','ja','zh','zh-TW']){locale=lang;editor.render();assert.ok(notice.textContent.length>35);assert.ok(toolbar.children[0].textContent);}
+ locale='en';
+ drawnText.length=0;sandbox.setCameraValues(node,{azimuth:45,elevation:60});
+ assert.ok(drawnText.some(s=>s.includes('Front-right · above')));
+ assert.ok(drawnText.includes('TOP · direction'));assert.ok(drawnText.includes('SIDE · height'));
+ toolbar.children[2].onclick();assert.equal(value('azimuth'),180);assert.equal(value('elevation'),0);
+ assert.ok(drawnText.some(s=>s.includes('Behind · eye level')));
+ locale='ko';drawnText.length=0;editor.render();assert.ok(drawnText.some(s=>s.includes('후면 · 눈높이')));
+ locale='en';sandbox.setCameraValues(node,{azimuth:0,elevation:0});
  toolbar.children[1].onclick();assert.equal(value('azimuth'),90);
  canvas.onpointerdown({button:0,clientX:0,clientY:0,pointerId:1});
  canvas.onpointermove({clientX:1000,clientY:-1000,preventDefault(){}});canvas.onpointerup();
