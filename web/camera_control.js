@@ -37,6 +37,33 @@ export function cameraWeights({azimuth=0, elevation=0, distance=.5, roll=0, stre
     return Object.fromEntries(Object.entries(weights).filter(([, v]) => v > 1e-12));
 }
 
+const tagAxes = Object.fromEntries([
+    ...["from front", "viewed from the left side", "viewed from the right side", "from behind"].map(t => [t, "azimuth"]),
+    ...["from above", "from below", "overhead view", "worm's-eye view"].map(t => [t, "elevation"]),
+    ...["extreme close-up", "close-up", "medium shot", "full body", "wide shot"].map(t => [t, "distance"]),
+    ["dutch angle", "roll"],
+]);
+
+// Python rounds exact half-cent ties to even; JS toFixed rounds them upward.
+// A binary float is an exact half-cent only at odd multiples of 1/8.
+function captionNumber(value) {
+    const cents = Math.floor(value * 100);
+    const halfCent = Number.isInteger(value * 8) && !Number.isInteger(value * 4);
+    return halfCent && cents % 2 === 0 ? cents / 100 : Number(value.toFixed(2));
+}
+
+export function cameraCaption(weights, syntax="ComfyUI", weighting="weighted") {
+    const peaks = {};
+    for (const [tag, value] of Object.entries(weights)) {
+        const axis = tagAxes[tag] ?? tag;
+        peaks[axis] = Math.max(peaks[axis] ?? 0, value);
+    }
+    return Object.entries(weights).filter(([tag, value]) => value >= .005 &&
+        (weighting !== "plain" || value >= peaks[tagAxes[tag] ?? tag] * .5))
+        .map(([tag, value]) => weighting === "plain" ? tag : syntax === "NovelAI" ?
+            `${captionNumber(value)}::${tag}::` : `(${tag}:${captionNumber(value)})`).join(", ");
+}
+
 function values(node) {
     const v = Object.fromEntries(Object.entries(defaults).map(([k, v]) => [k, widget(node, k)?.value ?? v]));
     const mode = widget(node, "random_mode")?.value ?? "off";
@@ -122,7 +149,7 @@ export function addCameraEditor(node) {
     layoutCanvas.style.cssText="display:block;width:100%;height:180px;object-fit:contain;background:#111820";
     root.append(layoutNotice,layoutCanvas);
     for (const event of ["pointerdown", "wheel", "keydown"]) root.addEventListener(event, e => e.stopPropagation());
-    let executed = null, executedView = null, executedLayout=null, regions=[];
+    let executed = null, executedView = null, executedLayout=null, resolvedSyntax=null, regions=[];
     function render() {
         const v = {...values(node), ...executedView}, c = canvas.getContext("2d");
         for (const [b, labels] of buttons) b.textContent = text(...labels);
@@ -131,7 +158,7 @@ export function addCameraEditor(node) {
         c.beginPath();c.ellipse(320,98,210,65,0,0,Math.PI*2);c.stroke();
         c.fillStyle = "#7db6ce";c.beginPath();c.arc(320,83,18,0,Math.PI*2);c.fill();
         c.fillRect(302,106,36,44);
-        c.fillStyle="#dce7f4";c.font="18px sans-serif";c.fillText("FRONT",285,183);c.fillText("REAR",292,19);
+        c.fillStyle="#dce7f4";c.font="18px sans-serif";c.fillText(text("FRONT","정면","正面","正面"),285,183);c.fillText(text("REAR","후면","背面","背面"),292,19);
         const angle = v.azimuth*Math.PI/180;
         const x = 320+210*Math.sin(angle), y = 98+65*Math.cos(angle)-v.elevation*.6;
         c.strokeStyle="#ffca6a";c.beginPath();c.moveTo(320,98);c.lineTo(x,y);c.stroke();
@@ -156,7 +183,7 @@ export function addCameraEditor(node) {
             }
             const current=offset+8+(v[axis]-low)/(high-low)*196;
             c.strokeStyle="#fff";c.beginPath();c.moveTo(current,233);c.lineTo(current,312);c.stroke();
-            c.fillStyle="#dce7f4";c.fillText(axis,offset+12,333);
+            c.fillStyle="#dce7f4";c.fillText({azimuth:text("azimuth","좌우 시점","左右視点","水平视角","水平視角"),elevation:text("elevation","상하 시점","上下視点","垂直视角","垂直視角"),distance:text("distance","거리","距離","距离","距離")}[axis],offset+12,333);
         }
         const links=[...Object.keys(defaults),"random_mode","random_seed"].filter(k=>linked(node,k));
         notice.textContent = links.length ? text("Linked controls resolve on execution: ","연결 항목은 실행 시 확정: ","接続項目は実行時に確定: ","连接项在执行时确定: ","連接項在執行時確定: ")+links.join(", ") :
@@ -171,16 +198,24 @@ export function addCameraEditor(node) {
             "ランダム: fixedで再現、randomizeで毎回変更。ドラッグ・プリセットで手動に戻ります。",
             "随机视角: fixed重复，randomize每次改变。拖动或预设切回手动。",
             "隨機視角: fixed重複，randomize每次改變。拖曳或預設切回手動。");
-        output.textContent = executed ?? (v.enabled ? Object.entries(cameraWeights(v)).filter(([,w])=>w>=.005).map(([tag,w])=>`${tag}  ${w.toFixed(2)}`).join("\n") : text("Camera OFF", "카메라 꺼짐", "カメラOFF", "相机已关闭", "相機已關閉"));
+        const syntax=linked(node,"context") && resolvedSyntax ? resolvedSyntax : widget(node,"prompt_syntax")?.value ?? "ComfyUI";
+        output.textContent = !v.enabled || !v.strength ? text("Camera OFF", "카메라 꺼짐", "カメラOFF", "相机已关闭", "相機已關閉") :
+            executed ?? cameraCaption(cameraWeights(v), syntax, widget(node,"weighting")?.value ?? "weighted");
+        if(linked(node,"context") && !resolvedSyntax) notice.textContent += " " + text(
+            "Context syntax resolves on execution; this preview uses the selected syntax.",
+            "컨텍스트 문법은 실행 시 확정됩니다. 현재 미리보기는 선택한 문법을 사용합니다.",
+            "接続コンテキストの構文は実行時に確定。現在は選択した構文で表示。",
+            "上下文语法在执行时确定；当前预览使用所选语法。",
+            "上下文語法在執行時確定；目前預覽使用所選語法。");
         const mode=executedLayout?.mode??v.layout_sync, aspect=executedLayout?.aspect??v.canvas_aspect;
         const sync=v.enabled&&v.strength&&mode!=="fixed";
         const perspective=sync&&mode==="perspective";
         layoutNotice.textContent=regions.length ? text(
-            "Last executed input regions · distance/tilt sync only; view angles stay captions. Text boxes stay fixed.",
-            "마지막 실행 입력의 영역 · 거리·기울기만 배치 연동, 좌우·상하는 태그 유도. 글자 상자는 고정입니다.",
-            "直前の入力領域。距離・傾きのみ連動。視点はタグ、文字枠は固定です。",
-            "上次执行的输入区域。仅联动距离和倾斜；视角为标签，文本框固定。",
-            "上次執行的輸入區域。僅連動距離和傾斜；視角為標籤，文字框固定。") : text(
+            "Last executed input regions · layout mode: ",
+            "마지막 실행 입력의 영역 · 배치 연동: ",
+            "直前の入力領域・配置モード: ",
+            "上次执行的输入区域 · 布局模式: ",
+            "上次執行的輸入區域 · 配置模式: ")+(!sync ? text("fixed","고정","固定","固定") : text("distance / tilt","거리 / 기울기","距離 / 傾き","距离 / 倾斜","距離 / 傾斜")) : text(
             "Run once to load input masks. Upstream edits need another run. Set aspect = output width / height.",
             "한 번 실행하면 입력 마스크를 표시합니다. 상위 배치를 바꾸면 다시 실행하세요. 화면 비율=생성 너비÷높이.",
             "一度実行してマスクを表示。上流の変更後は再実行。比率=出力幅÷高さ。",
@@ -247,11 +282,11 @@ export function addCameraEditor(node) {
     const custom=node.addDOMWidget("rs_camera_editor","rs_camera_editor",root,{serialize:false,hideOnZoom:false});
     custom.computeSize=()=>[360,630];custom.serialize=false;
     const previous=node.onExecuted;
-    node.onExecuted=function(message){const result=previous?.apply(this,arguments);executed=message.camera_caption?.[0] ?? null;executedView=message.camera_values?.[0] ?? null;executedLayout=message.camera_layout?.[0]??null;regions=message.camera_regions?.[0]??[];render();return result;};
+    node.onExecuted=function(message){const result=previous?.apply(this,arguments);resolvedSyntax=message.camera_syntax?.[0] ?? null;executed=message.camera_caption?.[0] ?? null;executedView=message.camera_values?.[0] ?? null;executedLayout=message.camera_layout?.[0]??null;regions=message.camera_regions?.[0]??[];render();return result;};
     const configured=node.onConfigure;
-    node.onConfigure=function(){const result=configured?.apply(this,arguments);executed=null;executedView=null;executedLayout=null;regions=[];render();return result;};
+    node.onConfigure=function(){const result=configured?.apply(this,arguments);executed=null;executedView=null;executedLayout=null;resolvedSyntax=null;regions=[];render();return result;};
     const connections=node.onConnectionsChange;
-    node.onConnectionsChange=function(){const result=connections?.apply(this,arguments);executed=null;executedView=null;executedLayout=null;regions=[];render();return result;};
+    node.onConnectionsChange=function(){const result=connections?.apply(this,arguments);executed=null;executedView=null;executedLayout=null;resolvedSyntax=null;regions=[];render();return result;};
     node.rsCameraEditor={root,render};render();
 }
 
