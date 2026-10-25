@@ -17,6 +17,12 @@ Each tab/card settings panel has a native **View: Panel → Classic widgets** bu
 
 Inherited fields show their source. With selective context overrides, enable the checkbox beside a field to edit its local value. Connected scalar inputs display their source instead of a competing editor. Clearing the character-list override without connecting another list clears all inherited characters; the row explains that effect.
 
+Connected widget inputs keep compact native socket rows above the panel, independent of the selected tab. Their ports and labels remain separate from the panel; disconnecting removes the unused row. Switching to Classic restores the original widget sizing.
+
+**한국어:** 외부에서 연결한 프롬프트·수치 입력은 패널 위에 포트와 이름을 각각 표시합니다. 탭을 바꿔도 연결이 보이며, 연결을 해제하면 해당 행은 접힙니다. 기존 위젯 보기로 돌아가면 원래 크기를 복원합니다.
+
+**日本語:** 外部接続したプロンプト・数値入力は、パネルの上にポートと名前を個別に表示します。タブを切り替えても接続が見え、切断するとその行を折りたたみます。従来表示では元のウィジェットサイズに戻ります。
+
 For a locally selected Medium Effort model, steps, sampler, CFG Rescale and the common negative show the fixed NAI value. Stored manual values are preserved and become editable again when switching models. If the model comes from a connected input or context, its final value is resolved at execution. The last successful request report remains the authority for actual sent parameters.
 
 WebP quality appears for lossy WebP, or when save format comes from a connected input. Status reports, request countdowns and loader download progress appear inside the panel. Original image previews and inset-dimension previews stay native.

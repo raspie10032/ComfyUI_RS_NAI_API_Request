@@ -241,11 +241,9 @@ export function addSettingsPanel(node, app, nodeData, spec = {}) {
         if (!panel) for (const w of node.widgets ?? []) {
             if (!w.rsNaiPanelVisible) continue;
             const saved = w.rsNaiPanelVisible;
-            if (w.type === "rs-nai-panel-hidden") {
-                Object.assign(w, { type: saved.type, computeSize: saved.computeSize, hidden: saved.hidden });
-                if (w.inputEl) w.inputEl.hidden = saved.inputHidden ?? false;
-                if (w.element) w.element.hidden = saved.elementHidden ?? false;
-            }
+            Object.assign(w, { type: saved.type, computeSize: saved.computeSize, hidden: saved.hidden });
+            if (w.inputEl) w.inputEl.hidden = saved.inputHidden ?? false;
+            if (w.element) w.element.hidden = saved.elementHidden ?? false;
             delete w.rsNaiPanelVisible;
         }
         if (!panel) return;
@@ -264,8 +262,16 @@ export function addSettingsPanel(node, app, nodeData, spec = {}) {
                 if (w.inputEl) w.inputEl.hidden = w.hidden === true;
             }
             if (!w.rsNaiPanelVisible) {
-                w.rsNaiPanelVisible = { type: w.type, computeSize: w.computeSize, hidden: w.hidden, inputHidden: w.inputEl?.hidden, elementHidden: w.element?.hidden };
-                w.type = "rs-nai-panel-hidden"; w.hidden = true; w.computeSize = () => [0, -4];
+                w.rsNaiPanelVisible = { type: w.type, computeSize: w.computeSize, hidden: w.visibility?.suppression?.byExtension ?? w.hidden, inputHidden: w.inputEl?.hidden, elementHidden: w.element?.hidden };
+            }
+            // Connected widgets need a native row for their socket and label.
+            // Hiding the row collapses their ports onto y=0 in current ComfyUI.
+            const connected = linked(w.name), saved = w.rsNaiPanelVisible;
+            if (saved.connected !== connected) {
+                saved.connected = connected;
+                w.type = connected ? saved.type : "rs-nai-panel-hidden";
+                w.hidden = !connected;
+                w.computeSize = connected ? () => [0, 20] : () => [0, -4];
             }
             if (w.inputEl) w.inputEl.hidden = true;
             if (w.element) w.element.hidden = true;
