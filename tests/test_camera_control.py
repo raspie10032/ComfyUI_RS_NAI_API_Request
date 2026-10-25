@@ -148,7 +148,7 @@ class CameraTests(unittest.TestCase):
             out,caption,tags=camera.RSCameraControl().apply(context=pipe,**settings)['result']
             self.assertIs(out,pipe);self.assertEqual(caption,pipe.prompt);self.assertEqual(tags,'')
         out,prompt,tags=camera.RSCameraControl().apply(base_prompt='hello',weighting='plain')['result']
-        self.assertIsNone(out);self.assertTrue(prompt.startswith('hello'));self.assertNotIn(':',tags)
+        self.assertIsInstance(out, camera.CameraBuildSeed);self.assertTrue(prompt.startswith('hello'));self.assertNotIn(':',tags)
         self.assertIn('::',camera.RSCameraControl().apply(prompt_syntax='NovelAI')['result'][2])
 
     def test_plain_axes_are_independent_across_eight_views_and_elevations(self):

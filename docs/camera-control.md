@@ -2,25 +2,27 @@
 
 Development candidate, validated on 2026-10-25; not yet a published release.
 
-This node adds view/framing captions to either an RS finalized character pipe or an NAI context. Optional layout sync scales/rotates character regions or projects their common flat plane for azimuth/elevation; it does not move a 3D camera or enforce generated anatomy. Negative prompts, LoRAs and model settings remain attached to the context.
+This node adds view/framing captions to an RS draft/final character pipe or an NAI context. Optional layout sync scales/rotates character regions or projects their common flat plane for azimuth/elevation; it does not move a 3D camera or enforce generated anatomy. Negative prompts, LoRAs and model settings remain attached to the context.
 
 ## Connect
 
 `Finalize Character Pipe or NAI context → building_pipe [RS Camera Control] building_pipe → character_pipe or nai_context`
 
-Connect the existing scene to `base_prompt` if the finalized character pipe does not contain a scene. The node raises a readable error instead of silently replacing that missing scene with camera tags. A supplied `base_prompt` explicitly replaces the context's scene. With no context, connect `prompt` to the generator's common prompt; the context output is empty. The `camera_prompt` STRING contains just the added camera captions. Both camera entries name their pipe input and output `building_pipe`. Saved UI workflows migrate the old `context` socket in place; the old API keyword remains accepted. These sockets carry a finalized character pipe or NAI context.
+Connect the existing scene to `base_prompt` if the finalized character pipe does not contain a scene. The node raises a readable error instead of silently replacing that missing scene with camera tags. A supplied `base_prompt` explicitly replaces the context's scene. Without an input, the camera can start a building chain or supply its `prompt` STRING to a generator. Its draft pipe must pass through the shared Finalize node before generation. The `camera_prompt` STRING contains just the added camera captions. Both camera entries name their pipe input and output `building_pipe`. Saved UI workflows migrate the old `context` socket in place; the old API keyword remains accepted. These sockets carry a draft building pipe, finalized character pipe or NAI context.
 
 Default `scene_and_characters` adds the view to both common and character captions. This matters for regional Anima generation, where a common-only view can be suppressed by character conditions. `scene_only` leaves character captions untouched. Text regions do not receive camera captions. By default (`layout_sync=fixed`) position/mask coordinates remain fixed. Enable `distance_and_roll` to zoom and rotate every character region together around the canvas center. Set the downstream generator to inherit the connected context.
 
-The connected context determines ComfyUI or NovelAI prompt syntax. Without context, select `prompt_syntax`. Select `plain` for a text path that does not parse numerical prompt weights; it selects dominant tags rather than emitting numerical syntax. Both packages ship the same node ID and identical implementation; installing both registers one editor.
+The connected context determines ComfyUI or NovelAI prompt syntax. Without context, select `prompt_syntax`. Select `plain` for a text path that does not parse numerical prompt weights; it selects dominant tags rather than emitting numerical syntax. Both camera entries share the same controls and pipe protocol: the local package registers `RSCameraControl`, and the NAI package registers `NAICameraControl`.
 
-### Position editing after a camera / 카메라 뒤의 위치 조절
+### Order-independent building and position editing / 순서 무관 조립·위치 편집
 
-With the updated RS MultiCharacter extension installed, its shared Position/Finalize previews follow both camera entries through `building_pipe` and saved `context` links. A camera does not lock the later box, point or mask editor. Camera layout transforms appear downstream; new masks painted after the camera replace its incoming masks without repeating that transform. Native NAI character points can also feed this shared path. Connected numerical controls and unresolved mask/context sources still require their source values first.
+Before Finalize, Prompt, LoRA, Position, Mask/Mask Draw/OpenPose Masks, Reference, Interaction and either camera collect settings by role and slot number. Camera captions and layout transforms are deferred until Finalize, so changing the order of independent roles gives the same result. A camera may start an empty building chain; a missing scene is checked when that chain is finalized. Pass the finalized output to the sampler/detailer or NAI generator.
 
-최신 RS 멀티캐릭터 확장을 함께 설치하면 **NAI 카메라 뒤에서도 공용 위치 노드의 박스·포인트·마스크를 이동·확대·축소**할 수 있습니다. 카메라의 배치 변형을 미리보기에 반영하고, 카메라 뒤에서 새로 그린 마스크를 중복 변형하지 않습니다. NAI 자체 생성은 실루엣 대신 캐릭터 중심 좌표를 사용합니다.
+The last Prompt node owns the active slot count. Repeating the same setting is an explicit override: the last value wins, including a repeated camera. Mask Draw replaces all person masks; individual masks replace their numbered slot. These overwrite operations intentionally depend on their relative order. A camera placed after Finalize transforms that completed context immediately; another building stage starts from that output. Finalize is a processing boundary, not another reorderable setting.
 
-## Controls and captions
+The Position editor follows the complete, unbranched building chain, including roles connected after it. It edits placement **before the pending camera transform**; the Finalize guide shows the resulting camera transform. This keeps dragging/resizing independent of node order without saving an inverse perspective. If the chain branches, edit that branch's own Position node. Linked numerical inputs and unresolved masks still need their source values first. Native NAI character contexts also remain supported; NAI uses character centers rather than silhouette masks.
+
+**조립 중에는 순서가 자유입니다.** 프롬프트·LoRA·위치·마스크·참조 이미지·겹침 제어·카메라 설정을 모은 뒤 Finalize에서 카메라를 한 번 적용합니다. 위치 패널은 카메라 적용 전 배치를 편집하고, 최종 파이프 미리보기는 적용 후 결과를 보여줍니다. 카메라 뒤에서도 번호 선택 → 드래그·모서리·−/+ 조절이 가능합니다. 같은 항목을 여러 번 설정하면 마지막 값이 우선하며, Finalize 뒤 카메라는 이미 완성된 컨텍스트에 즉시 적용됩니다. 분기된 파이프는 해당 가지의 위치 노드에서 편집하세요.
 
 | Control | Range / default | Meaning |
 | --- | --- | --- |

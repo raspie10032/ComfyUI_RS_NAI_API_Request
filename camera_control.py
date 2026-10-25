@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Camera captions shared by the local sampler and NAI nodes; no model patching."""
-from dataclasses import is_dataclass, replace
+from dataclasses import dataclass, is_dataclass, replace
 import math
 
 
@@ -92,6 +92,18 @@ def camera_caption(weights, syntax="ComfyUI", weighting="weighted"):
     return ", ".join(parts)
 
 
+@dataclass(frozen=True)
+class CameraBuildSeed:
+    """A first camera carries settings until a shared builder supplies slots."""
+    camera_settings: tuple = ()
+
+    def rs_defer_camera(self, options):
+        return replace(self, camera_settings=(tuple(options.items()),))
+
+    def rs_as_building_pipe(self, factory):
+        return factory(camera_settings=self.camera_settings)
+
+
 class RSCameraControl:
     @classmethod
     def INPUT_TYPES(cls):
@@ -106,9 +118,9 @@ class RSCameraControl:
             "enabled": ("BOOLEAN", {"default": True, "tooltip": "Off passes the scene through without camera captions. / 끄면 시점 태그를 추가하지 않습니다."}),
             "scope": (["scene_and_characters", "scene_only"], {"tooltip": "Share the view with character regions, or affect only the common caption. Existing text regions and placements stay fixed. / 캐릭터 영역에도 같은 시점을 전달하거나 공통 문장에만 적용합니다. 글자 영역·배치는 유지됩니다."}),
         }, "optional": {
-            "building_pipe": ("RS_MC_CHARACTER_PIPE,NAI_CONTEXT", {"tooltip": "Final character pipe or NAI context. Character placements and model settings are preserved. / 최종 캐릭터 파이프 또는 NAI 컨텍스트. 캐릭터 배치는 유지됩니다."}),
+            "building_pipe": ("RS_MC_BUILD_PIPE,RS_MC_CHARACTER_PIPE,NAI_CONTEXT", {"tooltip": "Draft or final character pipe, or NAI context. In a builder, camera settings apply at Finalize regardless of role order. / 조립·최종 파이프 또는 NAI 컨텍스트. 조립 중 카메라는 순서와 관계없이 Finalize에서 적용됩니다."}),
             # API alias for saved pre-rename graphs; the editor hides this socket.
-            "context": ("RS_MC_CHARACTER_PIPE,NAI_CONTEXT", {"tooltip": "Final character pipe or NAI context. Character placements and model settings are preserved. / 최종 캐릭터 파이프 또는 NAI 컨텍스트. 캐릭터 배치는 유지됩니다."}),
+            "context": ("RS_MC_BUILD_PIPE,RS_MC_CHARACTER_PIPE,NAI_CONTEXT", {"tooltip": "Legacy alias for building_pipe. / building_pipe의 이전 연결 이름입니다."}),
             "base_prompt": ("STRING", {"forceInput": True, "tooltip": "Optional scene caption, in the context's syntax. Required when a connected pipe has no scene. / 연결 파이프에 공통 프롬프트가 없으면 장면 문장을 연결하세요."}),
             "random_mode": (["off", "balanced", "full"], {"default": "off", "tooltip": "Random view overrides the four manual axes. Balanced avoids rear/pole/extreme framing; full uses all ranges. / 랜덤 구도는 수동 각도·거리·기울기를 대신합니다. balanced는 극단 시점을 피하고 full은 전체 범위입니다."}),
             "random_seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffff, "control_after_generate": True, "tooltip": "Camera seed only. Fixed reproduces the view; randomize changes it after each queued generation. / 카메라 전용 시드. fixed는 구도 유지, randomize는 생성마다 변경합니다. 이미지 생성 시드는 바꾸지 않습니다."}),
@@ -116,7 +128,7 @@ class RSCameraControl:
             "canvas_aspect": ("FLOAT", {"default": 1., "min": .1, "max": 10., "step": .001, "tooltip": "Output width divided by height. Use the sampler's ratio to avoid stretched mask rotation. / 생성 너비÷높이. 샘플러와 같은 비율로 맞추세요."}),
         }}
 
-    RETURN_TYPES = ("RS_MC_CHARACTER_PIPE", "STRING", "STRING")
+    RETURN_TYPES = ("RS_MC_BUILD_PIPE,RS_MC_CHARACTER_PIPE,NAI_CONTEXT", "STRING", "STRING")
     RETURN_NAMES = ("building_pipe", "prompt", "camera_prompt")
     FUNCTION = "apply"
     CATEGORY = "RS/Camera"
@@ -138,21 +150,23 @@ class RSCameraControl:
             raise ValueError("Choose fixed, distance_and_roll or perspective layout sync. / 마스크 배치 연동 방식을 선택해 주세요.")
         from .camera_layout import framing, camera_layout, layout_preview
         framing(.5, 0, canvas_aspect)
-        if context is not None and (not is_dataclass(context) or not hasattr(context, "characters")
+        deferred = context is None or callable(getattr(context, "rs_defer_camera", None))
+        if not deferred and (not is_dataclass(context) or not hasattr(context, "characters")
                 or not hasattr(context, "prompt") or not hasattr(context, "syntax")):
             raise ValueError("Connect a finalized RS character pipe or NAI context. / 최종 RS 캐릭터 파이프 또는 NAI 컨텍스트를 연결해 주세요.")
         if base_prompt is not None and not isinstance(base_prompt, str):
             raise ValueError("Connect a text STRING as the scene caption. / 장면 프롬프트는 문자열을 연결해 주세요.")
         if scope not in ("scene_and_characters", "scene_only"):
             raise ValueError("Choose scene_and_characters or scene_only. / 시점 적용 범위를 선택해 주세요.")
-        scene = base_prompt if base_prompt is not None else (context.prompt if context is not None else "")
+        scene = base_prompt if base_prompt is not None else (getattr(context, "prompt", "") if context is not None else "")
         if enabled and strength and scene is None:
             raise ValueError("This pipe has no scene caption. Connect base_prompt so the sampler's scene is not replaced by camera tags. / 공통 프롬프트가 없는 파이프입니다. base_prompt에 장면 문장을 연결하세요.")
         # Native NAI character editors may still carry legacy mutable slots.
         # Ask the pipe to normalize them without importing its backend here.
         if enabled and strength and callable(getattr(context, "as_camera_context", None)):
             context = context.as_camera_context()
-        syntax = context.syntax if context is not None else prompt_syntax
+        source = getattr(context, "source_pipe", None) if deferred else context
+        syntax = getattr(source, "syntax", "ComfyUI" if context is not None and deferred else prompt_syntax)
         if random_mode not in ("off", "balanced", "full"):
             raise ValueError("Choose off/balanced/full random view. / 랜덤 구도 모드를 선택해 주세요.")
         if enabled and strength and random_mode != "off":
@@ -161,6 +175,19 @@ class RSCameraControl:
         weights = camera_weights(azimuth, elevation, distance, roll, strength)
         camera = camera_caption(weights, syntax, weighting) if enabled else ""
         prompt = ", ".join(part for part in (scene, camera) if part)
+        if deferred:
+            options = dict(azimuth=azimuth, elevation=elevation, distance=distance, roll=roll,
+                strength=strength, weighting=weighting, prompt_syntax=prompt_syntax,
+                enabled=enabled, scope=scope, base_prompt=base_prompt,
+                layout_sync=layout_sync, canvas_aspect=canvas_aspect)
+            output = (context if context is not None else CameraBuildSeed()).rs_defer_camera(options)
+            preview = getattr(context, "rs_camera_preview", None)
+            regions = preview() if callable(preview) else []
+            return {"ui": {"camera_caption": [camera], "camera_syntax": [syntax],
+                    "camera_regions": [regions], "camera_deferred": [True],
+                    "camera_layout": [{"mode": layout_sync, "aspect": canvas_aspect}],
+                    "camera_values": [{"azimuth": azimuth, "elevation": elevation, "distance": distance, "roll": roll}]},
+                    "result": (output, prompt, camera)}
         changes = {"prompt": prompt}
         if context is not None and camera and scope == "scene_and_characters":
             # Regional sampling can suppress an early common caption. Each
