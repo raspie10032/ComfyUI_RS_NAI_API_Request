@@ -5,7 +5,7 @@ const extensions=[];let locale='en';
 const app={extensionManager:{setting:{get:()=>locale}},registerExtension:e=>extensions.push(e)};
 const drawnText=[];
 const context2d=new Proxy({fillText(s){drawnText.push(s);}}, {get:(obj,name)=>obj[name] ?? (()=>{}),set:(obj,name,value)=>(obj[name]=value,true)});
-const element=()=>({style:{},children:[],listeners:{},append(...items){this.children.push(...items);},setAttribute(){},addEventListener(name,fn){this.listeners[name]=fn;},getContext(){return context2d;},setPointerCapture(){}});
+const element=()=>({style:{},children:[],listeners:{},append(...items){this.children.push(...items);},setAttribute(){},addEventListener(name,fn){this.listeners[name]=fn;},getContext(){return context2d;},setPointerCapture(){},focus(){},getBoundingClientRect(){return {left:10,top:20,width:320,height:175};}});
 const sandbox={app,document:{createElement:element},console,atob:s=>Buffer.from(s,'base64').toString('binary')};
 vm.runInNewContext(source,sandbox);
 const coordinates=[];
@@ -49,6 +49,17 @@ assert.ok(sandbox.cameraDiagram({elevation:-90}).side[1]>164);
 assert.equal(sandbox.cameraDiagram({elevation:0}).side[1],164);
 assert.ok(sandbox.cameraDiagram({distance:1}).top[1]>sandbox.cameraDiagram({distance:0}).top[1]);
 for(const [angle,sector] of [[45,1],[135,3],[-135,5],[-45,7]]) assert.equal(sandbox.cameraDiagram({azimuth:angle}).sector,sector);
+
+// The pointer angle is the inverse of the drawn camera position on both controls.
+for(let azimuth=-180;azimuth<=180;azimuth+=15){
+ const d=sandbox.cameraDiagram({azimuth,elevation:0,distance:.3});
+ const angle=sandbox.cameraPointerAngle('azimuth',...d.top).azimuth;
+ assert.ok(Math.abs((angle-azimuth+540)%360-180)<1e-9);
+}
+for(let elevation=-90;elevation<=90;elevation+=15){
+ const d=sandbox.cameraDiagram({elevation,distance:.7});
+ assert.ok(Math.abs(sandbox.cameraPointerAngle('elevation',...d.side).elevation-elevation)<1e-9);
+}
 
 class Node{
  constructor(){this.inputs=[];this.size=[340,200];this.widgets=Object.entries({azimuth:0,elevation:0,distance:.5,roll:0,strength:1.2,enabled:true,weighting:'weighted',prompt_syntax:'ComfyUI',random_mode:'off',random_seed:0,layout_sync:'fixed',canvas_aspect:1}).map(([name,value])=>({name,value,callback(){return 42;}}));}
@@ -111,9 +122,31 @@ class Node{
  locale='ko';drawnText.length=0;editor.render();assert.ok(drawnText.some(s=>s.includes('후면 · 눈높이')));
  locale='en';sandbox.setCameraValues(node,{azimuth:0,elevation:0});
  toolbar.children[1].onclick();assert.equal(value('azimuth'),90);
- canvas.onpointerdown({button:0,clientX:0,clientY:0,pointerId:1});
- canvas.onpointermove({clientX:1000,clientY:-1000,preventDefault(){}});canvas.onpointerup();
- assert.equal(value('azimuth'),180);assert.equal(value('elevation'),90);
+ // Pointer mapping uses the displayed (half-size, offset) canvas, never pixel deltas.
+ const event=(x,y,id=1)=>({button:0,clientX:10+x/2,clientY:20+y/2,pointerId:id,preventDefault(){}});
+ const click=(x,y)=>{canvas.onpointerdown(event(x,y));canvas.onpointerup(event(x,y));};
+ sandbox.setCameraValues(node,{elevation:23});
+ for(const [x,y,expected] of [[164,264,0],[264,164,90],[164,64,180],[64,164,-90],[214,114,135]]){
+  click(x,y);assert.ok(Math.abs(value('azimuth')-expected)<1e-9);assert.equal(value('elevation'),23);
+ }
+ // A click in the centre or outside either control cannot reset an angle.
+ click(164,164);assert.equal(value('azimuth'),135);click(10,10);assert.equal(value('azimuth'),135);
+ for(const [x,y,expected] of [[556,164,0],[506,114,45],[456,64,90],[456,264,-90]]){
+  click(x,y);assert.ok(Math.abs(value('elevation')-expected)<1e-9);assert.equal(value('azimuth'),135);
+ }
+ click(456,164);assert.equal(value('elevation'),-90);
+ canvas.onpointerdown(event(264,164));
+ canvas.onpointermove(event(556,64,2));assert.equal(value('azimuth'),90); // unrelated pointer
+ canvas.onpointermove(event(556,64));assert.equal(value('elevation'),-90); // stays on initial axis
+ canvas.onpointercancel(event(556,64));const cancelled=value('azimuth');
+ canvas.onpointermove(event(64,164));assert.equal(value('azimuth'),cancelled);
+ canvas.onpointerdown(event(556,164));canvas.onpointermove(event(400,64));assert.equal(value('elevation'),90);
+ canvas.onlostpointercapture();canvas.onpointermove(event(456,264));assert.equal(value('elevation'),90);
+ canvas.onpointerdown({...event(64,164),button:2});assert.equal(value('azimuth'),cancelled);
+ // Preserve the linked axis and keep the other diagram usable.
+ node.inputs=[{name:'azimuth',link:1}];click(64,164);assert.equal(value('azimuth'),cancelled);
+ click(506,214);assert.equal(value('elevation'),-45);node.inputs=[];
+ sandbox.setCameraValues(node,{azimuth:180,elevation:90});
  canvas.listeners.wheel({deltaY:1,shiftKey:false,preventDefault(){}});assert.equal(value('distance'),.525);
  canvas.listeners.wheel({deltaY:1,shiftKey:true,preventDefault(){}});assert.equal(value('roll'),2);
  canvas.onkeydown({key:'ArrowLeft',preventDefault(){}});assert.equal(value('azimuth'),175);
@@ -125,9 +158,8 @@ class Node{
  assert.deepEqual(node.widgets.filter(w=>w.serialize!==false).map(w=>[w.name,w.value]),before);
  toolbar.children.at(-2).onclick();assert.equal(value('random_mode'),'balanced');assert.ok(Number.isInteger(value('random_seed')));
  const sampled=sandbox.randomCamera('balanced',value('random_seed'));
- canvas.onpointerdown({button:0,clientX:0,clientY:0,pointerId:2});
- canvas.onpointermove({clientX:2,clientY:0,preventDefault(){}});canvas.onpointerup();
- assert.equal(value('random_mode'),'off');assert.equal(value('azimuth'),sampled.azimuth+2);assert.equal(value('distance'),sampled.distance);assert.equal(value('roll'),sampled.roll);
+ click(264,164);
+ assert.equal(value('random_mode'),'off');assert.equal(value('azimuth'),90);assert.equal(value('elevation'),sampled.elevation);assert.equal(value('distance'),sampled.distance);assert.equal(value('roll'),sampled.roll);
  node.widgets.find(w=>w.name==='random_mode').value='full';toolbar.children.at(-2).onclick();assert.equal(value('random_mode'),'full');
  node.onExecuted({camera_caption:['random server caption'],camera_values:[{azimuth:10,elevation:20,distance:.3,roll:2}]});
  assert.equal(output.textContent,'random server caption');

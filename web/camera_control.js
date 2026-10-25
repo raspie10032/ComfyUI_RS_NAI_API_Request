@@ -123,6 +123,14 @@ export function cameraDiagram({azimuth=0, elevation=0, distance=.5} = {}) {
         sector:((Math.round(azimuth/45)%8)+8)%8};
 }
 
+// Canvas coordinates, independent of CSS size and graph zoom. The centre has no bearing.
+export function cameraPointerAngle(axis, x, y) {
+    const dx=x-(axis === "azimuth" ? 164 : 456), dy=y-164;
+    if (Math.hypot(dx,dy) < 8) return {};
+    return axis === "azimuth" ? {azimuth:Math.atan2(dx,dy)*180/Math.PI} :
+        {elevation:clamp(Math.atan2(-dy,dx)*180/Math.PI,-90,90)};
+}
+
 function drawCameraDiagram(c, v) {
     c.clearRect(0,0,640,350);
     const label=(s,x,y,color="#dce7f4",size=19)=>{c.fillStyle=color;c.font=`${size}px sans-serif`;c.textAlign="center";c.fillText(s,x,y);};
@@ -208,7 +216,7 @@ export function addCameraEditor(node) {
     const canvas = document.createElement("canvas");
     canvas.width = 640; canvas.height = 350; canvas.tabIndex = 0;
     canvas.setAttribute("aria-label", "Camera view control");
-    canvas.style.cssText = "width:100%;height:auto;aspect-ratio:640/350;display:block;touch-action:none;cursor:grab";
+    canvas.style.cssText = "width:100%;height:auto;aspect-ratio:640/350;display:block;touch-action:none;cursor:crosshair";
     const notice = document.createElement("div"), output = document.createElement("pre");
     notice.style.cssText = "line-height:1.45;color:#bcc8d8";
     output.style.cssText = "white-space:pre-wrap;word-break:break-word;line-height:1.4;color:#99d4e8;margin:7px 0";
@@ -226,18 +234,18 @@ export function addCameraEditor(node) {
         for (const [b, labels] of buttons) b.textContent = text(...labels);
         drawCameraDiagram(c,v);
         canvas.setAttribute("aria-label",text(
-            "Camera direction and height. Drag to change view; wheel for distance; Shift+wheel for tilt.",
-            "카메라 방향과 높이. 드래그: 시점, 휠: 거리, Shift+휠: 기울기.",
-            "カメラの方向と高さ。ドラッグ:視点、ホイール:距離、Shift:傾き。",
-            "相机方向与高度。拖动:视角，滚轮:距离，Shift+滚轮:倾斜。",
-            "相機方向與高度。拖曳:視角，滾輪:距離，Shift+滾輪:傾斜。"));
+            "Click or drag from each centre: left sets direction, right sets height. Wheel: distance; Shift+wheel: tilt.",
+            "각 중심에서 마우스 방향으로 클릭·드래그: 왼쪽은 방향, 오른쪽은 높이. 휠: 거리, Shift+휠: 기울기.",
+            "各中心からマウス方向へクリック・ドラッグ。左:方向、右:高さ。ホイール:距離、Shift:傾き。",
+            "从各中心朝鼠标方向点击或拖动。左:方向，右:高度。滚轮:距离，Shift+滚轮:倾斜。",
+            "從各中心朝滑鼠方向點擊或拖曳。左:方向，右:高度。滾輪:距離，Shift+滾輪:傾斜。"));
         const links=[...Object.keys(defaults),"random_mode","random_seed"].filter(k=>linked(node,k));
         notice.textContent = links.length ? text("Linked controls resolve on execution: ","연결 항목은 실행 시 확정: ","接続項目は実行時に確定: ","连接项在执行时确定: ","連接項在執行時確定: ")+links.join(", ") :
-            text("Drag: view · Wheel: distance · Shift+wheel: tilt. Diagram guides captions. Layout sync is optional.",
-                "드래그: 시점 · 휠: 거리 · Shift+휠: 기울기. 도식은 태그 안내입니다. 마스크 배치는 별도로 연동할 수 있습니다.",
-                "ドラッグ:視点・ホイール:距離・Shift:傾き。図はタグの目安です。配置連動は任意です。",
-                "拖动:视角 · 滚轮:距离 · Shift+滚轮:倾斜。示意图用于提示标签，可选区域布局联动。",
-                "拖曳:視角 · 滾輪:距離 · Shift+滾輪:傾斜。示意圖用於提示標籤，可選區域配置連動。");
+            text("Click/drag from centre: left = direction, right = height. Wheel: distance · Shift+wheel: tilt. Layout sync is optional.",
+                "중심에서 마우스 방향으로 클릭·드래그: 왼쪽=방향, 오른쪽=높이. 휠: 거리 · Shift+휠: 기울기. 마스크 배치는 선택 연동입니다.",
+                "中心からクリック・ドラッグ。左=方向、右=高さ。ホイール:距離・Shift:傾き。配置連動は任意です。",
+                "从中心朝鼠标方向点击或拖动。左=方向，右=高度。滚轮:距离 · Shift+滚轮:倾斜。可选区域布局联动。",
+                "從中心朝滑鼠方向點擊或拖曳。左=方向，右=高度。滾輪:距離 · Shift+滾輪:傾斜。可選區域配置聯動。");
         if ((widget(node,"random_mode")?.value ?? "off") !== "off") notice.textContent += " " + text(
             "Random view: fixed seed repeats; randomize changes each run. Drag/presets return to manual.",
             "랜덤 구도: fixed는 유지, randomize는 매번 변경. 드래그·프리셋은 수동으로 전환합니다.",
@@ -303,13 +311,33 @@ export function addCameraEditor(node) {
         }
     }
     let drag=null;
-    canvas.onpointerdown=e=>{if(e.button!==0)return;drag={x:e.clientX,y:e.clientY,...values(node)};canvas.setPointerCapture(e.pointerId);};
-    canvas.onpointermove=e=>{
-        if(!drag)return;
-        setCameraValues(node,{random_mode:"off",azimuth:drag.azimuth+(e.clientX-drag.x),elevation:drag.elevation-(e.clientY-drag.y),distance:drag.distance,roll:drag.roll});
-        render();e.preventDefault();
+    function pointerPosition(e) {
+        const r=canvas.getBoundingClientRect();
+        if (!(r.width>0 && r.height>0)) return null;
+        return [(e.clientX-r.left)*canvas.width/r.width,(e.clientY-r.top)*canvas.height/r.height];
+    }
+    function applyPointer(e,p) {
+        const change=cameraPointerAngle(drag.axis,...p);
+        if (Object.keys(change).length) {
+            const {azimuth,elevation,distance,roll}=drag;
+            setCameraValues(node,{random_mode:"off",azimuth,elevation,distance,roll,...change});
+            render();
+        }
+        e.preventDefault();
+    }
+    canvas.onpointerdown=e=>{
+        if(e.button!==0)return;
+        const p=pointerPosition(e);if(!p)return;
+        const axis=p[0]<324 ? "azimuth" : "elevation", cx=axis === "azimuth" ? 164 : 456;
+        if(Math.hypot(p[0]-cx,p[1]-164)>120)return;
+        drag={axis,pointerId:e.pointerId,...values(node)};
+        canvas.setPointerCapture(e.pointerId);canvas.focus();applyPointer(e,p);
     };
-    canvas.onpointerup=canvas.onpointercancel=()=>{drag=null;};
+    canvas.onpointermove=e=>{
+        if(!drag || e.pointerId!==drag.pointerId)return;
+        const p=pointerPosition(e);if(p)applyPointer(e,p);
+    };
+    canvas.onpointerup=canvas.onpointercancel=e=>{if(e.pointerId===drag?.pointerId)drag=null;};
     canvas.onlostpointercapture=()=>{drag=null;};
     canvas.addEventListener("wheel",e=>{
         e.preventDefault();const v=values(node),step=Math.sign(e.deltaY);

@@ -25,7 +25,7 @@ The connected context determines ComfyUI or NovelAI prompt syntax. Without conte
 | strength | 0…5 / 1.2 | Caption weight multiplier; start around 0.8–1.4 |
 | enabled | true | OFF passes through without adding camera captions |
 
-Drag the in-node diagram to adjust horizontal/vertical view. Wheel adjusts distance; Shift+wheel adjusts tilt. Arrow keys adjust the view. Preset buttons set front/side/back/above/below or near/far; Reset restores numeric defaults and enables the node. Connected numerical inputs are not overwritten by these gestures; their effective values resolve at execution. The diagram separates top-down bearing from side-view height. Blue marks the subject and its forward direction; yellow cameras and arrows point toward the subject. The position caption names the current eight-way bearing and height. Diagram distance follows the distance control; tilt is set with the roll control. The diagram is a caption guide. The text below previews the selected prompt syntax, then the exact server camera caption after execution.
+Click or drag in each diagram: the angle from its centre to the pointer sets the value immediately. The left circle changes horizontal direction only; the right semicircle changes height only (−90°…90°). The centre keeps the current angle. Moving radially does not change distance. Wheel adjusts distance; Shift+wheel adjusts tilt. Arrow keys adjust the view. Preset buttons set front/side/back/above/below or near/far; Reset restores numeric defaults and enables the node. Connected numerical inputs are not overwritten by these gestures; their effective values resolve at execution. The diagram separates top-down bearing from side-view height. Blue marks the subject and its forward direction; yellow cameras and arrows point toward the subject. The position caption names the current eight-way bearing and height. Diagram distance follows the distance control; tilt is set with the roll control. The diagram is a caption guide. The text below previews the selected prompt syntax, then the exact server camera caption after execution.
 
 Neighboring tags use `s(t) = (1 − cos(πt)) / 2`, with complementary weights `1−s` and `s`. Horizontal captions are multiplied by `0.85 × cos(elevation)²`, vertical by `0.8`, distance by `1`, and tilt by `0.6 × |roll| / 45`, all times strength. Turning strength to 0 or disabling the node adds no camera captions. ±180 have equal rear captions; at ±90 elevation horizontal captions vanish. String formatting rounds to two decimals and omits weights below 0.005, so the smooth mathematical curves can still have small textual quantization steps.
 
@@ -65,7 +65,7 @@ The table in [third-party notices](../THIRD_PARTY_NOTICES.md#features-incorporat
 
 기본은 **공통 장면＋캐릭터**에 적용합니다. Anima는 공통 태그만 넣으면 시점이 약하게 반영돼 기본 적용 범위를 넓혔습니다. 글자 영역·좌표·마스크·LoRA·네거티브는 유지합니다. 양쪽 패키지에서 같은 노드를 쓰며 NAI 가중치 문법도 자동으로 맞춥니다.
 
-**드래그=시점, 휠=거리, Shift+휠=기울기**입니다. 시작 강도는 1.2이며 0.8~1.4부터 조정하세요. 도식과 각도는 태그 계산을 위한 안내이며 실제 이미지의 카메라 각도 측정값은 아닙니다. 연결된 수치 입력은 마우스로 덮어쓰지 않습니다.
+**각 중심에서 마우스가 향하는 쪽으로 클릭·드래그하면 왼쪽 원은 방향만, 오른쪽 반원은 높이만 조절**합니다. 중심에서는 현재 각도를 유지하고, 마우스를 멀리 움직여도 거리는 바뀌지 않습니다. **휠=거리, Shift+휠=기울기**입니다. 시작 강도는 1.2이며 0.8~1.4부터 조정하세요. 도식과 각도는 태그 계산을 위한 안내이며 실제 이미지의 카메라 각도 측정값은 아닙니다. 연결된 수치 입력은 마우스로 덮어쓰지 않습니다.
 
 실제 생성에서 측면·위·거리 변화는 확인됐지만 뒤돌기·원경의 두 인물 크기는 완벽하지 않았습니다. 이 노드는 **시점 태그 유도 기능**이며, 선택형 배치 연동으로 마스크도 변형합니다. 생성된 인체를 3D 카메라처럼 강제하지는 않습니다. 두 노드를 연달아 연결하거나 이미 시점 태그가 있는 컨텍스트에 넣으면 태그가 더해지므로, 상반되는 기존 시점 문장은 직접 정리하세요.
 
