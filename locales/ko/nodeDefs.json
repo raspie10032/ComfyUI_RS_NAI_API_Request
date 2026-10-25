@@ -1610,7 +1610,7 @@
   },
   "RSCameraControl": {
     "display_name": "RS 카메라 시점",
-    "description": "시점 태그로 유도합니다. 실제 3D 카메라가 아니며 캐릭터 마스크·좌표는 바꾸지 않습니다. 상속 중에는 컨텍스트 출력을 연결하세요.",
+    "description": "시점 태그 유도와 선택형 2D 마스크 배치 연동. 좌우·상하는 태그, 거리·기울기는 마스크 확대·축소·회전에 사용합니다.",
     "inputs": {
       "azimuth": {
         "name": "좌우 각도"
@@ -1650,6 +1650,12 @@
       },
       "random_seed": {
         "name": "카메라 랜덤 시드"
+      },
+      "layout_sync": {
+        "name": "마스크 배치 연동"
+      },
+      "canvas_aspect": {
+        "name": "생성 화면 비율"
       }
     }
   }

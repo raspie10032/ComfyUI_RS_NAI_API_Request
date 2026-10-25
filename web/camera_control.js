@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { app } from "../../scripts/app.js";
 
-const defaults = {azimuth: 0, elevation: 0, distance: .5, roll: 0, strength: 1.2, enabled: true};
+const defaults = {azimuth: 0, elevation: 0, distance: .5, roll: 0, strength: 1.2, enabled: true, layout_sync:"fixed", canvas_aspect:1};
 const ranges = {azimuth: [-180, 180], elevation: [-90, 90], distance: [0, 1], roll: [-45, 45], strength: [0, 5]};
 const clamp = (v, low, high) => Math.max(low, Math.min(high, v));
 const widget = (node, name) => node.widgets?.find(w => w.name === name);
@@ -54,6 +54,12 @@ export function randomCamera(mode, seed) {
     }));
 }
 
+export function projectLayout(x, y, distance, roll, aspect) {
+    const scale=2**(2*(.5-distance)), a=roll*Math.PI/180, co=Math.cos(a), si=Math.sin(a);
+    x=(x-.5)*aspect;y-=.5;
+    return [.5+scale*(co*x-si*y)/aspect,.5+scale*(si*x+co*y)];
+}
+
 export function setCameraValues(node, changes) {
     for (const [name, value] of Object.entries(changes)) {
         const w = widget(node, name);
@@ -102,8 +108,14 @@ export function addCameraEditor(node) {
     notice.style.cssText = "line-height:1.45;color:#bcc8d8";
     output.style.cssText = "white-space:pre-wrap;word-break:break-word;line-height:1.4;color:#99d4e8;margin:7px 0";
     root.append(toolbar, canvas, notice, output);
+    const layoutNotice=document.createElement("div"), layoutCanvas=document.createElement("canvas");
+    layoutNotice.style.cssText="line-height:1.45;color:#b8d8c8;margin-top:7px";
+    layoutCanvas.width=640;layoutCanvas.height=360;
+    layoutCanvas.setAttribute("aria-label","Camera character mask layout preview");
+    layoutCanvas.style.cssText="display:block;width:100%;height:180px;object-fit:contain;background:#111820";
+    root.append(layoutNotice,layoutCanvas);
     for (const event of ["pointerdown", "wheel", "keydown"]) root.addEventListener(event, e => e.stopPropagation());
-    let executed = null, executedView = null;
+    let executed = null, executedView = null, executedLayout=null, regions=[];
     function render() {
         const v = {...values(node), ...executedView}, c = canvas.getContext("2d");
         for (const [b, labels] of buttons) b.textContent = text(...labels);
@@ -141,11 +153,11 @@ export function addCameraEditor(node) {
         }
         const links=[...Object.keys(defaults),"random_mode","random_seed"].filter(k=>linked(node,k));
         notice.textContent = links.length ? text("Linked controls resolve on execution: ","연결 항목은 실행 시 확정: ","接続項目は実行時に確定: ","连接项在执行时确定: ","連接項在執行時確定: ")+links.join(", ") :
-            text("Drag: view · Wheel: distance · Shift+wheel: tilt. Diagram and curves are caption guides; positions/masks stay fixed.",
-                "드래그: 시점 · 휠: 거리 · Shift+휠: 기울기. 도식·곡선은 태그 안내이며 좌표·마스크는 유지됩니다.",
-                "ドラッグ:視点・ホイール:距離・Shift:傾き。図と曲線はタグの目安です。座標・マスクは固定です。",
-                "拖动:视角 · 滚轮:距离 · Shift+滚轮:倾斜。示意图和曲线用于提示标签，不改变坐标或蒙版。",
-                "拖曳:視角 · 滾輪:距離 · Shift+滾輪:傾斜。示意圖和曲線用於提示標籤，不改變座標或遮罩。");
+            text("Drag: view · Wheel: distance · Shift+wheel: tilt. Diagram and curves guide captions. Layout sync is optional.",
+                "드래그: 시점 · 휠: 거리 · Shift+휠: 기울기. 도식·곡선은 태그 안내입니다. 마스크 배치는 별도로 연동할 수 있습니다.",
+                "ドラッグ:視点・ホイール:距離・Shift:傾き。図と曲線はタグの目安です。配置連動は任意です。",
+                "拖动:视角 · 滚轮:距离 · Shift+滚轮:倾斜。示意图和曲线用于提示标签，可选区域布局联动。",
+                "拖曳:視角 · 滾輪:距離 · Shift+滾輪:傾斜。示意圖和曲線用於提示標籤，可選區域配置連動。");
         if ((widget(node,"random_mode")?.value ?? "off") !== "off") notice.textContent += " " + text(
             "Random view: fixed seed repeats; randomize changes each run. Drag/presets return to manual.",
             "랜덤 구도: fixed는 유지, randomize는 매번 변경. 드래그·프리셋은 수동으로 전환합니다.",
@@ -153,6 +165,38 @@ export function addCameraEditor(node) {
             "随机视角: fixed重复，randomize每次改变。拖动或预设切回手动。",
             "隨機視角: fixed重複，randomize每次改變。拖曳或預設切回手動。");
         output.textContent = executed ?? (v.enabled ? Object.entries(cameraWeights(v)).filter(([,w])=>w>=.005).map(([tag,w])=>`${tag}  ${w.toFixed(2)}`).join("\n") : text("Camera OFF", "카메라 꺼짐", "カメラOFF", "相机已关闭", "相機已關閉"));
+        const mode=executedLayout?.mode??v.layout_sync, aspect=executedLayout?.aspect??v.canvas_aspect;
+        const sync=v.enabled&&v.strength&&mode==="distance_and_roll";
+        layoutNotice.textContent=regions.length ? text(
+            "Last executed input regions · distance/tilt sync only; view angles stay captions. Text boxes stay fixed.",
+            "마지막 실행 입력의 영역 · 거리·기울기만 배치 연동, 좌우·상하는 태그 유도. 글자 상자는 고정입니다.",
+            "直前の入力領域。距離・傾きのみ連動。視点はタグ、文字枠は固定です。",
+            "上次执行的输入区域。仅联动距离和倾斜；视角为标签，文本框固定。",
+            "上次執行的輸入區域。僅連動距離和傾斜；視角為標籤，文字框固定。") : text(
+            "Run once to load input masks. Upstream edits need another run. Set aspect = output width / height.",
+            "한 번 실행하면 입력 마스크를 표시합니다. 상위 배치를 바꾸면 다시 실행하세요. 화면 비율=생성 너비÷높이.",
+            "一度実行してマスクを表示。上流の変更後は再実行。比率=出力幅÷高さ。",
+            "执行一次以显示蒙版。上游编辑后需重新执行。比例=输出宽÷高。",
+            "執行一次以顯示遮罩。上游編輯後需重新執行。比例=輸出寬÷高。");
+        const lc=layoutCanvas.getContext("2d"), W=640,H=Math.max(64,Math.round(640/aspect));
+        if(layoutCanvas.height!==H)layoutCanvas.height=H;
+        lc.clearRect(0,0,W,H);lc.strokeStyle="#6b7b8b";lc.strokeRect(0,0,W,H);
+        const point=(x,y,isText)=>sync&&!isText?projectLayout(x,y,v.distance,v.roll,aspect):[x,y];
+        const regionColors=["#ff8d91","#81bcff","#94dd9d","#ffd27f","#c3a0ff"];
+        for(const region of regions){
+            const isText=region.kind==="text";lc.fillStyle=regionColors[(region.id-1)%regionColors.length];lc.strokeStyle=lc.fillStyle;lc.globalAlpha=.45;
+            if(region.mask){
+                const mask=region.mask,bits=atob(mask.bits);lc.save();
+                lc.translate(W/2,H/2);if(sync){lc.rotate(v.roll*Math.PI/180);const scale=2**(2*(.5-v.distance));lc.scale(scale,scale);}lc.translate(-W/2,-H/2);
+                for(let y=0;y<mask.height;y++)for(let x=0;x<mask.width;x++){const i=y*mask.width+x;if(bits.charCodeAt(i>>3)&(128>>(i%8)))lc.fillRect(x/mask.width*W,y/mask.height*H,W/mask.width,H/mask.height);}
+                lc.restore();
+            }else if(region.box){
+                const [l,t,r,b]=region.box,ps=[[l,t],[r,t],[l,b],[r,b]].map(([x,y])=>point(x,y,isText));
+                const left=Math.max(0,Math.min(...ps.map(p=>p[0]))),right=Math.min(1,Math.max(...ps.map(p=>p[0]))),top=Math.max(0,Math.min(...ps.map(p=>p[1]))),bottom=Math.min(1,Math.max(...ps.map(p=>p[1])));
+                if(right>left&&bottom>top)lc.fillRect(left*W,top*H,(right-left)*W,(bottom-top)*H);
+            }
+            lc.globalAlpha=1;const [cx,cy]=point(region.x,region.y,isText);lc.beginPath();lc.arc(cx*W,cy*H,5,0,Math.PI*2);lc.fill();lc.font="18px sans-serif";lc.fillText(String(region.id),cx*W+8,cy*H-8);
+        }
     }
     let drag=null;
     canvas.onpointerdown=e=>{if(e.button!==0)return;drag={x:e.clientX,y:e.clientY,...values(node)};canvas.setPointerCapture(e.pointerId);};
@@ -175,16 +219,16 @@ export function addCameraEditor(node) {
     for(const w of node.widgets ?? []){
         if(![...Object.keys(defaults),"weighting","prompt_syntax","scope","random_mode","random_seed"].includes(w.name))continue;
         const previous=w.callback;
-        w.callback=function(...args){const result=previous?.apply(this,args);executed=null;executedView=null;render();return result;};
+        w.callback=function(...args){const result=previous?.apply(this,args);executed=null;executedView=null;executedLayout=null;render();return result;};
     }
     const custom=node.addDOMWidget("rs_camera_editor","rs_camera_editor",root,{serialize:false,hideOnZoom:false});
-    custom.computeSize=()=>[360,410];custom.serialize=false;
+    custom.computeSize=()=>[360,630];custom.serialize=false;
     const previous=node.onExecuted;
-    node.onExecuted=function(message){const result=previous?.apply(this,arguments);executed=message.camera_caption?.[0] ?? null;executedView=message.camera_values?.[0] ?? null;render();return result;};
+    node.onExecuted=function(message){const result=previous?.apply(this,arguments);executed=message.camera_caption?.[0] ?? null;executedView=message.camera_values?.[0] ?? null;executedLayout=message.camera_layout?.[0]??null;regions=message.camera_regions?.[0]??[];render();return result;};
     const configured=node.onConfigure;
-    node.onConfigure=function(){const result=configured?.apply(this,arguments);executed=null;executedView=null;render();return result;};
+    node.onConfigure=function(){const result=configured?.apply(this,arguments);executed=null;executedView=null;executedLayout=null;regions=[];render();return result;};
     const connections=node.onConnectionsChange;
-    node.onConnectionsChange=function(){const result=connections?.apply(this,arguments);executed=null;executedView=null;render();return result;};
+    node.onConnectionsChange=function(){const result=connections?.apply(this,arguments);executed=null;executedView=null;executedLayout=null;regions=[];render();return result;};
     node.rsCameraEditor={root,render};render();
 }
 

@@ -3,10 +3,15 @@
 from dataclasses import dataclass, field
 import importlib.util
 import math
+import sys
+import types
 from pathlib import Path
 import unittest
 
-spec = importlib.util.spec_from_file_location("camera_under_test", Path(__file__).resolve().parents[1]/"camera_control.py")
+parent = types.ModuleType("_rs_camera_unit")
+parent.__path__ = [str(Path(__file__).resolve().parents[1])]
+sys.modules[parent.__name__] = parent
+spec = importlib.util.spec_from_file_location("_rs_camera_unit.camera_control", Path(__file__).resolve().parents[1]/"camera_control.py")
 camera = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(camera)
 

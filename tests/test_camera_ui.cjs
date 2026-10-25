@@ -5,7 +5,7 @@ let extension,locale='en';
 const app={extensionManager:{setting:{get:()=>locale}},registerExtension:e=>extension=e};
 const context2d=new Proxy({}, {get:(obj,name)=>obj[name] ?? (()=>{}),set:(obj,name,value)=>(obj[name]=value,true)});
 const element=()=>({style:{},children:[],listeners:{},append(...items){this.children.push(...items);},setAttribute(){},addEventListener(name,fn){this.listeners[name]=fn;},getContext(){return context2d;},setPointerCapture(){}});
-const sandbox={app,document:{createElement:element},console};
+const sandbox={app,document:{createElement:element},console,atob:s=>Buffer.from(s,'base64').toString('binary')};
 vm.runInNewContext(source,sandbox);
 const coordinates=[];
 for(let i=0;i<301;i++) coordinates.push({azimuth:-180+360*i/300,elevation:-90+180*(i%37)/36,distance:(i%61)/60,roll:-45+90*(i%17)/16,strength:5*(i%13)/12});
@@ -17,12 +17,16 @@ const randomProbes=['balanced','full'].flatMap(mode=>seeds.map(seed=>({mode,seed
 const randomPython=cp.spawnSync(process.env.CAMERA_PYTHON||'python',['-c','import json,sys;from camera_control import random_camera;print(json.dumps([random_camera(**v) for v in json.load(sys.stdin)]))'],{input:JSON.stringify(randomProbes),encoding:'utf8'});
 assert.equal(randomPython.status,0,randomPython.stderr);
 assert.deepEqual(JSON.parse(JSON.stringify(randomProbes.map(v=>sandbox.randomCamera(v.mode,v.seed)))),JSON.parse(randomPython.stdout));
+const layoutProbes=coordinates.map((v,i)=>[.2,.7,v.distance,v.roll,[1,1.5,2/3][i%3]]);
+const layoutPython=cp.spawnSync(process.env.CAMERA_PYTHON||'python',['-c','import json,sys;from camera_layout import project,framing;print(json.dumps([project(x,y,framing(d,r,a)) for x,y,d,r,a in json.load(sys.stdin)]))'],{input:JSON.stringify(layoutProbes),encoding:'utf8'});
+assert.equal(layoutPython.status,0,layoutPython.stderr);
+JSON.parse(layoutPython.stdout).forEach((p,i)=>p.forEach((v,j)=>assert.ok(Math.abs(v-sandbox.projectLayout(...layoutProbes[i])[j])<1e-12)));
 for(let i=0;i<coordinates.length;i++){
   const actual=sandbox.cameraWeights(coordinates[i]);
   for(const tag of new Set([...Object.keys(expected[i]),...Object.keys(actual)])) assert.ok(Math.abs((actual[tag]||0)-(expected[i][tag]||0))<1e-10,`${i}: ${tag}`);
 }
 class Node{
- constructor(){this.inputs=[];this.size=[340,200];this.widgets=Object.entries({azimuth:0,elevation:0,distance:.5,roll:0,strength:1.2,enabled:true,weighting:'weighted',prompt_syntax:'ComfyUI',random_mode:'off',random_seed:0}).map(([name,value])=>({name,value,callback(){return 42;}}));}
+ constructor(){this.inputs=[];this.size=[340,200];this.widgets=Object.entries({azimuth:0,elevation:0,distance:.5,roll:0,strength:1.2,enabled:true,weighting:'weighted',prompt_syntax:'ComfyUI',random_mode:'off',random_seed:0,layout_sync:'fixed',canvas_aspect:1}).map(([name,value])=>({name,value,callback(){return 42;}}));}
  addDOMWidget(name,type,element,options){const w={name,type,element,options};this.widgets.push(w);return w;}
  setSize(size){this.size=size;}
  computeSize(){return [380,700];}
@@ -36,7 +40,7 @@ class Node{
  assert.equal(node.widgets.filter(w=>w.name==='rs_camera_editor').length,1);
  const editor=node.rsCameraEditor,custom=node.widgets.at(-1);
  assert.equal(custom.serialize,false);assert.equal(custom.options.serialize,false);
- const [toolbar,canvas,notice,output]=editor.root.children;
+ const [toolbar,canvas,notice,output,layoutNotice,layoutCanvas]=editor.root.children;
  const value=name=>node.widgets.find(w=>w.name===name).value;
  const before=node.widgets.filter(w=>w.serialize!==false).map(w=>[w.name,w.value]);
  for(const lang of ['en','ko','ja','zh','zh-TW']){locale=lang;editor.render();assert.ok(notice.textContent.length>35);assert.ok(toolbar.children[0].textContent);}
@@ -62,6 +66,11 @@ class Node{
  node.onExecuted({camera_caption:['random server caption'],camera_values:[{azimuth:10,elevation:20,distance:.3,roll:2}]});
  assert.equal(output.textContent,'random server caption');
  toolbar.children.at(-1).onclick();assert.equal(value('random_mode'),'off');
+ node.onExecuted({camera_regions:[[{id:1,x:.3,y:.5,mask:{width:2,height:2,bits:'wA=='}},{id:2,x:.7,y:.5,box:[.5,.2,.8,.8]},{id:3,x:.5,y:.1,kind:'text',box:[.1,0,.9,.2]}]],camera_layout:[{mode:'distance_and_roll',aspect:1.5}]});
+ assert.ok(layoutNotice.textContent.length>30);assert.equal(layoutCanvas.height,427);
+ sandbox.setCameraValues(node,{layout_sync:'distance_and_roll',canvas_aspect:2,distance:.8,roll:25});
+ assert.equal(layoutCanvas.height,320);
+ sandbox.setCameraValues(node,{enabled:false});editor.render();
  assert.equal(node.onConfigure(),'configured');
  vm.runInNewContext(source,{app,document:{createElement:element},console});
  console.log('Camera: 301 Python/JS curve matches; localized editor, drag/wheel/keyboard, linked controls, reset and serialization passed');

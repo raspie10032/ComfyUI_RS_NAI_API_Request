@@ -1610,7 +1610,7 @@
   },
   "RSCameraControl": {
     "display_name": "RS カメラ視点",
-    "description": "視点タグによる誘導です。実際の3Dカメラではなく、マスクと座標は変更しません。継承時はコンテキスト出力を接続してください。",
+    "description": "視点タグ誘導と任意の2D配置連動。距離・傾きでマスクを拡縮・回転します。",
     "inputs": {
       "azimuth": {
         "name": "左右の角度"
@@ -1650,6 +1650,12 @@
       },
       "random_seed": {
         "name": "カメラ乱数シード"
+      },
+      "layout_sync": {
+        "name": "マスク配置連動"
+      },
+      "canvas_aspect": {
+        "name": "出力の縦横比"
       }
     }
   }

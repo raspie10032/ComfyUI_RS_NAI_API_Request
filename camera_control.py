@@ -98,17 +98,23 @@ class RSCameraControl:
             "base_prompt": ("STRING", {"forceInput": True, "tooltip": "Optional scene caption, in the context's syntax. Required when a connected pipe has no scene. / 연결 파이프에 공통 프롬프트가 없으면 장면 문장을 연결하세요."}),
             "random_mode": (["off", "balanced", "full"], {"default": "off", "tooltip": "Random view overrides the four manual axes. Balanced avoids rear/pole/extreme framing; full uses all ranges. / 랜덤 구도는 수동 각도·거리·기울기를 대신합니다. balanced는 극단 시점을 피하고 full은 전체 범위입니다."}),
             "random_seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffff, "control_after_generate": True, "tooltip": "Camera seed only. Fixed reproduces the view; randomize changes it after each queued generation. / 카메라 전용 시드. fixed는 구도 유지, randomize는 생성마다 변경합니다. 이미지 생성 시드는 바꾸지 않습니다."}),
+            "layout_sync": (["fixed", "distance_and_roll"], {"default": "fixed", "tooltip": "Move all character points, boxes and masks with distance/tilt. Text boxes stay fixed; view angles do not invent 3D shapes. / 거리·기울기에 캐릭터 좌표·상자·마스크를 함께 맞춥니다. 글자 상자는 고정이며 3D 형상은 만들지 않습니다."}),
+            "canvas_aspect": ("FLOAT", {"default": 1., "min": .1, "max": 10., "step": .001, "tooltip": "Output width divided by height. Use the sampler's ratio to avoid stretched mask rotation. / 생성 너비÷높이. 샘플러와 같은 비율로 맞추세요."}),
         }}
 
     RETURN_TYPES = ("RS_MC_CHARACTER_PIPE", "STRING", "STRING")
     RETURN_NAMES = ("context", "prompt", "camera_prompt")
     FUNCTION = "apply"
     CATEGORY = "RS/Camera"
-    DESCRIPTION = "Camera captions for NAI and local workflows. Use context output for inherited prompts, or prompt output without a context. Character masks/coordinates are not rotated. / NAI·로컬 공용 시점 태그. 컨텍스트 상속에는 컨텍스트 출력을 연결하세요. 마스크·좌표 자체를 회전시키지 않습니다."
+    DESCRIPTION = "Shared camera captions with optional 2D distance/tilt layout sync. Yaw/elevation remain text guidance. / 공용 카메라 시점. 거리·기울기에 마스크 배치를 연동할 수 있습니다. 좌우·상하 시점은 태그 유도입니다."
 
     def apply(self, azimuth=0., elevation=0., distance=.5, roll=0., strength=1.2,
               weighting="weighted", prompt_syntax="ComfyUI", enabled=True, scope="scene_and_characters", context=None, base_prompt=None,
-              random_mode="off", random_seed=0):
+              random_mode="off", random_seed=0, layout_sync="fixed", canvas_aspect=1.):
+        if layout_sync not in ("fixed", "distance_and_roll"):
+            raise ValueError("Choose fixed or distance_and_roll layout sync. / 마스크 배치 연동 방식을 선택해 주세요.")
+        from .camera_layout import framing, camera_layout, layout_preview
+        framing(.5, 0, canvas_aspect)
         if context is not None and (not is_dataclass(context) or not hasattr(context, "characters")
                 or not hasattr(context, "prompt") or not hasattr(context, "syntax")):
             raise ValueError("Connect a finalized RS character pipe or NAI context. / 최종 RS 캐릭터 파이프 또는 NAI 컨텍스트를 연결해 주세요.")
@@ -141,6 +147,19 @@ class RSCameraControl:
                 characters.append(replace(character, prompt=", ".join(p for p in (character.prompt, caption) if p)))
             changes["characters"] = tuple(characters)
         output = replace(context, **changes) if context is not None and (camera or base_prompt is not None) else context
+        source_regions = []
+        if context is not None:
+            # Preview must not make an old NAI-only context require the local
+            # extension unless the user explicitly requests layout conversion.
+            try:
+                source_regions = layout_preview(context)
+            except (ValueError, ImportError):
+                if enabled and strength and layout_sync != "fixed":
+                    raise
+        if output is not None and enabled and strength and layout_sync == "distance_and_roll":
+            output = camera_layout(output, distance, roll, canvas_aspect)
         return {"ui": {"camera_caption": [camera], "camera_syntax": [syntax],
+                       "camera_regions": [source_regions],
+                       "camera_layout": [{"mode": layout_sync, "aspect": canvas_aspect}],
                        "camera_values": [{"azimuth": azimuth, "elevation": elevation, "distance": distance, "roll": roll}]},
                 "result": (output, prompt, camera)}

@@ -2,7 +2,7 @@
 
 Development candidate, validated on 2026-10-25; not yet a published release.
 
-This node adds view/framing captions to either an RS finalized character pipe or an NAI context. It does not move a 3D camera, rotate masks, or enforce geometry. Coordinates, masks, negative prompts, LoRAs and model settings remain attached to the context.
+This node adds view/framing captions to either an RS finalized character pipe or an NAI context. Optional 2D layout sync scales and rotates character regions for distance and tilt; it does not move a 3D camera or enforce generated anatomy. Negative prompts, LoRAs and model settings remain attached to the context.
 
 ## Connect
 
@@ -10,7 +10,7 @@ This node adds view/framing captions to either an RS finalized character pipe or
 
 Connect the existing scene to `base_prompt` if the finalized character pipe does not contain a scene. The node raises a readable error instead of silently replacing that missing scene with camera tags. A supplied `base_prompt` explicitly replaces the context's scene. With no context, connect `prompt` to the generator's common prompt; the context output is empty. The `camera_prompt` STRING contains just the added camera captions.
 
-Default `scene_and_characters` adds the view to both common and character captions. This matters for regional Anima generation, where a common-only view can be suppressed by character conditions. `scene_only` leaves character captions untouched. Text regions do not receive camera captions. Position/mask coordinates remain fixed, even when the generated view changes. Set the downstream generator to inherit the connected context.
+Default `scene_and_characters` adds the view to both common and character captions. This matters for regional Anima generation, where a common-only view can be suppressed by character conditions. `scene_only` leaves character captions untouched. Text regions do not receive camera captions. By default (`layout_sync=fixed`) position/mask coordinates remain fixed. Enable `distance_and_roll` to zoom and rotate every character region together around the canvas center. Set the downstream generator to inherit the connected context.
 
 The connected context determines ComfyUI or NovelAI prompt syntax. Without context, select `prompt_syntax`. Select `plain` for a text path that does not parse numerical prompt weights; it selects dominant tags rather than emitting numerical syntax. Both packages ship the same node ID and identical implementation; installing both registers one editor.
 
@@ -58,4 +58,19 @@ Reference: [Anima camera-tag helper](https://arca.live/b/aiart/179423561). The s
 
 The **Random** button draws a new camera seed and uses balanced mode (or keeps full mode if selected). The diagram previews the seeded view, and the server returns the actual axes alongside its captions after execution. Manual sliders remain stored but are overridden while random mode is on. Dragging, wheel, arrow keys or a preset return to manual mode; connected controls remain authoritative. New optional controls are appended so existing widget positions keep their meaning.
 
-**랜덤 구도**에서 `balanced`는 일반 범위, `full`은 전체 범위입니다. 카메라 시드 옆의 생성 후 동작을 **randomize**로 두면 매번 새로운 구도, **fixed**로 두면 같은 구도를 사용합니다. 이미지 생성 시드는 별개입니다. **랜덤 구도 버튼**으로 바로 다시 뽑을 수도 있습니다. 드래그·휠·화살표·프리셋은 수동 모드로 돌아갑니다. 연결 입력은 덮어쓰지 않습니다. 한 번 실행한 출력으로 이미지 배치를 만들면 배치 전체가 같은 구도 태그를 받습니다. 마스크는 고정이므로 큰 시점 변화에서는 위치를 따로 조정하세요.
+**랜덤 구도**에서 `balanced`는 일반 범위, `full`은 전체 범위입니다. 카메라 시드 옆의 생성 후 동작을 **randomize**로 두면 매번 새로운 구도, **fixed**로 두면 같은 구도를 사용합니다. 이미지 생성 시드는 별개입니다. **랜덤 구도 버튼**으로 바로 다시 뽑을 수도 있습니다. 드래그·휠·화살표·프리셋은 수동 모드로 돌아갑니다. 연결 입력은 덮어쓰지 않습니다. 한 번 실행한 출력으로 이미지 배치를 만들면 배치 전체가 같은 구도 태그를 받습니다. 기본값은 마스크 고정입니다. 거리·기울기도 함께 바꾸려면 아래의 마스크 배치 연동을 켜세요. 좌우·상하 시점에는 필요에 따라 위치를 별도로 조절하세요.
+
+
+## Camera and mask layout sync
+
+Set `layout_sync=distance_and_roll` and `canvas_aspect=width/height` (e.g. 1216/832 = 1.461538). Put Camera after the final Position/Mask pipe and before the sampler. Distance 0.5 is original size; 0 zooms to 2× and 1 scales to 0.5×. Positive roll rotates clockwise in image coordinates. Character points, bounding boxes, silhouettes and body-part masks share the transform; text boxes stay fixed. Rotated boxes become their axis-aligned bounds. Portrait/landscape aspect is included so rotation does not stretch the shapes.
+
+The editor displays thumbnails of the last executed input regions and updates their transformed preview when distance or roll changes. Run once to populate it; run again after editing upstream masks. This thumbnail is approximate; sampling uses the original-resolution transformed binary masks. Upstream source masks remain untouched. Only the visible canvas is retained in the output; a wholly invisible character raises an actionable error rather than silently becoming global conditioning. OFF or strength 0 passes through unchanged. Existing workflows default to fixed layout.
+
+This is a 2D framing tool. Azimuth/elevation still change captions, not the depth, occlusion or silhouette of a 3D subject. Generated framing, exact tilt and pose remain model-dependent. Random views use the same seeded distance/roll for both captions and geometry; extreme random views can crop a character entirely and require a less extreme view. Chaining two sync nodes deliberately compounds their transforms. NAI stores the local transformed masks in its return snapshot and uses the updated character centers; the NAI API itself does not consume these local masks. A local snapshot is limited to 10 characters for this conversion.
+
+### 한국어
+
+`마스크 배치 연동=distance_and_roll`, `생성 화면 비율=너비÷높이`로 설정합니다. 최종 포지션/마스크 파이프 뒤에 카메라를 놓으세요. 거리 0.5는 원래 크기, 0은 2배, 1은 0.5배이며 양수 기울기는 화면에서 시계 방향입니다. 캐릭터 좌표·상자·전체 마스크·부위 마스크가 함께 변환되고 글자 상자는 유지됩니다. 회전한 박스는 외접 사각형입니다.
+
+한 번 실행하면 카메라 패널에 입력 영역이 표시되고 거리·기울기 조절에 따라 미리보기가 바뀝니다. 상위 노드 마스크를 수정했다면 다시 실행하세요. 미리보기는 축소본이고 실제 연산에는 원래 해상도의 마스크를 씁니다. 캔버스 밖만 잘라 적용하며 원본 파이프는 보존합니다. 캐릭터 전체가 밖으로 나가면 복구 안내 오류를 표시합니다. 좌우·상하 시점으로 입체 마스크를 만들어내는 기능은 아닙니다. NAI에서는 바뀐 중심 좌표를 사용하고 로컬 마스크는 왕복 복원을 위해 보관합니다.
