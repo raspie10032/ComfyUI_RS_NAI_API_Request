@@ -4,11 +4,23 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The Detailer can use bbox+SAM, native SEGM masks, or a standard ComfyUI `MASK` from SAM3 or another mask node, and can process multiple regions sequentially. An optional **local PyTorch tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads only the selected model when the loader executes, after the optional dependencies are installed.
 
-> Current version: **2.9.1**
+> Current version: **2.9.2**
 
-**Development candidate:** [NAI Camera Control / RS Camera Control](docs/camera-control.md) adds smoothly blended camera captions to shared RS/NAI contexts, with an interactive view editor. It supports random views and optional region zoom, rotation and flat-plane perspective. NAI receives view captions and transformed character centers; silhouettes are preserved for local round trips. It does not enforce a 3D camera.
+**Camera control:** [NAI Camera Control / RS Camera Control](docs/camera-control.md) adds smoothly blended camera captions to shared RS/NAI contexts, with an interactive view editor. It supports random views and optional region zoom, rotation and flat-plane perspective. NAI receives view captions and transformed character centers; silhouettes are preserved for local round trips. It does not enforce a 3D camera.
 
-**개발 후보 기능:** [NAI 카메라 시점 / RS 카메라 시점](docs/camera-control.md)은 NAI·로컬 공통 컨텍스트에 시점 태그를 더합니다. 노드 안에서 방향·높이·거리·랜덤 구도를 조절하고, 영역의 확대·축소·회전·평면 원근 변형을 선택합니다. NAI에는 시점 태그와 변환한 캐릭터 중심 좌표를 보내고 실루엣은 로컬 왕복용으로 보존합니다.
+**카메라 시점:** [NAI 카메라 시점 / RS 카메라 시점](docs/camera-control.md)은 NAI·로컬 공통 컨텍스트에 시점 태그를 더합니다. 노드 안에서 방향·높이·거리·랜덤 구도를 조절하고, 영역의 확대·축소·회전·평면 원근 변형을 선택합니다. NAI에는 시점 태그와 변환한 캐릭터 중심 좌표를 보내고 실루엣은 로컬 왕복용으로 보존합니다.
+
+## What's New in 2.9.2
+
+- **Shared RS/NAI contexts:** exchange character prompts and positions with RS Multi-Character Sampler while preserving backend-specific settings. Update both extensions when sharing local masks, LoRAs and building nodes. [Interoperability](docs/shared-local-context.md)
+- **Camera control:** add view/framing captions with separate direction and height controls, reproducible random views and optional region zoom, rotation or flat-plane perspective. Both camera sockets are named `building_pipe`; saved `context` connections remain compatible. [Usage and limits](docs/camera-control.md)
+- **Building order and editing:** independent building roles can be connected in any order before Finalize. Camera settings apply once at Finalize; position and mask editing remain available through either camera. Repeated settings use the last applicable value.
+
+**한국어:** RS 로컬 노드와 캐릭터 컨텍스트를 공유하고, 카메라 방향·높이를 각 패널 중심에서 마우스 방향으로 조절합니다. Finalize 전에는 역할 노드 순서를 바꿔도 동일한 결과가 나오며 카메라 뒤에서도 위치·마스크를 편집할 수 있습니다. NAI에는 시점 태그와 캐릭터 중심 좌표를 보내며, 로컬 실루엣은 왕복 보존합니다.
+
+**日本語:** RSローカルノードとキャラクターコンテキストを共有できます。方向と高さは各パネルの中心からマウスの方向で個別に操作します。Finalize前の独立した設定ノードは順序を変更でき、カメラの後でも位置・マスクを編集できます。NAIへ送るのは視点タグとキャラクター中心座標です。
+
+See [2.9.2 release notes](docs/release-2.9.2.md) for validation scope and migration details.
 
 ## What's New in 2.9.1
 

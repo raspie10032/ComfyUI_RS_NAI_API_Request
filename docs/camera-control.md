@@ -1,6 +1,6 @@
 # RS Camera Control / 공통 카메라 시점
 
-Development candidate, validated on 2026-10-25; not yet a published release.
+Included in version 2.9.2; validated on 2026-10-25.
 
 This node adds view/framing captions to an RS draft/final character pipe or an NAI context. Optional layout sync scales/rotates character regions or projects their common flat plane for azimuth/elevation; it does not move a 3D camera or enforce generated anatomy. Negative prompts, LoRAs and model settings remain attached to the context.
 
