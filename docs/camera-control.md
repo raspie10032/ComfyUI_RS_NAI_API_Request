@@ -14,6 +14,12 @@ Default `scene_and_characters` adds the view to both common and character captio
 
 The connected context determines ComfyUI or NovelAI prompt syntax. Without context, select `prompt_syntax`. Select `plain` for a text path that does not parse numerical prompt weights; it selects dominant tags rather than emitting numerical syntax. Both packages ship the same node ID and identical implementation; installing both registers one editor.
 
+### Position editing after a camera / 카메라 뒤의 위치 조절
+
+With the updated RS MultiCharacter extension installed, its shared Position/Finalize previews follow both camera entries through `building_pipe` and saved `context` links. A camera does not lock the later box, point or mask editor. Camera layout transforms appear downstream; new masks painted after the camera replace its incoming masks without repeating that transform. Native NAI character points can also feed this shared path. Connected numerical controls and unresolved mask/context sources still require their source values first.
+
+최신 RS 멀티캐릭터 확장을 함께 설치하면 **NAI 카메라 뒤에서도 공용 위치 노드의 박스·포인트·마스크를 이동·확대·축소**할 수 있습니다. 카메라의 배치 변형을 미리보기에 반영하고, 카메라 뒤에서 새로 그린 마스크를 중복 변형하지 않습니다. NAI 자체 생성은 실루엣 대신 캐릭터 중심 좌표를 사용합니다.
+
 ## Controls and captions
 
 | Control | Range / default | Meaning |
