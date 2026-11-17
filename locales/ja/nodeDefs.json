@@ -1712,6 +1712,9 @@
       "canvas_aspect": {
         "name": "出力の縦横比"
       },
+      "visible_details": {
+        "name": "見える部位の補足"
+      },
       "building_pipe": {
         "name": "building_pipe"
       }

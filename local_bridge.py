@@ -24,10 +24,9 @@ def _tokens(text):
         yield text[end:]
 
 
-def _spans(text):
-    """Numeric scopes and legacy emphasis can nest; never drop text after ::."""
+def _weighted_tokens(text):
+    """Yield original tokens, literal text (None for syntax), and effective weight."""
     stack = []
-    spans = []
     weight = 1.0
     for token in _tokens(text):
         if token.endswith("::") and token != "::":
@@ -41,15 +40,31 @@ def _spans(text):
             weight *= 1.05 if token == "{" else 1 / 1.05
             if not math.isfinite(weight):
                 raise ValueError("NAI prompt weights must be finite.")
+        elif token == "::" and stack:
+            # An explicit terminator can close unbalanced legacy emphasis.
+            while stack:
+                closer, weight = stack.pop()
+                if closer == "::":
+                    break
         elif stack and token == stack[-1][0]:
             _, weight = stack.pop()
         else:
-            # Parentheses and square brackets in NAI text are literal in CLIP.
             literal = token[1:] if token.startswith("\\") and len(token) == 2 else token
-            if spans and spans[-1][1] == weight:
-                spans[-1] = (spans[-1][0] + literal, weight)
-            else:
-                spans.append((literal, weight))
+            yield token, literal, weight
+            continue
+        yield token, None, weight
+
+
+def _spans(text):
+    """Numeric scopes and legacy emphasis can nest; never drop text after ::."""
+    spans = []
+    for _, literal, weight in _weighted_tokens(text):
+        if literal is None:
+            continue
+        if spans and spans[-1][1] == weight:
+            spans[-1] = (spans[-1][0] + literal, weight)
+        else:
+            spans.append((literal, weight))
     return spans
 
 
@@ -187,6 +202,10 @@ class NAICharacterPipe(Sequence):
 
     def __radd__(self, other):
         return list(other) + list(self)
+
+    def rs_apply_nai_camera(self, **options):
+        from .camera_control import NAICameraControl
+        return NAICameraControl().apply(context=self, **options)
 
     def as_camera_context(self):
         """Normalize legacy character slots without loading the local extension."""

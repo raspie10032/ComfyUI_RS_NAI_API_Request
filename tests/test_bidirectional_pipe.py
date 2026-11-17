@@ -100,15 +100,47 @@ class BidirectionalTests(unittest.TestCase):
     def test_native_nai_character_slots_work_with_either_camera_entry(self):
         from ComfyUI_RS_NAI_API_Request.camera_control import NAICameraControl
         native = generators.CharacterPromptSelect().build_character_prompt(
-            character_count=1, character1="brown hair", character1_x=.3, character1_y=.5)[0]
+            character_count=1, character1="brown hair, blue eyes, front view", character1_x=.3, character1_y=.5)[0]
         for cls in (NAICameraControl, self.package.NODE_CLASS_MAPPINGS["RSCameraControl"]):
             with self.subTest(camera=cls.__module__):
                 output = cls().apply(context=native, base_prompt="one adult woman, garden",
-                                     distance=.7, layout_sync="distance_and_roll")["result"][0]
+                                     azimuth=180, distance=.7, layout_sync="distance_and_roll")["result"][0]
                 self.assertIn("brown hair", output.characters[0].prompt)
-                self.assertIn("::from front::", output.prompt)
+                self.assertIn("upper back", output.characters[0].prompt)
+                self.assertNotIn("blue eyes", output.characters[0].prompt)
+                self.assertIn("::from behind::", output.prompt)
                 self.assertGreater(output.characters[0].x, .3)
                 self.assertEqual(native.characters[0].center, {"x": .3, "y": .5})
+
+    def test_nai_camera_replays_the_same_view_before_and_after_local_builder(self):
+        from ComfyUI_RS_NAI_API_Request.camera_control import NAICameraControl
+        camera = NAICameraControl()
+        nodes = self.package.NODE_CLASS_MAPPINGS
+        prompts = nodes["RSMultiCharacterPrompt"]()
+        finalize = nodes["RSMultiCharacterFinalize"]()
+        character = dict(character_count=1, character1="black coat, blue eyes, front view")
+        for visible_details in (False, True):
+            options = dict(base_prompt="front view, garden", azimuth=180, visible_details=visible_details)
+            draft = prompts.apply(**character)[0]
+            direct = camera.apply(building_pipe=finalize.build(building_pipe=draft)[0], **options)["result"][0]
+            before = camera.apply(**options)["result"][0]
+            after = camera.apply(building_pipe=draft, **options)["result"][0]
+            early = prompts.apply(building_pipe=before, **character)[0]
+            self.assertEqual(finalize.build(building_pipe=early)[0], direct)
+            self.assertEqual(finalize.build(building_pipe=after)[0], direct)
+            self.assertNotIn("front view", direct.prompt)
+            self.assertNotIn("blue eyes", direct.characters[0].prompt)
+            self.assertEqual("upper back" in direct.characters[0].prompt, visible_details)
+
+    def test_old_builder_caps_camera_settings_to_its_original_options(self):
+        from ComfyUI_RS_NAI_API_Request.camera_control import NAICameraControl
+        camera = NAICameraControl()
+        seed = camera.apply(base_prompt="garden", azimuth=180, visible_details=False)["result"][0]
+        old = seed.rs_as_building_pipe(lambda camera_settings: NS(camera_settings=camera_settings))
+        settings = dict(old.camera_settings[0])
+        self.assertEqual(settings["azimuth"], 180)
+        self.assertNotIn("camera_node", settings)
+        self.assertNotIn("visible_details", settings)
 
     def test_camera_shared_node_is_identical_and_preserves_real_context_round_trip(self):
         from ComfyUI_RS_NAI_API_Request.camera_control import RSCameraControl
@@ -140,7 +172,7 @@ class BidirectionalTests(unittest.TestCase):
         self.assertEqual(context.prompt,'cafe')
 
     def test_camera_framing_nai_snapshot_keeps_masks_parts_and_request_settings(self):
-        from ComfyUI_RS_NAI_API_Request.camera_control import RSCameraControl
+        from ComfyUI_RS_NAI_API_Request.camera_control import NAICameraControl, RSCameraControl
         region = sys.modules[self.package.__name__ + '.region_mask']
         shape=torch.zeros(1,80,120);shape[:,10:65,15:50]=1
         mask=region.prepare_mask(shape,margin=0)
@@ -151,7 +183,7 @@ class BidirectionalTests(unittest.TestCase):
         node=RSCameraControl()
         updated=node.apply(context=incoming,distance=.75,roll=20,layout_sync='distance_and_roll',canvas_aspect=1.5)['result'][0]
         restored=self.p.local_pipe(updated)
-        expected=self.package.NODE_CLASS_MAPPINGS['RSCameraControl']().apply(context=pipe,distance=.75,roll=20,
+        expected=NAICameraControl().apply(context=pipe,distance=.75,roll=20,
                      layout_sync='distance_and_roll',canvas_aspect=1.5)['result'][0]
         self.assertEqual(restored.characters,expected.characters)
         self.assertNotEqual(restored.characters[0].region_mask,mask)
@@ -167,7 +199,7 @@ class BidirectionalTests(unittest.TestCase):
         self.assertEqual(self.p.local_pipe(moved).characters,expected.characters)
 
     def test_camera_perspective_nai_snapshot_keeps_masks_parts_and_request_settings(self):
-        from ComfyUI_RS_NAI_API_Request.camera_control import RSCameraControl
+        from ComfyUI_RS_NAI_API_Request.camera_control import NAICameraControl, RSCameraControl
         region = sys.modules[self.package.__name__ + '.region_mask']
         shape=torch.zeros(1,80,120);shape[:,10:65,15:50]=1
         mask=region.prepare_mask(shape,margin=0)
@@ -178,7 +210,7 @@ class BidirectionalTests(unittest.TestCase):
         node=RSCameraControl()
         updated=node.apply(context=incoming,distance=.75,roll=20,azimuth=45,elevation=25,layout_sync='perspective',canvas_aspect=1.5)['result'][0]
         restored=self.p.local_pipe(updated)
-        expected=self.package.NODE_CLASS_MAPPINGS['RSCameraControl']().apply(context=pipe,distance=.75,roll=20,
+        expected=NAICameraControl().apply(context=pipe,distance=.75,roll=20,
                      azimuth=45,elevation=25,layout_sync='perspective',canvas_aspect=1.5)['result'][0]
         self.assertEqual(restored.characters,expected.characters)
         self.assertNotEqual(restored.characters[0].region_mask,mask)

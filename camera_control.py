@@ -3,7 +3,6 @@
 from dataclasses import dataclass, is_dataclass, replace
 import math
 
-
 DISTANCE_TAGS = ("extreme close-up", "close-up", "medium shot", "full body", "wide shot")
 CAMERA_TAG_AXES = {
     **dict.fromkeys(("from front", "viewed from the left side", "viewed from the right side", "from behind"), "azimuth"),
@@ -101,10 +100,16 @@ class CameraBuildSeed:
         return replace(self, camera_settings=(tuple(options.items()),))
 
     def rs_as_building_pipe(self, factory):
-        return factory(camera_settings=self.camera_settings)
+        settings = self.camera_settings
+        if not getattr(factory, "rs_camera_node_replay", False):
+            settings = tuple(tuple((key, value) for key, value in options
+                                   if key not in ("camera_node", "visible_details")) for options in settings)
+        return factory(camera_settings=settings)
 
 
 class RSCameraControl:
+    _nai_entry = False
+
     @classmethod
     def INPUT_TYPES(cls):
         return {"required": {
@@ -136,7 +141,8 @@ class RSCameraControl:
 
     def apply(self, azimuth=0., elevation=0., distance=.5, roll=0., strength=1.2,
               weighting="weighted", prompt_syntax="ComfyUI", enabled=True, scope="scene_and_characters", context=None, base_prompt=None,
-              random_mode="off", random_seed=0, layout_sync="fixed", canvas_aspect=1., **pipe_inputs):
+              random_mode="off", random_seed=0, layout_sync="fixed", canvas_aspect=1., *, visible_details=True,
+              **pipe_inputs):
         # Keep the old context keyword (and positional calls) working. This
         # finalized pipe must not run through the unfinished builder converter.
         pipe = pipe_inputs.pop("building_pipe", None)
@@ -173,13 +179,50 @@ class RSCameraControl:
             view = random_camera(random_mode, random_seed)
             azimuth, elevation, distance, roll = (view[k] for k in ("azimuth", "elevation", "distance", "roll"))
         weights = camera_weights(azimuth, elevation, distance, roll, strength)
+        nai_view = self._nai_entry or callable(getattr(context, "rs_apply_nai_camera", None))
+        use_characters = not deferred and scope == "scene_and_characters"
+        character_syntax = (getattr(context, "character_syntax", None) or syntax) if use_characters else syntax
         camera = camera_caption(weights, syntax, weighting) if enabled else ""
-        prompt = ", ".join(part for part in (scene, camera) if part)
+        clean_prompt = None
+        if enabled and strength and nai_view:
+            from .camera_prompt import camera_prompt_filter, nearest_view
+            from .camera_visibility import detail_framing, hidden_detail_tags, visible_detail_caption
+
+            view = nearest_view(azimuth, elevation)
+            clean_prompt = camera_prompt_filter(view, hidden_detail_tags(view))
+            scene = clean_prompt(scene, syntax)
+            scene_framing = detail_framing(scene, syntax, distance, fallback=None)
+            if scene_framing is None:
+                hints = set()
+                if use_characters:
+                    for character in context.characters:
+                        if isinstance(getattr(character, "prompt", None), str):
+                            hint = detail_framing(character.prompt, character_syntax, distance, fallback=None)
+                            if hint is not None:
+                                hints.add(hint)
+                scene_framing = "special" if len(hints) > 1 else next(iter(hints), "body")
+
+            # The center stop lets the existing prompts determine framing.
+            if distance == .5:
+                weights.pop("medium shot", None)
+
+            def nai_caption(raw, raw_syntax, framing_kind):
+                framing_caption = camera_caption(weights, raw_syntax, weighting)
+                details = visible_detail_caption(view, framing_kind, raw, raw_syntax) if visible_details else ""
+                return ", ".join(filter(None, (framing_caption, details)))
+
+            camera = nai_caption(scene, syntax, scene_framing)
+            # Keep new tags outside a user's unclosed native weight scope.
+            prompt = ", ".join(filter(None, (camera, scene)))
+        else:
+            prompt = ", ".join(filter(None, (scene, camera)))
         if deferred:
             options = dict(azimuth=azimuth, elevation=elevation, distance=distance, roll=roll,
                 strength=strength, weighting=weighting, prompt_syntax=prompt_syntax,
                 enabled=enabled, scope=scope, base_prompt=base_prompt,
                 layout_sync=layout_sync, canvas_aspect=canvas_aspect)
+            if self._nai_entry and (context is None or getattr(context, "rs_camera_node_replay", False)):
+                options.update(camera_node=NAICameraControl, visible_details=visible_details)
             output = (context if context is not None else CameraBuildSeed()).rs_defer_camera(options)
             preview = getattr(context, "rs_camera_preview", None)
             regions = preview() if callable(preview) else []
@@ -189,18 +232,24 @@ class RSCameraControl:
                     "camera_values": [{"azimuth": azimuth, "elevation": elevation, "distance": distance, "roll": roll}]},
                     "result": (output, prompt, camera)}
         changes = {"prompt": prompt}
-        if context is not None and camera and scope == "scene_and_characters":
+        if use_characters and (camera or clean_prompt is not None):
             # Regional sampling can suppress an early common caption. Each
             # character must see the same view, using its own prompt syntax.
-            character_syntax = getattr(context, "character_syntax", None) or syntax
             caption = camera_caption(weights, character_syntax, weighting)
             characters = []
             for character in context.characters:
                 if not is_dataclass(character) or not isinstance(getattr(character, "prompt", None), str):
                     raise ValueError("Invalid character captions in the shared context. / 컨텍스트의 캐릭터 프롬프트 형식을 확인해 주세요.")
-                characters.append(replace(character, prompt=", ".join(p for p in (character.prompt, caption) if p)))
+                raw = character.prompt
+                if clean_prompt is not None:
+                    raw = clean_prompt(raw, character_syntax)
+                    local_framing = detail_framing(raw, character_syntax, distance, fallback=scene_framing)
+                    new_prompt = ", ".join(filter(None, (nai_caption(raw, character_syntax, local_framing), raw)))
+                else:
+                    new_prompt = ", ".join(filter(None, (raw, caption)))
+                characters.append(replace(character, prompt=new_prompt))
             changes["characters"] = tuple(characters)
-        output = replace(context, **changes) if context is not None and (camera or base_prompt is not None) else context
+        output = replace(context, **changes) if camera or clean_prompt is not None or base_prompt is not None else context
         source_regions = []
         if context is not None:
             # Preview must not make an old NAI-only context require the local
@@ -221,13 +270,17 @@ class RSCameraControl:
 
 
 class NAICameraControl(RSCameraControl):
-    """NAI-menu entry; shares the exact camera and layout implementation."""
+    """NAI-menu entry with view-aware prompt processing."""
+    _nai_entry = True
+
     @classmethod
     def INPUT_TYPES(cls):
         fields = super().INPUT_TYPES()
         fields["required"]["prompt_syntax"] = (["NovelAI", "ComfyUI"], {
             "tooltip": "Used without context. Connected context keeps its own syntax. / 컨텍스트가 없을 때 사용합니다. 연결 시 원본 문법을 따릅니다."
         })
+        fields["optional"]["visible_details"] = ("BOOLEAN", {"default": True,
+            "tooltip": "Describe visible subject parts for the selected view and framing. / 시점과 거리에서 보이는 인물 부위를 보강합니다."})
         return fields
 
     CATEGORY = "RS_NovelAI_API/Camera"

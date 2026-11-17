@@ -1,6 +1,17 @@
 # RS Camera Control / 공통 카메라 시점
 
-Included in version 2.9.2; validated on 2026-10-25.
+Introduced in 2.9.2. View-dependent prompt filtering and visible details were added in 2.9.3.
+
+NAI Camera Control uses the nearest of the same 42 reference directions as the
+Anima/MOSS camera to filter standalone conflicting positive view tags and select
+visible details. A rear medium shot adds `upper back` and the backs of the
+shoulders. A rear close-up adds `back of head`, and a directly overhead view adds
+`top of head`. Explicit framing tags are read at `distance=0.5`. A crop such as
+`feet focus` skips general subject details. Set `visible_details` to false to
+compare with filtering alone. Original NAI weight scopes and negative prompts
+are preserved. The new behavior works with a native NAI context by itself.
+When using a shared draft before Finalize, use RS Multi-Character Sampler 1.1.9
+or newer to replay the NAI camera settings.
 
 This node adds view/framing captions to an RS draft/final character pipe or an NAI context. Optional layout sync scales/rotates character regions or projects their common flat plane for azimuth/elevation; it does not move a 3D camera or enforce generated anatomy. Negative prompts, LoRAs and model settings remain attached to the context.
 

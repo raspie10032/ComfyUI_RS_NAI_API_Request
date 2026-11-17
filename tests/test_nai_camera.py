@@ -1,6 +1,7 @@
 """NAI-menu camera works without the local extension; transport is mocked."""
 import copy
 import inspect
+import math
 from dataclasses import replace
 import unittest
 from unittest.mock import patch
@@ -9,6 +10,8 @@ import test_generation_context as contexts
 from ComfyUI_RS_NAI_API_Request import NODE_CLASS_MAPPINGS, generators
 from ComfyUI_RS_NAI_API_Request.camera_control import NAICameraControl, RSCameraControl, random_camera
 from ComfyUI_RS_NAI_API_Request.camera_layout import framing, perspective_framing, project
+from ComfyUI_RS_NAI_API_Request.camera_prompt import _VIEWS, nearest_view, view_direction
+from ComfyUI_RS_NAI_API_Request.camera_tags import iter_prompt_tags
 
 
 class NAICameraTests(unittest.TestCase):
@@ -46,24 +49,88 @@ class NAICameraTests(unittest.TestCase):
 
     def test_before_first_generation_sends_nai_weights_and_coordinates(self):
         source = generators.CharacterPromptSelect().build_character_prompt(character_count=2,
-            character1='brown hair', character2_enable=True, character2='pink hair',
-            character1_x=.3, character2_x=.7)[0]
+            character1='brown hair, 1.4::front view, red coat::, {smile}, -1::blue eyes::',
+            character2_enable=True, character2='pink hair, headshot, front view',
+            character1_x=.3, character1_y=.5, character2_x=.7, character2_y=.5)[0]
         with patch.dict('sys.modules', {'nodes': None}):
-            edited = NAICameraControl().apply(context=source, base_prompt='two adult women, garden',
-                distance=.7, roll=10, layout_sync='distance_and_roll')['result'][0]
+            edited = NAICameraControl().apply(context=source,
+                base_prompt='two adult women, garden, medium shot, 1.2::coat:: with buttons, front view',
+                azimuth=180, roll=10, layout_sync='distance_and_roll')['result'][0]
             args = dict(self.transport.options(), model='NAI Diffusion V5 Full',
                         nai_context=edited, characterPrompts=None, seed=567, limit_opus_free=True)
             _, output, _ = generators.NovelAIGenerator().generate(**args)
         payload = self.transport.post.call_args.kwargs['json']
         self.assertEqual(payload['input'], edited.prompt)
         params = payload['parameters']
+        self.assertEqual(params['v4_prompt']['caption']['base_caption'], edited.prompt)
+        self.assertIn('1.2::coat:: with buttons', payload['input'])
+        self.assertIn('upper back', payload['input'])
+        self.assertNotIn('front view', payload['input'])
         self.assertTrue(params['v4_prompt']['use_coords'])
         for sent, expected in zip(params['v4_prompt']['caption']['char_captions'], edited.characters):
             self.assertEqual(sent['char_caption'], expected.prompt)
             self.assertEqual(sent['centers'][0], expected.center)
+        first, second = params['v4_prompt']['caption']['char_captions']
+        tags = dict(iter_prompt_tags(first['char_caption'], 'NovelAI'))
+        self.assertEqual(tags['red coat'], 1.4)
+        self.assertEqual(tags['blue eyes'], -1)
+        self.assertNotIn('front view', tags)
+        self.assertNotIn('smile', tags)
+        self.assertIn('back of head', second['char_caption'])
+        self.assertNotIn('medium shot', second['char_caption'])
         self.assertEqual(output.source_seed, 567)
         self.assertEqual(output.characters[0].x, edited.characters[0].x)
         self.assertEqual(len(output.characters), 2)
+
+    def test_42_view_geometry_and_framing_in_prompt_only_mode(self):
+        node = NAICameraControl()
+        base = 'front view, from behind, from left, from right, from above, from below, black coat'
+        for view in _VIEWS:
+            x, y, z = view[0]
+            azimuth = math.degrees(math.atan2(x, z))
+            elevation = math.degrees(math.asin(y))
+            yaw, side, pitch = view_direction(view)
+            self.assertEqual(nearest_view(azimuth, elevation), view)
+            for frame, cue in (
+                ('headshot', 'back of head' if yaw in ('rear', 'rear quarter') else
+                 'top of head' if pitch == 'overhead' else None),
+                ('medium shot', 'upper back' if yaw in ('rear', 'rear quarter') else
+                 'foreshortened body outline' if pitch == 'underneath' else None),
+                ('feet focus', None),
+            ):
+                with self.subTest(azimuth=azimuth, elevation=elevation, frame=frame):
+                    options = dict(base_prompt=f'{base}, {frame}', prompt_syntax='NovelAI',
+                                   azimuth=azimuth, elevation=elevation)
+                    _, prompt, caption = node.apply(**options)['result']
+                    self.assertIn('black coat', prompt)
+                    if side != 'left':
+                        self.assertNotIn(', from left', prompt)
+                    if side != 'right':
+                        self.assertNotIn(', from right', prompt)
+                    if yaw != 'front':
+                        self.assertNotIn(', front view', prompt)
+                    if cue:
+                        self.assertIn(cue, caption)
+                    if frame == 'feet focus':
+                        self.assertNotIn('medium shot', caption)
+                    _, off, _ = node.apply(**options, visible_details=False)['result']
+                    self.assertIn(frame, off)
+                    if cue:
+                        self.assertNotIn(cue, off)
+
+    def test_scope_and_unclosed_or_legacy_weights(self):
+        _, source, _ = self.source()
+        base = '“front view, smile”, [front view, silk], {{front view::, wool, +1.3::front view, black coat'
+        edited, prompt, _ = NAICameraControl().apply(context=source, base_prompt=base,
+            azimuth=180, scope='scene_only', weighting='plain')['result']
+        self.assertIs(edited.characters, source.characters)
+        self.assertIn('“front view, smile”', prompt)
+        self.assertEqual(prompt.count('front view'), 1)
+        tags = dict(iter_prompt_tags(prompt, 'NovelAI'))
+        self.assertEqual(tags['upper back'], 1)
+        self.assertAlmostEqual(tags['silk'], 1/1.05)
+        self.assertEqual(tags['wool'], 1)
+        self.assertEqual(tags['black coat'], 1.3)
 
     def test_random_manual_equivalence_and_i2i_forwarding(self):
         image, source, _ = self.source()

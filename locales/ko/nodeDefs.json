@@ -1712,6 +1712,9 @@
       "canvas_aspect": {
         "name": "생성 화면 비율"
       },
+      "visible_details": {
+        "name": "보이는 부위 보강"
+      },
       "building_pipe": {
         "name": "building_pipe"
       }

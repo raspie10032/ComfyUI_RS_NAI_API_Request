@@ -81,6 +81,10 @@ class NAIContext:
         from .local_bridge import pipe_from_context
         return pipe_from_context(self).as_local_character_pipe()
 
+    def rs_apply_nai_camera(self, **options):
+        from .camera_control import NAICameraControl
+        return NAICameraControl().apply(context=self, **options)
+
     def settings(self):
         from .local_bridge import pipe_from_context
         return {**{name: getattr(self, name) for name in INHERITED_FIELDS if name != "characterPrompts"},

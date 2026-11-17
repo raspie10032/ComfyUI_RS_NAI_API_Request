@@ -349,7 +349,7 @@ export function addCameraEditor(node) {
         if(change){e.preventDefault();setCameraValues(node,{random_mode:"off",azimuth:v.azimuth,elevation:v.elevation,distance:v.distance,roll:v.roll,...change});render();}
     };
     for(const w of node.widgets ?? []){
-        if(![...Object.keys(defaults),"weighting","prompt_syntax","scope","random_mode","random_seed"].includes(w.name))continue;
+        if(![...Object.keys(defaults),"weighting","prompt_syntax","scope","random_mode","random_seed","visible_details"].includes(w.name))continue;
         const previous=w.callback;
         w.callback=function(...args){const result=previous?.apply(this,args);executed=null;executedView=null;executedLayout=null;render();return result;};
     }

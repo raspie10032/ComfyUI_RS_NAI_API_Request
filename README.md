@@ -4,11 +4,17 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The Detailer can use bbox+SAM, native SEGM masks, or a standard ComfyUI `MASK` from SAM3 or another mask node, and can process multiple regions sequentially. An optional **local PyTorch tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads only the selected model when the loader executes, after the optional dependencies are installed.
 
-> Current version: **2.9.2**
+> Current version: **2.9.3**
 
 **Camera control:** [NAI Camera Control / RS Camera Control](docs/camera-control.md) adds smoothly blended camera captions to shared RS/NAI contexts, with an interactive view editor. It supports random views and optional region zoom, rotation and flat-plane perspective. NAI receives view captions and transformed character centers; silhouettes are preserved for local round trips. It does not enforce a 3D camera.
 
 **카메라 시점:** [NAI 카메라 시점 / RS 카메라 시점](docs/camera-control.md)은 NAI·로컬 공통 컨텍스트에 시점 태그를 더합니다. 노드 안에서 방향·높이·거리·랜덤 구도를 조절하고, 영역의 확대·축소·회전·평면 원근 변형을 선택합니다. NAI에는 시점 태그와 변환한 캐릭터 중심 좌표를 보내고 실루엣은 로컬 왕복용으로 보존합니다.
+
+## What's New in 2.9.3
+
+NAI Camera Control filters conflicting positive tags and describes visible subject parts using the same 42 reference views as RS Camera Control. The camera keeps continuous tag weighting. Turn off `visible_details` to compare with filtering alone. For workflows that place the NAI camera before RS Finalize, update RS Multi-Character Sampler to 1.1.9 as well. [Camera control guide](docs/camera-control.md)
+
+**한국어:** NAI 카메라 시점이 충돌하는 긍정 태그를 제거하고, 시점과 구도에 맞춰 윗등·뒤통수·정수리처럼 화면에 보이는 부위를 보강합니다. RS Finalize 앞에 연결하는 워크플로는 RS Multi-Character Sampler 1.1.9도 적용하세요.
 
 ## What's New in 2.9.2
 
