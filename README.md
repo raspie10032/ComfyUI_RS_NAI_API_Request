@@ -4,11 +4,17 @@ ComfyUI custom nodes for **NovelAI Diffusion V5 and earlier models**, supporting
 
 The Detailer can use bbox+SAM, native SEGM masks, or a standard ComfyUI `MASK` from SAM3 or another mask node, and can process multiple regions sequentially. An optional **local PyTorch tagger** automatically matches each region to an original character prompt, preserving its character and series names. Tagger output is used only for matching and is never added to the generation prompt. The tagger requires no ONNX runtime and downloads only the selected model when the loader executes, after the optional dependencies are installed.
 
-> Current version: **2.9.3**
+> Current version: **2.10.0**
 
 **Camera control:** [NAI Camera Control / RS Camera Control](docs/camera-control.md) adds smoothly blended camera captions to shared RS/NAI contexts, with an interactive view editor. It supports random views and optional region zoom, rotation and flat-plane perspective. NAI receives view captions and transformed character centers; silhouettes are preserved for local round trips. It does not enforce a 3D camera.
 
 **카메라 시점:** [NAI 카메라 시점 / RS 카메라 시점](docs/camera-control.md)은 NAI·로컬 공통 컨텍스트에 시점 태그를 더합니다. 노드 안에서 방향·높이·거리·랜덤 구도를 조절하고, 영역의 확대·축소·회전·평면 원근 변형을 선택합니다. NAI에는 시점 태그와 변환한 캐릭터 중심 좌표를 보내고 실루엣은 로컬 왕복용으로 보존합니다.
+
+## What's New in 2.10.0
+
+**V5 Precise Reference:** connect `NAI Precise Reference` to text-to-image or img2img with V5 Full or Curated. Choose Character, Style, Character & Style, or Outfit. Character and Character & Style also offer `prefer_same_outfit`. V5 Full Medium Effort blocks Precise Reference before sending the request. For reference-guided inpainting and detailing, select V4.5 explicitly. Each active reference adds 5 Anlas per generation. [Setup and model support](#vibe-transfer-and-precise-reference)
+
+**한국어:** V5 Full·Curated의 텍스트 생성과 img2img에서 캐릭터·스타일·캐릭터 + 스타일·의상 참조를 사용할 수 있습니다. 캐릭터가 포함된 참조에는 **같은 의상 우선**을 켤 수 있습니다. V5 Full Medium Effort는 정밀 참조 요청을 보내기 전에 차단합니다. 참조를 써서 인페인팅·디테일링하려면 V4.5를 선택하세요. 참조 이미지당 생성 1회에 5 Anlas가 추가됩니다.
 
 ## What's New in 2.9.3
 
@@ -248,7 +254,7 @@ See [Vibe Transfer and Precise Reference](#vibe-transfer-and-precise-reference) 
 
 - **Reference inset**: Automatic canvas/mask preparation, output-size preview, reference-guided inpainting, and exact result cropping.
 - **Character assets**: Portable reference PNGs with original prompts, a local save/load library, and an in-node refresh button.
-- **Image references**: Vibe Transfer for supported V3/V4/V4.5 models, plus V4.5 Precise Reference for character and style guidance.
+- **Image references**: Vibe Transfer for supported V3/V4/V4.5 models, Precise Reference for V4.5/V5, and outfit guidance for V5.
 - **NovelAI generation**: Text-to-image, img2img, and inpainting with NAI Diffusion V5, V4.5, V4, V3, and supported Furry models.
 - **Multi-character prompts**: Up to 22 character slots for V5 (6 for V4/V4.5), with separate positive/negative prompts and X/Y coordinates from 0.0 to 1.0 in 0.1 increments.
 - **Multiple-region detailing**: YOLO detection, SAM masks, and sequential NAI inpainting, with masked compositing for overlapping crops. Select `detail_mode=all` to process multiple regions.
@@ -510,22 +516,27 @@ Example API graphs: [Vibe Transfer](workflow_example/vibe_transfer_api.json) and
 | :--- | :--- | :--- | :--- |
 | Vibe Transfer | V3 | Supported | Supported |
 | Vibe Transfer | V4 / V4.5 | Supported | Not supported |
+| Vibe Transfer | V5, legacy Furry | Not supported | Not supported |
 | Precise Reference | V4.5 Full / Curated | Supported | Supported |
-| Either feature | V5, legacy Furry | Not supported | Not supported |
+| Precise Reference | V5 Full / Curated | Supported | Not supported |
+| Precise Reference | V5 Full Medium Effort | Not supported | Not supported |
 
-Model capabilities follow the [official NovelAI client](https://novelai.net/image). [Precise Reference](https://docs.novelai.net/en/image/precisereference/) is currently incompatible with Vibe Transfer, so connect one feature at a time. Even when V5 Curated inpainting normally falls back to V4.5 internally, reference use requires selecting V4.5 explicitly.
+[Precise Reference](https://docs.novelai.net/en/image/precisereference/) is currently incompatible with Vibe Transfer, so connect one feature at a time. Even when V5 Curated inpainting normally falls back to V4.5 internally, reference use requires selecting V4.5 explicitly.
 
 **NAI Vibe Transfer** accepts one image, `strength` (default 0.6), and `information_extracted` (default 1.0). To combine images, connect one Vibe node's output to the next Vibe node's optional `vibes` input, then connect the final output to the generator. Each node retains its own settings; up to 16 references can be chained. `enabled=false` or strength zero omits that node's image. The V4/V4.5 `normalize_vibe_strengths` option scales strengths down when their absolute sum exceeds 1.0.
 
 V3 sends a prepared image directly. V4/V4.5 first call the Vibe encoder and store the returned encoding in `ComfyUI/models/rs_nai_vibes`. Cache keys include image content, model, and information extracted. Changing strength or the generation seed reuses the encoding; changing image/model/extraction settings requires another encoding. Cache data contains no token. If a cache file is damaged, execution reports the file rather than silently paying to encode it again. The cache is shared within this ComfyUI installation; separate processes have separate request locks.
 
-**NAI Precise Reference** accepts one image, `reference_type` (`character`, `style`, or `character&style`), `strength`, and `fidelity` (both default 1.0). Chain nodes through `references` to combine up to 16 images. Images are fitted without stretching to the closest 1024×1536, 1472×1472, or 1536×1024 canvas, with black padding. Finite negative strength/fidelity values supplied through connected inputs are also forwarded; the default widgets cover 0–1.
+**NAI Precise Reference** accepts one image. Chain nodes through `references` to combine up to 16 images.
 
-Precise references are global generation guidance. Multiple character references **blend identities**, rather than mapping each image to a character prompt slot. In a detailer, the connected references apply to every edited region; use a single region when applying one character's reference. This feature is separate from the local WD tagger and does not add tags to text prompts. A detailer's `preview_only` mode does not encode or upload references.
+- **V5** supports `character`, `style`, `character&style`, and `outfit`. Enable `prefer_same_outfit` for character or character-and-style references to retain more of the source outfit. The strength control goes up to 5.0 and defaults to 1.0. V5 center-crops references to the closest supported aspect ratio and preserves alpha when present.
+- **V4.5** supports `character`, `style`, and `character&style`. Both strength and fidelity default to 1.0. Reference images are fitted to the closest 1024×1536, 1472×1472, or 1536×1024 canvas with black padding.
 
-**Costs:** according to the official [Vibe documentation](https://docs.novelai.net/en/image/vibetransfer/), a new V4/V4.5 encoding costs 2 Anlas; each Vibe beyond four adds 2 Anlas per generation. [Precise Reference](https://docs.novelai.net/en/image/precisereference/) adds 5 Anlas per reference per generation. These charges can apply even when base generation qualifies for Opus free generation. For that reason, `limit_opus_free=True` blocks both reference types before token access, Vibe encoding, or generation. Set it to `False` only when you intend to permit those charges, and check NovelAI's current pricing before use.
+Precise references guide the whole image, independently of character prompt slots. With V4.5, multiple character references can blend identities. In a detailer, the connected references apply to every edited region. A detailer's `preview_only` mode skips reference encoding and uploads.
 
-Validation for this addition: earlier real ComfyUI V3 Vibe generation and inpainting completed. The integrated release passes 78 offline tests covering payloads, caching, request serialization, strict guards, focused crops, Medium, and existing behavior. The earlier live V4/V4.5 encoding attempt returned HTTP 402 for insufficient Anlas, and Precise Reference was not live-validated. Those paid reference paths were not retried for this integration release; they are not presented as completed live tests. Windows native runtime was not exercised from the Linux host.
+**Costs:** a new V4/V4.5 Vibe encoding costs 2 Anlas, and each Vibe beyond four adds 2 Anlas per generation. V4.5 and V5 Precise Reference add 5 Anlas per reference image per generation. These charges can apply even when base generation qualifies for Opus free generation. Keep `limit_opus_free=True` to block reference requests. [Vibe documentation](https://docs.novelai.net/en/image/vibetransfer/) · [V5 Precise Reference release](https://journal.novelai.net/precise-reference-v5/)
+
+Live V5 validation on 2026-11-25 returned PNGs with matching reference metadata for V5 Full generation (Outfit) and V5 Curated img2img (Character, prefer same outfit). Each used 5 Anlas. The server rejected the Medium Effort reference request with HTTP 400 and charged 0 Anlas. Earlier live validation covered V3 Vibe generation and inpainting.
 
 ### Request serialization and pacing
 

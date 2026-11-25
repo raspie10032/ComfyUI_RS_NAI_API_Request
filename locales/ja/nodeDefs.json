@@ -54,7 +54,7 @@
   },
   "NAIPreciseReference": {
     "display_name": "NAI Precise Reference（精密参照）",
-    "description": "V4.5用のキャラクター・スタイル参照です。インペイントにも対応します。有効な参照ごとに、生成時に追加のAnlasを消費します。複数のキャラクター参照は特徴が混ざり、個別のキャラクタースロットには対応しません。Vibeとは併用できません。",
+    "description": "V4.5とV5でキャラクターや絵柄を参照します。V5では生成と画像変換で衣装参照も使えます。参照を使うインペイントではV4.5を選択してください。有効な参照ごとに追加のAnlasを消費します。Vibeとは併用できません。",
     "inputs": {
       "image": {
         "name": "画像"
@@ -64,14 +64,21 @@
         "options": {
           "character": "キャラクター",
           "style": "スタイル",
-          "character&style": "キャラクター + スタイル"
+          "character&style": "キャラクターと絵柄",
+          "outfit": "衣装 (V5)"
         }
       },
       "strength": {
-        "name": "参照強度"
+        "name": "参照強度",
+        "tooltip": "V5では最大5です。V4.5の公式スライダーは0〜1です。"
       },
       "fidelity": {
-        "name": "参照忠実度"
+        "name": "忠実度 (V4.5)",
+        "tooltip": "V4.5で使います。V5では参照強度で調整します。"
+      },
+      "prefer_same_outfit": {
+        "name": "衣装も参照する (V5)",
+        "tooltip": "V5のキャラクター参照とキャラクター・絵柄参照で、画像の衣装をより忠実に再現します。"
       },
       "references": {
         "name": "精密参照"

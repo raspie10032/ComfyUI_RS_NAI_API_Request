@@ -61,7 +61,7 @@ const modes = {
         hints: [["선택한 모델만 실행 시 준비합니다. 캐릭터 매칭에 사용하며 프롬프트는 바꾸지 않습니다.", "Only the selected model is prepared at execution. Matches characters without rewriting prompts.", "実行時に選択モデルのみ準備します。プロンプトを変えずキャラクターを照合します。"]], height: 350,
     },
     reference: {
-        pages: [["enabled", "reference_type", "strength", "fidelity", "information_extracted"]], tabs: [["레퍼런스", "Reference", "参照"]],
+        pages: [["enabled", "reference_type", "prefer_same_outfit", "strength", "fidelity", "information_extracted"]], tabs: [["레퍼런스", "Reference", "参照"]],
         hints: [["사용을 끄면 이 이미지 추가만 건너뜁니다. 연결된 이전 레퍼런스는 유지됩니다.", "Disabling skips this image while preserving earlier references in the chain.", "無効にするとこの画像だけ追加せず、接続済みの参照は維持します。"]], height: 410,
     },
     inset: {
@@ -74,6 +74,12 @@ const modes = {
     },
 };
 const index = lang => lang === "ko" ? 0 : lang === "ja" ? 2 : 1;
+const referenceOptions = {
+    character: ["캐릭터", "Character", "キャラクター"],
+    style: ["스타일", "Style", "絵柄"],
+    "character&style": ["캐릭터 + 스타일", "Character & Style", "キャラクターと絵柄"],
+    outfit: ["의상 (V5)", "Outfit (V5)", "衣装 (V5)"],
+};
 const modeFor = name => name.includes("FaceDetailer") ? "detailer" : ({
     NAIDetectionCombineLoader: "detection", RSWDTaggerLoader: "tagger", NAIVibeTransfer: "reference", NAIPreciseReference: "reference", NAIReferenceInset: "inset", NAICharacterAssetSave: "asset",
 })[name] ?? "generation";
@@ -101,6 +107,15 @@ export function panelSpec(nodeData) {
     }]));
     return {
         widget: "rs_nai_settings_panel", property: "rsNaiSettingsTab", pages, copy, labels, height: layout.height,
+        ...(nodeData.name === "NAIPreciseReference" && {
+            labels: {
+                ...labels,
+                strength: ["참조 강도", "Reference strength", "参照強度"],
+                fidelity: ["충실도 (V4.5)", "Fidelity (V4.5)", "忠実度 (V4.5)"],
+                prefer_same_outfit: ["같은 의상 우선 (V5)", "Prefer same outfit (V5)", "衣装も参照する (V5)"],
+            },
+            options: referenceOptions,
+        }),
         hidden: ["show_optional_models", "show_advanced"], watch: ["model"], fixed,
         reports: mode === "detection" ? ["rs_detector_plan", "rs_tagger_status", "rs_nai_notice"] : mode === "tagger" ? ["rs_tagger_status", "rs_nai_notice"] : mode === "generation" || mode === "detailer" ? reports : ["rs_nai_notice"],
         connections: Object.entries(definitions).filter(([, [t]]) => typeof t === "string" && !["STRING", "INT", "FLOAT", "BOOLEAN"].includes(t)).map(([name]) => name),

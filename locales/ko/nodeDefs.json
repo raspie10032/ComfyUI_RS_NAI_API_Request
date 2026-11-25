@@ -54,7 +54,7 @@
   },
   "NAIPreciseReference": {
     "display_name": "NAI 정밀 참조 (Precise Reference)",
-    "description": "V4.5용 캐릭터·스타일 참조입니다. 인페인팅도 지원합니다. 활성화된 참조마다 생성 시 추가 Anlas가 소모됩니다. 캐릭터 참조를 여러 개 연결하면 특징이 섞이며, 개별 캐릭터 슬롯에 대응하지 않습니다. Vibe와 함께 사용할 수 없습니다.",
+    "description": "V4.5와 V5에서 캐릭터·스타일을 참조합니다. V5에서는 생성과 이미지 변형에 의상 참조도 사용할 수 있습니다. 참조로 인페인팅하려면 V4.5를 선택하세요. 활성 참조마다 추가 Anlas가 소모됩니다. Vibe와 함께 사용할 수 없습니다.",
     "inputs": {
       "image": {
         "name": "이미지"
@@ -64,14 +64,21 @@
         "options": {
           "character": "캐릭터",
           "style": "스타일",
-          "character&style": "캐릭터 + 스타일"
+          "character&style": "캐릭터 + 스타일",
+          "outfit": "의상 (V5)"
         }
       },
       "strength": {
-        "name": "참조 강도"
+        "name": "참조 강도",
+        "tooltip": "V5 참조 강도는 최대 5입니다. V4.5 공식 슬라이더 범위는 0~1입니다."
       },
       "fidelity": {
-        "name": "참조 충실도"
+        "name": "충실도 (V4.5)",
+        "tooltip": "V4.5에서 적용됩니다. V5는 참조 강도로만 조절합니다."
+      },
+      "prefer_same_outfit": {
+        "name": "같은 의상 우선 (V5)",
+        "tooltip": "V5의 캐릭터 및 캐릭터 + 스타일 참조에서 이미지 속 의상을 더 충실히 따릅니다."
       },
       "references": {
         "name": "정밀 참조"

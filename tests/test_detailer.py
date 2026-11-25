@@ -799,13 +799,15 @@ class PipelineTests(unittest.TestCase):
         self.post.assert_not_called()
 
     def test_precise_reference_is_shared_without_rewriting_region_prompts(self):
-        from ComfyUI_RS_NAI_API_Request.references import NAIPreciseReference
+        from ComfyUI_RS_NAI_API_Request.references import NAIPreciseReference, reference_parameters
 
         refs = NAIPreciseReference().build(self.image, reference_type="style")[0]
+        expected = reference_parameters("nai-diffusion-4-5-full", "test", references=refs, inpainting=True)
         self.run_detail(model="NAI Diffusion V4.5 Full", references=refs)
         self.assertEqual(len(self.payloads), 2)
         for payload in self.payloads:
-            self.assertEqual(payload["parameters"]["director_reference_images"], [refs[0].image])
+            for key, value in expected.items():
+                self.assertEqual(payload["parameters"][key], value)
         self.assertIn("alice", self.payloads[0]["input"])
         self.assertNotIn("alice", self.payloads[1]["input"])
 

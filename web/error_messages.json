@@ -117,8 +117,16 @@
       "Disconnect vibes, or use supported V4.5 Precise Reference instead."
     ],
     "PRECISE_MODEL": [
-      "Precise Reference requires V4.5.",
-      "Select V4.5 Full or Curated, or disconnect references."
+      "This model does not support Precise Reference.",
+      "Select V4.5 Full/Curated or V5 Full/Curated, or disconnect references. Medium Effort is unsupported."
+    ],
+    "PRECISE_INPAINT": [
+      "V5 Precise Reference is unavailable for inpainting and detailing.",
+      "Select V4.5 for character or style references, or disconnect references."
+    ],
+    "PRECISE_OUTFIT": [
+      "Outfit Reference requires V5 Full or Curated.",
+      "Choose V5 Full or Curated for generation or img2img, or choose a V4.5 reference type."
     ],
     "VIBE_CACHE": [
       "The saved Vibe encoding could not be verified.",
@@ -339,8 +347,16 @@
       "vibes 연결을 해제하거나 지원되는 V4.5 Precise Reference를 사용하세요."
     ],
     "PRECISE_MODEL": [
-      "Precise Reference에는 V4.5가 필요합니다.",
-      "V4.5 Full·Curated를 선택하거나 references 연결을 해제하세요."
+      "이 모델은 정밀 참조를 지원하지 않습니다.",
+      "V4.5 Full·Curated 또는 V5 Full·Curated를 선택하거나 references 연결을 해제하세요. Medium Effort는 지원되지 않습니다."
+    ],
+    "PRECISE_INPAINT": [
+      "V5 정밀 참조는 인페인팅·디테일링에서 지원되지 않습니다.",
+      "캐릭터·스타일을 참조하려면 V4.5를 선택하거나 references 연결을 해제하세요."
+    ],
+    "PRECISE_OUTFIT": [
+      "의상 참조에는 V5 Full 또는 Curated가 필요합니다.",
+      "생성·이미지 변형에서 V5 Full·Curated를 선택하거나 V4.5에서 지원하는 참조 유형을 선택하세요."
     ],
     "VIBE_CACHE": [
       "저장된 Vibe 인코딩을 검증하지 못했습니다.",
@@ -561,8 +577,16 @@
       "vibesを外すか、対応するV4.5のPrecise Referenceを使用してください。"
     ],
     "PRECISE_MODEL": [
-      "Precise ReferenceにはV4.5が必要です。",
-      "V4.5 Full・Curatedを選ぶか、referencesを外してください。"
+      "このモデルは精密参照に対応していません。",
+      "V4.5 Full・Curated、またはV5 Full・Curatedを選ぶか、referencesを外してください。Medium Effortは非対応です。"
+    ],
+    "PRECISE_INPAINT": [
+      "V5の精密参照はインペイント・ディテイリングに対応していません。",
+      "キャラクターや絵柄を参照するにはV4.5を選ぶか、referencesを外してください。"
+    ],
+    "PRECISE_OUTFIT": [
+      "衣装参照にはV5 FullまたはCuratedが必要です。",
+      "生成・画像変換ではV5 Full・Curatedを選ぶか、V4.5に対応した参照タイプを選んでください。"
     ],
     "VIBE_CACHE": [
       "保存済みVibeエンコードを検証できませんでした。",

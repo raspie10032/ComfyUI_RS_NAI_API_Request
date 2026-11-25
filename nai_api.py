@@ -3,7 +3,10 @@
 
 from .errors import mark_api_error, user_error
 
+import base64
+import hmac
 import io
+import json
 import math
 import os
 import threading
@@ -39,7 +42,8 @@ MODEL_DISPLAY_LIST = [
 MODEL_SELECTION_TOOLTIP = (
     "V5 Full Medium Effort always uses 14 steps, Euler Ancestral, zero CFG Rescale, "
     "and fixed Heavy Undesired Content. Custom base/character negative prompts "
-    "are ignored. Prompt Guidance remains adjustable. Image-to-image and "
+    "are ignored. Prompt Guidance remains adjustable. Medium Effort does not "
+    "support Precise Reference. Image-to-image and "
     "inpainting require limit_opus_free=False and can spend Anlas."
 )
 
@@ -101,6 +105,7 @@ NAI_SUBSCRIPTION_TIMEOUT = (10, 30)
 NAI_REQUEST_INTERVAL = 2.0
 _request_lock = threading.Lock()
 _next_request_at = 0.0
+_image_cache_key = os.urandom(32)
 
 
 def _retry_delay(response):
@@ -258,6 +263,30 @@ def _verify_opus_subscription(token, model_id):
             )
 
 
+def _v5_reference_request_parts(payload):
+    """Build the multipart form used by the V5 web client for reference images."""
+    parameters = payload["parameters"].copy()
+    references = parameters.pop("director_reference_images")
+    parts = {}
+
+    def add_image(name, encoded):
+        parts[name] = ("blob", base64.b64decode(encoded), "image/png")
+        return hmac.digest(_image_cache_key, encoded.encode("ascii"), "sha256").hex()
+
+    if parameters.get("image"):
+        parameters["image_cache_secret_key"] = add_image("image", parameters["image"])
+        parameters["image"] = "image"
+
+    cached = []
+    for index, encoded in enumerate(references):
+        name = f"director_ref_{index}"
+        cached.append({"cache_secret_key": add_image(name, encoded), "data": name})
+    parameters["director_reference_images_cached"] = cached
+    request = {**payload, "parameters": parameters}
+    parts["request"] = ("blob", json.dumps(request), "application/json")
+    return parts
+
+
 def post_nai(
     token,
     payload,
@@ -271,10 +300,16 @@ def post_nai(
         if url != GENERATE_IMAGE_URL or not isinstance(payload, dict):
             raise user_error("FREE_CONDITIONS", RuntimeError, "limit_opus_free cannot verify this NovelAI request; request stopped.")
         validate_opus_free_request(payload, allow_opus_focused_inpaint)
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-    }
+    headers = {"Authorization": f"Bearer {token}"}
+    if (
+        url == GENERATE_IMAGE_URL
+        and payload.get("model", "").startswith("nai-diffusion-5")
+        and payload.get("parameters", {}).get("director_reference_images")
+    ):
+        body = {"files": _v5_reference_request_parts(payload)}
+    else:
+        headers["Content-Type"] = "application/json"
+        body = {"json": payload}
     
     while not _request_lock.acquire(timeout=0.1):
         check_interrupted()
@@ -291,7 +326,7 @@ def post_nai(
                 check_interrupted()
             try:
                 response = _session.post(
-                    url, headers=headers, json=payload, timeout=NAI_REQUEST_TIMEOUT
+                    url, headers=headers, timeout=NAI_REQUEST_TIMEOUT, **body
                 )
             except requests.RequestException as exc:
                 mark_api_error(exc, phase="generation" if url == GENERATE_IMAGE_URL else "vibe encoding", token=token)

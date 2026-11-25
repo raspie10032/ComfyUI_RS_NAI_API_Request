@@ -137,6 +137,20 @@ try{
             assert.equal(await page.evaluate(()=>getWidget('canvas_width').value),1024);
             assert.ok(await page.evaluate(()=>getWidget('rs_nai_inset_dimensions')),'native preview retained');
         }
+        if(name==='NAIPreciseReference'){
+            const types=field('reference_type').locator('select');
+            const outfitLabel={ko:'의상 (V5)',en:'Outfit (V5)',ja:'衣装 (V5)'}[locale];
+            assert.equal(await types.locator('option[value="outfit"]').textContent(),outfitLabel);
+            await types.selectOption('outfit');
+            assert.equal(await page.evaluate(()=>getWidget('reference_type').value),'outfit');
+            await types.selectOption('character&style');
+            await field('prefer_same_outfit').locator('input[type=checkbox]').check();
+            assert.equal(await page.evaluate(()=>getWidget('prefer_same_outfit').value),true);
+            const strength=field('strength').locator('input');
+            assert.equal(await strength.getAttribute('max'),'5');
+            await strength.fill('5');await strength.dispatchEvent('change');
+            assert.equal(await page.evaluate(()=>getWidget('strength').value),5);
+        }
         if(name==='NAICharacterAssetSave'){
             await field('name').locator('input').fill('sample');await field('name').locator('input').dispatchEvent('change');
             assert.equal(await page.evaluate(()=>getWidget('name').value),'sample');

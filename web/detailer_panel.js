@@ -183,7 +183,11 @@ export function addSettingsPanel(node, app, nodeData, spec = {}) {
             if (Array.isArray(choices)) {
                 input = document.createElement("select");
                 for (const value of choices) {
-                    const option = document.createElement("option"); option.value = String(value); option.textContent = text.options[value] ?? String(value); input.append(option);
+                    const option = document.createElement("option");
+                    option.value = String(value);
+                    option.textContent = spec.options?.[value]?.[lang === "ko" ? 0 : lang === "ja" ? 2 : 1]
+                        ?? text.options[value] ?? String(value);
+                    input.append(option);
                 }
                 // Preserve a saved value even when a model list is temporarily unavailable.
                 if (!choices.some(v => String(v) === String(w.value))) {

@@ -31,10 +31,24 @@ VIBE_MODELS = {
     "nai-diffusion-4-5-curated",
     "nai-diffusion-4-5-full",
 }
-PRECISE_MODELS = {"nai-diffusion-4-5-curated", "nai-diffusion-4-5-full"}
-REFERENCE_TYPES = ["character", "style", "character&style"]
+PRECISE_V45_MODELS = {"nai-diffusion-4-5-curated", "nai-diffusion-4-5-full"}
+PRECISE_V5_MODELS = {"nai-diffusion-5-curated", "nai-diffusion-5-full"}
+REFERENCE_TYPES = ["character", "style", "character&style", "outfit"]
 MAX_REFERENCES = 16
 _encode_lock = threading.Lock()
+
+# Portrait half of the V5 client's buckets, in its selection order.
+_V5_PORTRAIT_BUCKETS = (
+    [(256, h) for h in range(4096, 3327, -64)]
+    + [(320, h) for h in range(3264, 2751, -64)]
+    + [(384, h) for h in range(2688, 2367, -64)]
+    + [(448, h) for h in range(2304, 2111, -64)]
+    + [(512, h) for h in range(2048, 1855, -64)]
+    + [(576, h) for h in range(1792, 1663, -64)]
+    + [(640, 1600), (640, 1536), (704, 1472), (704, 1408), (768, 1344), (768, 1280),
+       (832, 1216), (896, 1152), (960, 1088)]
+)
+_V5_BUCKETS = _V5_PORTRAIT_BUCKETS + [(1024, 1024)] + [(h, w) for w, h in reversed(_V5_PORTRAIT_BUCKETS)]
 
 
 @dataclass(frozen=True)
@@ -50,6 +64,7 @@ class PreciseReference:
     reference_type: str = "character"
     strength: float = 1.0
     fidelity: float = 1.0
+    prefer_same_outfit: bool = False
 
 
 def _finite(value, name):
@@ -67,22 +82,61 @@ def _unit(value, name):
 
 
 def _image(image):
-    if image.ndim != 4 or image.shape[0] != 1 or image.shape[-1] not in (3, 4):
+    if not isinstance(image, torch.Tensor) or image.ndim != 4 or image.shape[0] != 1 or image.shape[-1] not in (3, 4):
         raise user_error("IMAGE_INPUT", ValueError, "Each reference node requires one RGB/RGBA image; chain nodes for multiple references.")
     if min(image.shape[1:3]) < 1 or not torch.isfinite(image).all():
         raise user_error("IMAGE_INPUT", ValueError, "Reference image must contain finite pixels and have nonzero dimensions.")
-    rgba = tensor_to_pil(image).convert("RGBA")
-    result = Image.new("RGBA", rgba.size, "black")
-    result.alpha_composite(rgba)
+    return tensor_to_pil(image)
+
+
+def _on_black(image):
+    if image.mode == "RGB":
+        return image
+    result = Image.new("RGBA", image.size, "black")
+    result.alpha_composite(image.convert("RGBA"))
     return result.convert("RGB")
 
 
-def _precise_image(image):
+def _precise_v45_image(image):
     # Match the official client's closest-aspect canvas and black letterboxing.
     sizes = [(1024, 1536), (1536, 1024), (1472, 1472)]
     ratio = image.width / image.height
     size = min(sizes, key=lambda s: abs(s[0] / s[1] - ratio))
-    return ImageOps.pad(image, size, method=Image.Resampling.LANCZOS, color="black")
+    return ImageOps.pad(_on_black(image), size, method=Image.Resampling.LANCZOS, color="black")
+
+
+def _precise_v5_image(image):
+    log_ratio = math.log(image.width / image.height)
+    width, height = min(_V5_BUCKETS, key=lambda s: abs(log_ratio - math.log(s[0] / s[1])))
+    if image.size == (width, height):
+        return image
+    scale = max(width / image.width, height / image.height)
+    scaled_width = max(math.floor(image.width * scale + 0.5), width)
+    scaled_height = max(math.floor(image.height * scale + 0.5), height)
+    left = (scaled_width - width) // 2
+    top = (scaled_height - height) // 2
+    # Map the center crop back to source pixels to avoid a large intermediate resize.
+    box = (left * image.width / scaled_width, top * image.height / scaled_height,
+           (left + width) * image.width / scaled_width, (top + height) * image.height / scaled_height)
+    return image.resize((width, height), Image.Resampling.LANCZOS, box=box)
+
+
+def _encode_precise_image(encoded, is_v5):
+    with Image.open(io.BytesIO(base64.b64decode(encoded))) as image:
+        prepared = _precise_v5_image(image) if is_v5 else _precise_v45_image(image)
+        return encoded if prepared is image else pil_to_base64(prepared)
+
+
+def _precise_caption(reference, is_v5):
+    kind = reference.reference_type
+    if is_v5:
+        if kind == "outfit":
+            return "costume"
+        if kind == "character" and reference.prefer_same_outfit:
+            return "character_mainoutfit"
+        if kind == "character&style" and not reference.prefer_same_outfit:
+            return "character&style_anyoutfit"
+    return kind
 
 
 def _chain(previous, reference, kind):
@@ -123,7 +177,7 @@ class NAIVibeTransfer:
             strength = _finite(strength, "strength")
             information_extracted = _unit(information_extracted, "information_extracted")
             if strength != 0:
-                reference = VibeReference(pil_to_base64(_image(image)), strength, information_extracted)
+                reference = VibeReference(pil_to_base64(_on_black(_image(image))), strength, information_extracted)
         return _chain(vibes, reference, VibeReference)
 
 
@@ -134,20 +188,33 @@ class NAIPreciseReference:
             "required": {
                 "image": ("IMAGE",),
                 "reference_type": (REFERENCE_TYPES, {"default": "character"}),
-                "strength": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
-                "fidelity": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
+                "strength": ("FLOAT", {
+                    "default": 1.0, "min": 0.0, "max": 5.0, "step": 0.01,
+                    "tooltip": "V5 uses strength up to 5. The V4.5 client slider goes up to 1.",
+                }),
+                "fidelity": ("FLOAT", {
+                    "default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01,
+                    "tooltip": "V4.5 only. V5 uses strength as its only intensity control.",
+                }),
             },
-            "optional": {"references": ("RS_NAI_REFERENCES",), "enabled": ("BOOLEAN", {"default": True})},
+            "optional": {
+                "references": ("RS_NAI_REFERENCES",),
+                "enabled": ("BOOLEAN", {"default": True}),
+                "prefer_same_outfit": ("BOOLEAN", {
+                    "default": False,
+                    "tooltip": "V5 Character and Character & Style references follow the reference outfit more closely when enabled.",
+                }),
+            },
         }
 
     RETURN_TYPES = ("RS_NAI_REFERENCES",)
     RETURN_NAMES = ("references",)
     FUNCTION = "build"
     CATEGORY = "RS_NovelAI_API/References"
-    DESCRIPTION = "V4.5 character/style reference, including inpainting. Each active reference adds Anlas cost per generation. Multiple character references blend identities; they are not mapped to character slots. Cannot combine with Vibe."
+    DESCRIPTION = "Character and style references for V4.5 and V5. V5 adds outfit references for generation and image-to-image. Select V4.5 for reference inpainting. Each active image adds Anlas cost. Cannot combine with Vibe."
 
     def build(self, image, reference_type="character", strength=1.0, fidelity=1.0,
-              references=None, enabled=True):
+              references=None, enabled=True, prefer_same_outfit=False):
         reference = None
         if enabled:
             if reference_type not in REFERENCE_TYPES:
@@ -156,7 +223,7 @@ class NAIPreciseReference:
             fidelity = _finite(fidelity, "fidelity")
             if strength != 0:
                 reference = PreciseReference(
-                    pil_to_base64(_precise_image(_image(image))), reference_type, strength, fidelity
+                    pil_to_base64(_image(image)), reference_type, strength, fidelity, prefer_same_outfit
                 )
         return _chain(references, reference, PreciseReference)
 
@@ -193,8 +260,14 @@ def validate_references(model_id, vibes=None, references=None, inpainting=False)
             raise user_error("VIBE_MODEL", ValueError, "Vibe Transfer requires NAI V3, V4, or V4.5. V5 and the legacy Furry model are not supported; select a supported model explicitly.")
         if inpainting and model_id.startswith("nai-diffusion-4"):
             raise user_error("VIBE_INPAINT", ValueError, "V4/V4.5 Vibe Transfer does not support inpainting/detailing. Use V4.5 Precise Reference for this process.")
-    if references and model_id not in PRECISE_MODELS:
-        raise user_error("PRECISE_MODEL", ValueError, "Precise Reference requires NAI V4.5 Full or Curated. Select V4.5 explicitly.")
+    if references:
+        is_v5 = model_id in PRECISE_V5_MODELS
+        if not is_v5 and model_id not in PRECISE_V45_MODELS:
+            raise user_error("PRECISE_MODEL", ValueError, "Precise Reference requires V4.5 Full/Curated or V5 Full/Curated. V5 Full Medium Effort is not supported.")
+        if is_v5 and inpainting:
+            raise user_error("PRECISE_INPAINT", ValueError, "V5 Precise Reference does not support inpainting or detailing. Select V4.5 explicitly to use character or style references.")
+        if not is_v5 and any(item.reference_type == "outfit" for item in references):
+            raise user_error("PRECISE_OUTFIT", ValueError, "Outfit Reference requires V5 Full or V5 Curated.")
 
 
 def _encoded_vibe(vibe, model_id, token):
@@ -261,15 +334,16 @@ def reference_parameters(model_id, token, vibes=None, references=None,
     validate_references(model_id, vibes, references, inpainting)
     check_interrupted()
     if references:
+        is_v5 = model_id in PRECISE_V5_MODELS
         return {
-            "director_reference_images": [r.image for r in references],
+            "director_reference_images": [_encode_precise_image(r.image, is_v5) for r in references],
             "director_reference_descriptions": [
-                {"caption": {"base_caption": r.reference_type, "char_captions": []}, "legacy_uc": False}
+                {"caption": {"base_caption": _precise_caption(r, is_v5), "char_captions": []}, "legacy_uc": False}
                 for r in references
             ],
             "director_reference_information_extracted": [1.0 for _ in references],
             "director_reference_strength_values": [r.strength for r in references],
-            "director_reference_secondary_strength_values": [1.0 - r.fidelity for r in references],
+            "director_reference_secondary_strength_values": [0.0 if is_v5 else 1.0 - r.fidelity for r in references],
         }
     if not vibes:
         return {}
